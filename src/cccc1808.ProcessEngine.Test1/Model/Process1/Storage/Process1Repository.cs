@@ -19,13 +19,11 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
         public Process1Repository(
             AppDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
-            IEnumerable<IProcessDbProvider<Guid>> processLoaders,
-            ReTryTimerProcessRegistryDto reTryTimerProcessRegistryDto) 
+            IEnumerable<IProcessDbProvider<Guid>> processLoaders) 
             : base(
                   dbContext,
                   lockQueryHintStore,
-                  processLoaders,
-                  reTryTimerProcessRegistryDto)
+                  processLoaders)
         {
         }
 

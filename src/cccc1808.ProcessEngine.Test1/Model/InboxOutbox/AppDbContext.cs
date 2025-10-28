@@ -16,12 +16,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.InboxOutbox
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<TimerProcessDbEntity<Guid>>(
-                b => 
-                {                                    
-
-                });
-
             modelBuilder.Entity<ProcessTypeEntity>(
                 b =>
                 {
@@ -60,11 +54,11 @@ namespace cccc1808.ProcessEngine.Test1.Model.InboxOutbox
                     
                 });
 
-            modelBuilder.Entity<StreamActiveDbEntity<Guid>>(
-                b =>
-                {
+            //modelBuilder.Entity<StreamActiveDbEntity<Guid>>(
+            //    b =>
+            //    {
 
-                });
+            //    });
 
             //-------------------------------------
         }

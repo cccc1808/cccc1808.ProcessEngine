@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Implementation;
+using cccc1808.ProcessEngine.Model.Common;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage

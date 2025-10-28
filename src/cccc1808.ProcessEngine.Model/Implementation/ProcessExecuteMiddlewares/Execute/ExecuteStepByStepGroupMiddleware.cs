@@ -149,7 +149,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                                     {
                                         p.This._processSetter.SetError(
                                             elem,
-                                            new Exception("Ошибка зацикливания процесса."));
+                                            new Exception("Ошибка зацикливания процесса."),
+                                            allowRetry: false);
                                     }
                                 }
 
@@ -231,7 +232,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                         
                         foreach (var elem in p.executingProcesses.Values)
                         {
-                            p.This._processSetter.SetError(elem, ex);
+                            p.This._processSetter.SetError(elem, ex, allowRetry: false);
                         }
                         await p.handler.SaveRangeAsync(
                             p.executionGroup.Value,
@@ -251,65 +252,65 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                     options.UseSavepoint
                         ? IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
                         : IIsolationService.IsolationMode.ClearChangeTracker, // Предполагается атомарное сохранение внутри.
-                    (1,2),
+                    (allProcesses, executingProcesses, executionGroup, handler, This: this, sessionId),
                     static async (p, t) => 
                     {  
-                        await handler.SaveRangeAsync(
-                            executionGroup,
-                            cancellationToken
+                        await p.handler.SaveRangeAsync(
+                            p.executionGroup,
+                            t
                             );
                     },
                     static async (p, ex, t) =>
                     {
-                        allProcesses = await LoadAsync(
-                                handler,
-                                allProcesses.Values.ApplayProjectionCondition(_processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                                sessionId,
-                                cancellationToken);
-                        executionGroup = new ExecuteGroup(
+                        p.allProcesses = await p.This.LoadAsync(
+                                p.handler,
+                                p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
+                                p.sessionId,
+                                t);
+                        p.executionGroup = new ExecuteGroup(
                             "EndSaveAll",
-                            allProcesses);
+                            p.allProcesses);
 
-                        await handler.OnExceptionRangeAsync(
-                                    executionGroup,
-                                    ex,
-                                    cancellationToken);
+                        await p.handler.OnExceptionRangeAsync(                                    
+                            p.executionGroup,                                    
+                            ex,                                    
+                            t);
 
-                        await handler.SaveRangeAsync(
-                            executionGroup,
-                            cancellationToken);
+                        await p.handler.SaveRangeAsync(
+                            p.executionGroup,
+                            t);
                     },
                     static async (p, ex, t) => 
                     {
-                        allProcesses = await LoadAsync(
-                                    handler,
-                                    allProcesses.Values.ApplayProjectionCondition(_processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                                    sessionId,
-                                    cancellationToken);
-                        executionGroup = new ExecuteGroup(
+                        p.allProcesses = await p.This.LoadAsync(
+                                    p.handler,
+                                    p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
+                                    p.sessionId,
+                                    t);
+                        p.executionGroup = new ExecuteGroup(
                             "EndSaveAll",
-                            allProcesses);
+                            p.allProcesses);
 
-                        var saveException = new AggregateException(ex, ex2);
-                        foreach (var elem in executingProcesses.Values)
+                        foreach (var elem in p.executingProcesses.Values)
                         {
-                            _processSetter.SetError(elem, saveException);
+                            p.This._processSetter.SetError(elem, ex, allowRetry: false);
                         }
-                        await handler.SaveRangeAsync(
-                            executionGroup,
-                            cancellationToken);
-                    }
+                        await p.handler.SaveRangeAsync(
+                            p.executionGroup,
+                            t);
+                    },
+                    cancellationToken
                     );
             }
 
             await _wakeUpService.AfterAsyncSessionHandlerAsync(
                 allProcesses.Values, 
-                (p, t) => 
-                {
-                    return ValueTask.FromResult<ICollection<(TId, bool)>>(
-                        p.Select(e => (e.Id, true)).ToArray()
-                        );
-                },
+                //(p, t) => 
+                //{
+                //    return ValueTask.FromResult<ICollection<(TId, bool)>>(
+                //        p.Select(e => (e.Id, true)).ToArray()
+                //        );
+                //},
                 async (p, t) =>
                 {
                     await handler.SaveWakeupRangeAsync(

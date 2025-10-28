@@ -12,15 +12,12 @@ using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 
-using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 {
     /// <summary>
     /// Паттерн для использования на основе EF + ChangeTracker.
     /// </summary>
-    /// <typeparam name="TId"></typeparam>
-    /// <typeparam name="TDbContext"></typeparam>
     public abstract class BaseEFChangeTrackerIJobHandler1<TId>
         : ExecuteJobRangeMiddleware<TId>.IHandler
     {
@@ -66,7 +63,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         {
             foreach (var elem in processes.Values)
             {
-                _setter.SetError(elem, ex);
+                _setter.SetError(elem, ex, allowRetry: true);
             }
 
             return ValueTask.CompletedTask;
@@ -78,6 +75,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         {
             await _repository.UpdateAsync(
                 processes.Values.ToArray(),
+                cancellationToken);
+        }
+
+        public async Task SaveWakeupRangeAsync(
+            ICollection<IProcessContainer<TId>> processes,
+            CancellationToken cancellationToken)
+        {
+            await _repository.UpdateAsync(
+                processes,
                 cancellationToken);
         }
 

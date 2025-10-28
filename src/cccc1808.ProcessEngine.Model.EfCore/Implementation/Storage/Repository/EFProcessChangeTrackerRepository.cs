@@ -22,7 +22,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
 {
-    public class EFProcessChangeTrackerRepository<TId, TDbContext, TDbEntity> 
+    public class EFProcessChangeTrackerRepository<TId, TDbContext, TDbEntity>
         : IProcessRepository<TId>
         where TDbContext : DbContext
         where TDbEntity : ProcessDbEntity<TId>
@@ -30,16 +30,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
         protected readonly TDbContext _dbContext;
         protected readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
-        private readonly ReTryTimerProcessRegistryDto _reTryTimerProcessRegistryDto;
         private readonly ProcessIdDto_Id_Condition<TId, TDbEntity> _processIdDto_Id_Condition;
-        private readonly IId_RangeCondition<TId, TDbEntity> _id_RangeCondition;        
+        private readonly IId_RangeCondition<TId, TDbEntity> _id_RangeCondition;
         private readonly Process_AsyncExecute_Condition<TId, TDbEntity> _process_AsyncExecute_Condition;
 
         public EFProcessChangeTrackerRepository(
             TDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
-            IEnumerable<IProcessDbProvider<TId>> processLoaders,
-            ReTryTimerProcessRegistryDto reTryTimerProcessRegistryDto)
+            IEnumerable<IProcessDbProvider<TId>> processLoaders)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
@@ -47,7 +45,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             _processIdDto_Id_Condition = new ProcessIdDto_Id_Condition<TId, TDbEntity>();
             _id_RangeCondition = new IId_RangeCondition<TId, TDbEntity>();
             _process_AsyncExecute_Condition = new Process_AsyncExecute_Condition<TId, TDbEntity>();
-            _reTryTimerProcessRegistryDto = reTryTimerProcessRegistryDto;
         }
 
         public virtual async Task<ICollection<IProcessContainer<TId>>> GetRangeWithLockAsync(
@@ -66,7 +63,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             }
 
             var containers = data.Select(
-                e => 
+                e =>
                 {
                     {
                         e.Error = new ProcessErrorDbEntity<TId>()
@@ -154,35 +151,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            foreach (var elem in processes)
-            {
-                if (
-                    elem.CurrentSession.CreateRetryTimer.HasValue
-                    && !elem.CurrentSession.RetryTimerCreated)
-                {
-                    var timer = new TimerProcessDbEntity<TId>()
-                    {
-                        //TODO: Id
-                        // Id = ,
-                        ProcessTypeId = _reTryTimerProcessRegistryDto.ProcessType.ProcessType,
-                        ProcessVersion = _reTryTimerProcessRegistryDto.ProcessType.ProcessVersion,
-                        LinkedProcessId = elem.Id,
-                        LinkedProcess = null,
-                        IsProcessOrTimer = true,
-                        HaveErrorFlag = false,
-                        ReTryCount = null,
-                        Priority = default,
-                        SelectLock = DateTimeOffset.MinValue.UtcDateTime,
-                        TimerDate = elem.CurrentSession.CreateRetryTimer.Value,
-                        Error = new ProcessErrorDbEntity<TId>(),
-                        Status = ProcessStatusEnum.AsyncExecute,
-                    };
-
-                    _dbContext.Add(timer);
-                    elem.CurrentSession.RetryTimerCreated = true;
-                }
-            }
-
             foreach (var elem in _processLoaders)
             {
                 await elem.UpdateAsync(processes, cancellationToken);

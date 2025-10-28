@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         /// </summary>
         Task AfterAsyncSessionHandlerAsync(
             ICollection<IProcessContainer<TId>> processes,
-            Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask<ICollection<(TId, bool)>>> checkWakeUp, 
+            // Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask<ICollection<(TId, bool)>>> checkWakeUp, 
             Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask> saveHandler, 
             CancellationToken cancellationToken);
 

@@ -34,6 +34,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
             set => _dbEntity.TimerDate = value;
         }
 
+        public bool NeedUpdate { get; set; }
+
         public EFWakeUpProxyComponent(WakeUpProcessDbEntity<TId> dbEntity)
         {
             _dbEntity = dbEntity;

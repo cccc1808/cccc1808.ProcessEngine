@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
+using cccc1808.ProcessEngine.Model.Common;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
@@ -29,6 +30,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         private readonly IId_RangeCondition<TId, WakeUpProcessDbEntity<TId>> _w_id_RangeCondition;
         private readonly WakeUpProcessDbEntity_IsAsyncExecuting_Condition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_Condition;
         private readonly WakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition;
+        private readonly TimeSpan _waitLockTimeout;
 
         public EFWakeUpService(
             TDbContext dbContext,
@@ -48,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
         public async Task AfterAsyncSessionHandlerAsync(
             ICollection<IProcessContainer<TId>> processes,
-            Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask<ICollection<(TId, bool)>>> checkWakeUp,
+            // Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask<ICollection<(TId, bool)>>> checkWakeUp,
             Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask> saveHandler,
             CancellationToken cancellationToken)
         {
@@ -71,35 +73,87 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 // Блокировка используется, чтобы не допустить ситуации, когда другая транзакция попытается пробудить процесс,
                 // а мы это не увидим (и процесс уснент)
                 // (ждем завершения блокировок всех сигналов).
+
+                WakeUpProcessDbEntity<TId>[]? wakeUps = null;
+
+                // Пробуем получить все записи с блокировкой.
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
-                    var wakeUps = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                        .AsNoTracking()
-                        // .ApplayFilterCondition(_streamActiveDbEntity_id_RangeCondition, streamIds)
-                        .ToArrayAsync(cancellationToken);
+                    var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
+                        (_dbContext, _w_id_RangeCondition, context),
+                        _waitLockTimeout,
+                        static async (p, t) =>
+                        {
+                            return await p._dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                                .AsNoTracking()
+                                .ApplayFilterCondition(p._w_id_RangeCondition, p.context.Keys)
+                                .ToArrayAsync(t);
+                        },
+                        cancellationToken);
 
-                    foreach (var elem in wakeUps)
+                    if (!result.IsTimeout)
                     {
-                        context[elem.Id].WakeupWithLock = elem;
+                        wakeUps = result.Result;
+                    }
+                }                
+                
+                if (wakeUps == null)
+                {
+                    // Пробуем загрузить то, что не заблокировано.
+                    using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                    {
+                        wakeUps = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                            .AsNoTracking()
+                            .ApplayFilterCondition(_w_id_RangeCondition, context.Keys)
+                            .ToArrayAsync(cancellationToken);
                     }
                 }
 
-                // Проверяем улосвие необходимости пробуждения.
-                var needWakeUpResult = await checkWakeUp(
-                    context.Values.Select(e => e.Process).ToArray(),
-                    cancellationToken);
-
-                foreach (var elem in needWakeUpResult)
+                foreach (var elem in wakeUps)
                 {
-                    context[elem.Item1].NeedWakeUp = elem.Item2;
+                    context[elem.Id].WakeupWithLock = elem;
+                }
+
+                // Проверяем улосвие необходимости пробуждения.
+                //var needWakeUpResult = await checkWakeUp(
+                //    context.Values.Select(e => e.Process).ToArray(),
+                //    cancellationToken);
+                //foreach (var elem in needWakeUpResult)
+                //{
+                //    context[elem.Item1].NeedWakeUp = elem.Item2;
+                //}
+                // Для упрощения уберу проверку условия.
+                foreach (var elem in context.Values)
+                {
+                    elem.NeedWakeUp = true;
                 }
             }
 
             foreach (var elem in context.Values)
             {
+                if (elem.WakeupWithLock is null)
+                {
+                    // Если не получили блокировку, то не засыпаем.
+                    _processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
+                    elem.WakeUpComponent.NeedUpdate = false; // Не получили блокирову, не пытаемся сохранить.
+
+                    // Ставим задержку т.к. процесс хотел уснуть. Чтобы он дождался уменьшения частоты блокировки из-за сигнала.
+                    elem.Process.Process.WakeupLockCounter++;
+                    // TODO: в параметры.
+                    elem.Process.Process.TimerDate = DateTimeOffsetHelper.Max(
+                        elem.Process.Process.TimerDate, 
+                        DateTimeOffset.UtcNow + elem.Process.Process.WakeupLockCounter * TimeSpan.FromSeconds(10)
+                        );
+
+                    continue;
+                }
+
+                elem.Process.Process.WakeupLockCounter = 0;
+                elem.WakeUpComponent.NeedUpdate = true;
+
                 if (elem.NeedWakeUp)
                 {
-                    // Процесс убиделся в необходимости пробуждения.
+                    // Процесс убедился в необходимости пробуждения.
 
                     DateTimeOffset nextTimerDate;
                     if (elem.WakeUpComponent.SessionStartTimeStamp == elem.WakeupWithLock.TimeStamp)
@@ -110,9 +164,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     else
                     {
                         // Поступал новый внешний сигнал пробуждения, берем минимальную задержку таймера.
-                        nextTimerDate = elem.Process.Process.TimerDate < elem.WakeupWithLock.TimerDate
-                            ? elem.Process.Process.TimerDate
-                            : elem.WakeupWithLock.TimerDate;
+                        nextTimerDate = DateTimeOffsetHelper.Min(elem.Process.Process.TimerDate, elem.WakeupWithLock.TimerDate);
                     }
 
                     _processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
@@ -258,7 +310,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         }
 
                         elem.Status = ProcessStatusEnum.AsyncExecute;
-                        elem.TimerDate = Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
+                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
                     }
                 }
 
@@ -285,7 +337,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         }
 
                         elem.Status = ProcessStatusEnum.AsyncExecute;
-                        elem.TimerDate = Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
+                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
                     }
                 }
             }
@@ -382,20 +434,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
             }
         }
 
-        private static DateTimeOffset Min(
-            in DateTimeOffset date1,
-            in DateTimeOffset date2)
-            => date1 > date2
-                ? date2
-                : date1;
 
         private class ExecuteContextItemDto
         {
-            public IProcessContainer<TId> Process { get; set; }
+            public IProcessContainer<TId> Process { get; init; }
 
-            public IWakeUpComponent WakeUpComponent { get; set; }
+            public IWakeUpComponent WakeUpComponent { get; init; }
 
-            public WakeUpProcessDbEntity<TId> WakeupWithLock { get; set; }
+            public WakeUpProcessDbEntity<TId>? WakeupWithLock { get; set; }
 
             public bool NeedWakeUp { get; set; }
         }

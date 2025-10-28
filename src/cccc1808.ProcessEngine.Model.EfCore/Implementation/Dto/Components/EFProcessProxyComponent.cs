@@ -63,5 +63,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
             get => ProcessDbEntity.TimerDate;
             set => ProcessDbEntity.TimerDate = value;
         }
+        public int WakeupLockCounter
+        {
+            get => ProcessDbEntity.WakeupLockCounter;
+            set => ProcessDbEntity.WakeupLockCounter = value;
+        }
     }
 }

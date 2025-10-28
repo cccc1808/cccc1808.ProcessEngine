@@ -39,6 +39,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
 
         DateTimeOffset TimerDate { get; set; }
 
+        int WakeupLockCounter { get; set; }
+
         #endregion
     }
 }

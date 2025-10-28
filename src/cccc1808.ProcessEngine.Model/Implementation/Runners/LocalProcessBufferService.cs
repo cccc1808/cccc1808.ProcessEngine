@@ -10,6 +10,7 @@ using System.Xml;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
+using cccc1808.ProcessEngine.Model.Common;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.Runners
 {
@@ -50,52 +51,34 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
         {
             var buffer = new List<ProcessInstanceInfoDto<TId>>(limit);
 
-            using (var timeoutTaskCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            {
-                // Таймер запускаеься сразу.
-                var timeoutTask = Task.Delay(timeout, timeoutTaskCancel.Token);
-
-                while (buffer.Count < limit)
+            await TimeoutHelper.ExecuteWithTimeoutAsync(
+                (limit, buffer, This: this),
+                timeout,
+                static async (p, t) => 
                 {
-                    if (_channel.Reader.TryRead(out var item))
+                    while (p.buffer.Count < p.limit)
                     {
-                        Interlocked.Decrement(ref _size);
-                        buffer.Add(item);                        
-                    }
-                    else
-                    {
-                        if (buffer.Count != 0)
+                        if (p.This._channel.Reader.TryRead(out var item))
                         {
-                            foreach (var elem in _emptyHandler.Values)
-                            {
-                                elem(this);
-                            }
+                            Interlocked.Decrement(ref p.This._size);
+                            p.buffer.Add(item);
                         }
-
-                        using (var waitReadCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                        else
                         {
-                            var waitReadTask = _channel.Reader.WaitToReadAsync(waitReadCancel.Token).AsTask();
-
-                            await Task.WhenAny(
-                                waitReadTask,
-                                timeoutTask);
-
-                            waitReadCancel.Cancel();
-
-                            if (timeoutTask.IsCompleted)
-                            {                                
-                                break;
-                            }
-                            else
+                            if (p.buffer.Count != 0)
                             {
-                                continue;
+                                foreach (var elem in p.This._emptyHandler.Values)
+                                {
+                                    elem(p.This);
+                                }
                             }
+
+                            await p.This._channel.Reader.WaitToReadAsync(t);
                         }
                     }
-                }
-
-                timeoutTaskCancel.Cancel();
-            }
+                },
+                cancellationToken
+                );
 
             return buffer;
         }
@@ -107,60 +90,42 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
         {
             var buffer = new List<ProcessInstanceInfoDto<TId>>(limit);
 
-            Task? timeoutTask = null;
-
-            using (var timeoutTaskCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 while (buffer.Count < limit)
                 {
                     if (_channel.Reader.TryRead(out var item))
                     {
                         Interlocked.Decrement(ref _size);
-                        buffer.Add(item);                        
+                        buffer.Add(item);
 
                         // Таймер запускается только после считывания первого элемента
-                        timeoutTask = timeoutTask 
-                            ??Task.Delay(timeout, timeoutTaskCancel.Token);
-                    }
-                    else
-                    {
-                        foreach (var elem in _emptyHandler.Values)
-                        {
-                            elem(this);
-                        }
-
-                        using (var waitReadCancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-                        {
-                            if (timeoutTask == null)
+                        await TimeoutHelper.ExecuteWithTimeoutAsync(
+                            (limit, buffer, This: this),
+                            timeout,
+                            static async (p, t) =>
                             {
-                                await _channel.Reader.WaitToReadAsync(waitReadCancel.Token);
-                                continue;
-                            }
-                            else
-                            {
-                                var waitReadTask = _channel.Reader.WaitToReadAsync(waitReadCancel.Token)
-                                    .AsTask();
-
-                                await Task.WhenAny(
-                                    waitReadTask,
-                                    timeoutTask);
-
-                                waitReadCancel.Cancel();
-
-                                if (timeoutTask.IsCompleted)
+                                if (p.This._channel.Reader.TryRead(out var item))
                                 {
-                                    break;
+                                    Interlocked.Decrement(ref p.This._size);
+                                    p.buffer.Add(item);
                                 }
                                 else
                                 {
-                                    continue;
+                                    foreach (var elem in p.This._emptyHandler.Values)
+                                    {
+                                        elem(p.This);
+                                    }
+
+                                    await p.This._channel.Reader.WaitToReadAsync(t);
                                 }
-                            }
-                        }
+                            }, 
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        await _channel.Reader.WaitToReadAsync(cancellationToken);
                     }
                 }
-
-                timeoutTaskCancel.Cancel();
             }
 
             return buffer;

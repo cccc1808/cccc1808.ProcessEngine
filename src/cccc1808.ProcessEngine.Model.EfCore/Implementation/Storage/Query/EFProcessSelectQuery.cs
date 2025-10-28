@@ -19,7 +19,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
 {
-    internal class EFProcessSelectQuery<TId, TDbContext, TEntity> 
+    public class EFProcessSelectQuery<TId, TDbContext, TEntity> 
         : IProcessSelectQuery<TId>
         where TDbContext : DbContext
         where TEntity : ProcessDbEntity<TId>
@@ -32,6 +32,18 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
         private readonly Process_ProcessRegistry_RangeCondition<TId, TEntity> _process_ProcessRegistry_RangeCondition;
         private readonly Process_SelectLock_Condition<TId, TEntity> _process_SelectLock_Condition;
         private readonly Process_AsyncExecute_Condition<TId, TEntity> _timerProcess_AsyncExecute_Condition;
+
+        public EFProcessSelectQuery(
+            OptionsDto options,
+            TDbContext dbContext, 
+            ITransactionManager transactionManager,
+            ILockQueryHintStore lockQueryHintStore)
+        {
+            _options = options;
+            _dbContext = dbContext;
+            _transactionManager = transactionManager;
+            _lockQueryHintStore = lockQueryHintStore;
+        }
 
         private static Queue<ProcessInstanceInfoDto<TId>> EmptyQueue { get; }
             = new Queue<ProcessInstanceInfoDto<TId>>(1);

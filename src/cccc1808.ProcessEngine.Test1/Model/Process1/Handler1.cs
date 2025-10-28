@@ -9,29 +9,27 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
 {
     internal class Handler1
-        : BaseEFChangeTrackerExecuteStepByStepGroupMiddlewareHandler1<Guid, AppDbContext>
+        : BaseEFChangeTrackerExecuteStepByStepGroupMiddlewareHandler1<Guid>
     {
         public Handler1(
             AppDbContext dbContext,
-            IManualCompensateService manualCompensateService,
-            IChangeTrackerSnapshotCompensateService changeTrackerSnapshotCompensateService,
+            IIsolationService isolationService,
             Process1Repository repository,
             IProcessSetter processSetter
             )
             : base(
-                  dbContext,
-                  manualCompensateService,
-                  changeTrackerSnapshotCompensateService,
+                  isolationService,                  
                   repository,
                   processSetter)
         {
         }
+
+        protected override bool UseSavepoint => throw new NotImplementedException();
 
         protected override ValueTask<bool> StepAsync(
             IProcessContainer<Guid> process,

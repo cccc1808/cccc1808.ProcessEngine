@@ -130,8 +130,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                 s,
                                 (s) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                     s.GetRequiredService<IServiceProvider>(),
-                                    s.GetRequiredService<ISavepointCompensateService>(),
-                                     s.GetRequiredService<IChangeTrackerCompensateService>(),
+                                    s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
                                     (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                         s.GetRequiredService<Handler1>()
@@ -260,8 +259,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                             s,
                                             (s) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                                 s.GetRequiredService<IServiceProvider>(),
-                                                s.GetRequiredService<ISavepointCompensateService>(),
-                                                s.GetRequiredService<IChangeTrackerCompensateService>(),
+                                                s.GetRequiredService<IIsolationService>(),
                                                 s.GetRequiredService<IProcessSetter>(),
                                                 (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                                     s.GetRequiredService<Handler2>()

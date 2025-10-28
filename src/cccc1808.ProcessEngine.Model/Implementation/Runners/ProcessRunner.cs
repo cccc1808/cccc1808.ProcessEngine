@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Query;
+using cccc1808.ProcessEngine.Model.Common;
 using cccc1808.ProcessEngine.Model.Implementation.Limiter;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -127,15 +128,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                     selectContext.BatchSize = Math.Min(freeSpace, _options.SelectBatchLimit);
                                 }
 
-                                using (var stopDelayToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-                                {
-                                    await Task.WhenAny(
-                                        Task.Delay(_options.selectEmptyTimeout, stopDelayToken.Token),
-                                        wakeUpTask.Task);
-
-                                    stopDelayToken.Cancel();
-                                    wakeUpTask.TrySetResult();
-                                }
+                                await TimeoutHelper.ExecuteWithTimeoutAsync(
+                                    wakeUpTask,
+                                    _options.selectEmptyTimeout,
+                                    static async (p, t) => await p.Task,
+                                    cancellationToken
+                                    );
                             }
                         }
                     }

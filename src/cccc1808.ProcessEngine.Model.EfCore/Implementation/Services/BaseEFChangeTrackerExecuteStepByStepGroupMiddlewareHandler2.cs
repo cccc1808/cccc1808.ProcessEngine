@@ -80,7 +80,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         {
             foreach (var elem in group.Group.Values)
             {
-                _processSetter.SetError(elem, ex);
+                _processSetter.SetError(elem, ex, allowRetry: true);
             }
             return ValueTask.CompletedTask;
         }
@@ -102,34 +102,34 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             foreach (var elem in group.Group.Values)
             {
-                await _isolationService.ExecuteAsync(                    
-                    group.Group.Count == 1
-                    ? IIsolationService.IsolationMode.No // Если элемент один, то мы дополнительно ничего не нужно.
-                    : IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                    (This: this, elem,),
-                    static async (p, cancellationToken) =>
-                    {
-                        var result = await p.This.StepAsync(
-                            p.elem,
-                            cancellationToken);
+                //await _isolationService.ExecuteAsync(                    
+                //    group.Group.Count == 1
+                //    ? IIsolationService.IsolationMode.No // Если элемент один, то мы дополнительно ничего не нужно.
+                //    : IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
+                //    (This: this, elem,),
+                //    static async (p, cancellationToken) =>
+                //    {
+                //        var result = await p.This.StepAsync(
+                //            p.elem,
+                //            cancellationToken);
 
-                        if (!result)
-                        {
-                            complete.Add(p.elem.Process.Info.Id);
-                        }
-                    },
-                    static async (p, ex, cancellationToken) =>
-                    {
-                        await p.This.OnExceptionRangeAsync(
-                            new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                                p.group.Key,
-                                new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem }
-                                ),
-                            ex,
-                            cancellationToken);
-                    },
-                    null,
-                    cancellationToken);
+                //        if (!result)
+                //        {
+                //            complete.Add(p.elem.Process.Info.Id);
+                //        }
+                //    },
+                //    static async (p, ex, cancellationToken) =>
+                //    {
+                //        await p.This.OnExceptionRangeAsync(
+                //            new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
+                //                p.group.Key,
+                //                new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem }
+                //                ),
+                //            ex,
+                //            cancellationToken);
+                //    },
+                //    null,
+                //    cancellationToken);
             }
 
             return complete;
@@ -140,5 +140,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         protected abstract ValueTask<bool> StepAsync(
             IProcessContainer<TId> process,
             CancellationToken cancellationToken);
+
+        public async Task SaveWakeupRangeAsync(
+            ICollection<IProcessContainer<TId>> process, 
+            CancellationToken cancellationToken)
+        {
+            await _repository.UpdateAsync(
+                process,
+                cancellationToken);
+        }
     }
 }

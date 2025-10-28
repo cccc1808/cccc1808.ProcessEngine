@@ -14,6 +14,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
 
         bool IsAsyncExecuting { get; set; }
 
-        DateTimeOffset TimerDate { get; set; }
+        DateTimeOffset TimerDate { get; set; }        
+
+        bool NeedUpdate { get; set; }
     }
 }

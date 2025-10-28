@@ -29,15 +29,5 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
         /// Наличие ошибки процесса в текущей сессии
         /// </summary>
         bool HaveError { get; set; }
-
-        /// <summary>
-        /// Флаг, означающий что нужно создать ReTry таймер.
-        /// </summary>
-        DateTimeOffset? CreateRetryTimer { get; set; }
-
-        /// <summary>
-        /// Флаг, означающий что таймер создан.
-        /// </summary>
-        bool RetryTimerCreated { get; set; }
     }
 }

@@ -35,13 +35,13 @@ namespace cccc1808.ProcessEngine.Test1.Model
                     b.HasIndex(e => new { e.StreamId, e.Priority, e.OrderId });
                 });
 
-            modelBuilder.Entity<StreamActiveDbEntity<Guid>>(
-                b =>
-                {
-                    b.HasKey(e => e.Id);
-                    b.Property(e => e.Id)
-                        .ValueGeneratedNever();
-                });
+            //modelBuilder.Entity<StreamActiveDbEntity<Guid>>(
+            //    b =>
+            //    {
+            //        b.HasKey(e => e.Id);
+            //        b.Property(e => e.Id)
+            //            .ValueGeneratedNever();
+            //    });
 
             //modelBuilder.Entity<StreamProcessDataDbEntity<Guid>>(
             //    b => 

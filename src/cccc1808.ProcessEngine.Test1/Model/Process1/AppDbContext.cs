@@ -32,8 +32,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
 
         public DbSet<ProcessDbEntity<Guid>> Process => Set<ProcessDbEntity<Guid>>();
 
-        public DbSet<TimerProcessDbEntity<Guid>> TimerProcess => Set<TimerProcessDbEntity<Guid>>();
-
         public DbSet<Process1DataDbEntity> Process1Datas => Set<Process1DataDbEntity>();
 
 
@@ -96,27 +94,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                         .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
 
                     // Для выборки в очередь.
-                    b.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.SelectLock })
-                        .IncludeProperties(e => e.Id)
-                        .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
-
-                    b.HasOne(e => e.Error)
-                        .WithOne()
-                        .HasForeignKey<ProcessErrorDbEntity<Guid>>(e => e.Id)
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity<TimerProcessDbEntity<Guid>>(
-                b =>
-                {
-                    b.HasKey(e => e.Id);
-                    b.Property(e => e.Id).ValueGeneratedNever();
-
-                    // Для загрузки для обработчика.
-                    b.HasIndex(e => e.Id)
-                        .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
-
-                    // Для выборки в очередь.
                     b.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.TimerDate, e.SelectLock })
                         .IncludeProperties(e => e.Id)
                         .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
@@ -124,11 +101,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                     b.HasOne(e => e.Error)
                         .WithOne()
                         .HasForeignKey<ProcessErrorDbEntity<Guid>>(e => e.Id)
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne(e => e.LinkedProcess)
-                        .WithMany()
-                        .HasForeignKey(e => e.LinkedProcessId)
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 

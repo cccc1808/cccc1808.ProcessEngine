@@ -41,8 +41,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             process.Process.ErrorJson = null;
 
             process.CurrentSession.HaveError = false;
-            process.CurrentSession.CreateRetryTimer = null;
-            process.CurrentSession.RetryTimerCreated = false;
         }
 
         public void SetError<TId>(
@@ -56,28 +54,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                 && !process.Process.HaveErrorFlag
                 )
             {
+                // Тут статус не трогаем.
                 process.Process.HaveErrorFlag = false;
                 process.Process.ReTryCount = (short)((process.Process.ReTryCount ?? 0) + 1);
-
+                process.Process.TimerDate = DateTimeOffset.UtcNow.Add(
+                    process.Process.ReTryCount.Value * TimeSpan.FromSeconds(10));
+                
                 process.CurrentSession.HaveError = true;
-                process.CurrentSession.CreateRetryTimer = DateTimeOffset.UtcNow + process.Process.ReTryCount * TimeSpan.FromSeconds(10);
-                // process.CurrentSession.RetryTimerCreated = false;
-
-                // Тут статус не трогаем.                
             }
             else
             {
                 process.Process.HaveErrorFlag = true;
 
                 process.CurrentSession.HaveError = true;
-                process.CurrentSession.CreateRetryTimer = null;
-                process.CurrentSession.RetryTimerCreated = false;
-
-                // Ожидает таймер
-                SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
 
-            process.Process.ErrorJson = JsonSerializer.SerializeToDocument(ex).RootElement.Clone();
+            using var json = JsonSerializer.SerializeToDocument(ex);
+            process.Process.ErrorJson = json.RootElement.Clone();
         }
 
         public void SetTimer<TId>(

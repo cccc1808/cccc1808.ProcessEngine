@@ -7,24 +7,22 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
 {
     internal class Handler2
-        : BaseEFChangeTrackerExecuteStepByStepGroupMiddlewareHandler2<Guid, AppDbContext>
+        : BaseEFChangeTrackerExecuteStepByStepGroupMiddlewareHandler2<Guid>
     {
         public Handler2(
-            AppDbContext dbContext,
-            IChangeTrackerSnapshotService changeTrackerSnapshotService,
+            IIsolationService isolationService,
             Process1Repository repository,
             IProcessSetter processSetter
             ) 
             : base(
-                  dbContext,
-                  changeTrackerSnapshotService,
+                  isolationService,
                   repository,
                   processSetter)
         {

@@ -40,9 +40,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
 
         #region Timer
 
-        public TId? TimerLinkedProcessId { get; set; }
-        public ProcessDbEntity<TId>? LinkedProcess { get; set; }
         public DateTimeOffset TimerDate { get; set; }
+        public int WakeupLockCounter { get; set; }
 
         #endregion
     }

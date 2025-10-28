@@ -9,9 +9,9 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Common;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Implementation;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 
 using Microsoft.EntityFrameworkCore;
@@ -108,7 +108,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         {
             foreach (var elem in processes.Values)
             {
-                _setter.SetError(elem, ex);
+                _setter.SetError(elem, ex, allowRetry: true);
             }
 
             return ValueTask.CompletedTask;
@@ -128,5 +128,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         protected abstract ValueTask HandleAsync(
             IProcessContainer<TId> process,
             CancellationToken cancellationToken);
+
+        public async Task SaveWakeupRangeAsync(
+            ICollection<IProcessContainer<TId>> processes,
+            CancellationToken cancellationToken)
+        {
+            await _repository.UpdateAsync(
+                processes,
+                cancellationToken);
+        }
     }
 }

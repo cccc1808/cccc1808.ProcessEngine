@@ -4,16 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Dto.Components;
 using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Dto.Registry;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -59,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Impleme
                     new MessageStreamComponent<TId>() 
                     { 
                         // StreamDataDbEntity = datas[elem.Id],
-                        StreamProcessDbEntity = (TimerProcessDbEntity<TId>)((EFProcessProxyComponent<TId>)elem.Process).ProcessDbEntity,
+                        // StreamProcessDbEntity = (TimerProcessDbEntity<TId>)((EFProcessProxyComponent<TId>)elem.Process).ProcessDbEntity,
                     });
             }
 

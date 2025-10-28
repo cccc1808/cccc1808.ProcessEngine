@@ -74,84 +74,82 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                 options.UseSavepoint
                 ? IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
                 : IIsolationService.IsolationMode.No, // Подумать
-                (1,2),
-                static async (p,t) => 
+                (processes, This: this, handler, options, sessionId),
+                static async (p, t) => 
                 {
-                    await handler.HandleRangeAsync(processes, cancellationToken);
+                    await p.handler.HandleRangeAsync(p.processes, t);
 
-                    foreach (var elem in processes.Values)
+                    foreach (var elem in p.processes.Values)
                     {
                         if (!elem.CurrentSession.HaveError)
                         {
-                            _processSetter.ClearError(elem);
+                            p.This._processSetter.ClearError(elem);
                         }
                     }
 
                     // Сохраненеи после шага.
-                    if (options.UseSave)
+                    if (p.options.UseSave)
                     {
-                        await handler.SaveRangeAsync(
-                            processes,
-                            cancellationToken);
+                        await p.handler.SaveRangeAsync(
+                            p.processes,
+                            t);
                     }
                 },
                 static async (p, ex, t) =>
                 {
                     // Тут мы не знаем, какой именно процесс послужил причиной ошибки.
 
-                    if (options.UseSavepoint)
+                    if (p.options.UseSavepoint)
                     {
-                        processes = await LoadDataAsync(
-                            handler,
-                            processes.Values.ApplayProjectionCondition(_processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                            sessionId,
-                            cancellationToken);
+                        p.processes = await p.This.LoadDataAsync(
+                            p.handler,
+                            p.processes.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
+                            p.sessionId,
+                            t);
                     }
 
-                    await handler.OnExceptionRangeAsync(
-                        processes,
+                    await p.handler.OnExceptionRangeAsync(
+                        p.processes,
                         ex,
-                        cancellationToken);
+                        t);
 
-                    if (options.UseSave)
+                    if (p.options.UseSave)
                     {
-                        await handler.SaveRangeAsync(
-                            processes,
-                            cancellationToken);
+                        await p.handler.SaveRangeAsync(
+                            p.processes,
+                            t);
                     }
                 },
                 static async (p, ex,t) => 
                 {
-                    if (options.UseSavepoint)
+                    if (p.options.UseSavepoint)
                     {
-                        processes = await LoadDataAsync(
-                            handler,
-                            processes.Values.ApplayProjectionCondition(_processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                            sessionId,
-                            cancellationToken);
+                        p.processes = await p.This.LoadDataAsync(
+                            p.handler,
+                            p.processes.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
+                            p.sessionId,
+                            t);
+                    }
+                    foreach (var elem in p.processes.Values)
+                    {
+                        p.This._processSetter.SetError(elem, ex, allowRetry: false);
                     }
 
-                    var saveException = new AggregateException(ex, ex2);
-                    foreach (var elem in processes.Values)
-                    {
-                        _processSetter.SetError(elem, saveException);
-                    }
-
-                    await handler.SaveRangeAsync(
-                        processes,
-                        cancellationToken);
+                    await p.handler.SaveRangeAsync(
+                        p.processes,
+                        t);
                 },
                 cancellationToken
                 );
 
             await _wakeUpService.AfterAsyncSessionHandlerAsync(
                 processes.Values,
-                (p, t) =>
-                {
-                    return ValueTask.FromResult<ICollection<(TId, bool)>>(
-                        p.Select(e => (e.Id, true)).ToArray()
-                        );
-                },
+                //(p, t) =>
+                //{
+                //    return ValueTask.FromResult<ICollection<(TId, bool)>>(
+                //        p.Select(e => (e.Id, true)).ToArray()
+                //        );
+                //},
                 async (p, t) =>
                 {
                     await handler.SaveWakeupRangeAsync(
