@@ -1,0 +1,204 @@
+<table style="border-collapse: collapse; width: 100%;" border="1">
+    <colgroup> <col style="width: 6.78174%;"> <col style="width: 93.2183%;"> </colgroup>
+    <tbody>
+        <tr>
+            <td>Распределение задач</td>
+            <td>
+                <table style="border-collapse: collapse; width: 100.249%; height: 549.719px;" border="1">
+                    <colgroup> <col style="width: 9.55687%;"> <col style="width: 27.5947%;"> <col style="width: 34.679%;"> <col style="width: 2.15609%;"> <col style="width: 25.9491%;"> </colgroup>
+                    <tbody>
+                        <tr style="height: 36.1719px;">
+                            <td>&nbsp;</td>
+                            <td><strong>Минусы</strong></td>
+                            <td><strong>Плюсы</strong></td>
+                            <td>&nbsp;</td>
+                            <td><strong>Выборка</strong></td>
+                        </tr>
+                        <tr style="height: 90.5625px;">
+                            <td>Просто вычитывать задачи.</td>
+                            <td>
+                                <ul>
+                                    <li>Другие ноды кластера будут читать те-же задачи (и будут бестолковые коллизии).</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>select *<br>from process<br>where async_execute</td>
+                        </tr>
+                        <tr style="height: 135.344px;">
+                            <td>Использовать блокировку строк.</td>
+                            <td>
+                                <ul>
+                                    <li>Не индексируется</li>
+                                    <li>Нельзя сделать отдельную транзакцию внутри т.к. строка заблокирована и ее нельзя обновить (не подходит для параллельных транзакций).</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>select *<br>from process<br>where async_execute<br>for update skip locked</td>
+                        </tr>
+                        <tr style="height: 192.906px;">
+                            <td>Использовать блокировку AdVisory.</td>
+                            <td>
+                                <ul>
+                                    <li>Не индексируется</li>
+                                    <li>Ограничение по типам БД.</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                            <td>select * <br>from<br>(<br>select *, try_advisory_lock(@tableId, id) as _locked<br>from process<br>where async_execute<br>)<br>where _locked</td>
+                        </tr>
+                        <tr style="height: 58.5625px;">
+                            <td>Использовать задержку обновления.</td>
+                            <td>
+                                <ul>
+                                    <li>Больше трафика записи</li>
+                                    <li>Рекомендуется возможность SkipLocked.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Нет транзакции</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>update process<br>set select_delay = @delay<br>where <br>&nbsp; async_execute <br>&nbsp; and select_delay &lt; @now<br>skip locked<br>returning *</td>
+                        </tr>
+                        <tr style="height: 36.1719px;">
+                            <td>Использовать флаг + таймер.</td>
+                            <td>
+                                <ul>
+                                    <li>Больше трафика записи</li>
+                                    <li>Рекомендуется возможность SkipLocked.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Нет транзакции</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td>С отдельным сервисом распределения</td>
+                            <td>
+                                <ul>
+                                    <li>Отказоустойчивость, точка отказа.</li>
+                                    <li>Сложность разработки.</li>
+                                </ul>
+                            </td>
+                            <td>
+                                <ul>
+                                    <li>Предположительно нет параллельного селекта, не нужно блокировать.</li>
+                                    <li>Можно сделать WakeUp, но нужно думать.</li>
+                                    <li>Более гибкая работа с типами процессов и приоритетами</li>
+                                </ul>
+                            </td>
+                            <td>&nbsp;</td>
+                            <td>select *<br>from process<br>where async_execute</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td>
+                <table style="border-collapse: collapse; width: 100.151%;" border="1">
+                    <colgroup> <col style="width: 49.8843%;"> <col style="width: 49.8843%;"> </colgroup>
+                    <tbody>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>Исполнение</td>
+            <td>
+                <table style="border-collapse: collapse; width: 100.059%;" border="1">
+                    <colgroup> <col style="width: 4.72637%;"> <col style="width: 95.2639%;"> </colgroup>
+                    <tbody>
+                        <tr>
+                            <td>Тип</td>
+                            <td>
+                                <table style="border-collapse: collapse; width: 100.206%;" border="1">
+                                    <colgroup><col style="width: 8.92733%;"><col style="width: 18.9633%;"><col style="width: 72.0441%;"></colgroup>
+                                    <tbody>
+                                        <tr>
+                                            <td>Задача</td>
+                                            <td>Содержит один Handler.</td>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Процесс</td>
+                                            <td>Содержит шаги, предполагает цикл.</td>
+                                            <td>Может быть реализован разными способами: последовательность шагов, фиксированный набор состояний и переходов, схема с токенами выполнения обработки.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Способ</td>
+                            <td>
+                                <table style="border-collapse: collapse; width: 100.214%; height: 198.078px;" border="1">
+                                    <colgroup> <col style="width: 9.21308%;"> <col style="width: 19.5022%;"> <col style="width: 35.709%;"> <col style="width: 35.5746%;"> </colgroup>
+                                    <tbody>
+                                        <tr style="height: 36.1719px;">
+                                            <td>&nbsp;</td>
+                                            <td><strong>Алгоритм</strong></td>
+                                            <td><strong>Минусы</strong></td>
+                                            <td><strong>&nbsp;</strong></td>
+                                        </tr>
+                                        <tr style="height: 80.9531px;">
+                                            <td>&nbsp;</td>
+                                            <td>0) В одной транзакции<br>1) Загрузили батч с блокировкой.<br>2) Выполнили RangeHandler.</td>
+                                            <td>
+                                                <ul>
+                                                    <li>В случае необработанной ошибки нельзя определить какой задачей обусловлена ошибка.</li>
+                                                    <li>Сложнее писать код, нужны более сложные sql запросы.</li>
+                                                    <li>Более длительная блокировка процессов и доменных объектов.</li>
+                                                    <li>Блокировка большЕго количества процессов и доменных объектов, что может привезти к deadlock.</li>
+                                                </ul>
+                                            </td>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                        <tr style="height: 80.9531px;">
+                                            <td>&nbsp;</td>
+                                            <td>0) В параллельных транзакциях.<br>1) Загружаем экземпляр с блокировкой.<br>2) Вызываем Handler.</td>
+                                            <td>
+                                                <ul>
+                                                    <li>Низкая производительность (по сравнению с батчем).</li>
+                                                </ul>
+                                            </td>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                        <tr>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;</td>
+                            <td>&nbsp;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
