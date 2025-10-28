@@ -1,4 +1,4 @@
-﻿namespace cccc1808.ProcessEngine.Model.Abstract.Common.Condition
+﻿namespace cccc1808.ProcessEngine.Model.Common.Condition
 {
     public interface IQueryableCondition<TData, TParameters>
     {

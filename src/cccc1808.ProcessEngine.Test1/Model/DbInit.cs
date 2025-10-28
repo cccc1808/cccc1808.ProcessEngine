@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
+using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 using cccc1808.ProcessEngine.Test1.Model.Process1;

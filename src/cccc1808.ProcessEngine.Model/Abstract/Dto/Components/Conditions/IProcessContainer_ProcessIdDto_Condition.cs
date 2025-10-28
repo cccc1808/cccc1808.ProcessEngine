@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+using cccc1808.ProcessEngine.Model.Common.Condition;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions
 {

@@ -1,7 +1,7 @@
 ﻿namespace cccc1808.ProcessEngine.Model.Abstract.Storage
 {
     /// <summary>
-    /// Паттерны изоляции (атомарности) изменений.
+    /// Паттерны изоляции изменений (атомарности).
     /// </summary>
     public interface IIsolationService
     {

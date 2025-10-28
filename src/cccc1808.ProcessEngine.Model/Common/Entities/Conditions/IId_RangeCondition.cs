@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
+using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.Common.Entities;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions
+namespace cccc1808.ProcessEngine.Model.Common.Entities.Conditions
 {
     public class IId_RangeCondition<TId, TIId>
         :
@@ -38,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions
         public IQueryable<TIId> ApplayQueryable(
             IQueryable<TIId> source, 
             ICollection<TId> parameters)
-        {
+        {            
             return source.Where(e => parameters.Contains(e.Id));
         }        
     }

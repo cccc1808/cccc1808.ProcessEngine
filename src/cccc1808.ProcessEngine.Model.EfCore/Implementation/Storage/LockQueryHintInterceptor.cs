@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
+using cccc1808.ProcessEngine.Model.Common.QueryHint;
 
 using Microsoft.EntityFrameworkCore.Diagnostics;
 

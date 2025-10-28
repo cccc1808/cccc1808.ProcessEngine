@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.Common.Condition
+namespace cccc1808.ProcessEngine.Model.Common.Condition
 {
     public static class IConditionExtension
     {

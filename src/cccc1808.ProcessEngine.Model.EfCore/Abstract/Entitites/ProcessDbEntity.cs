@@ -1,5 +1,5 @@
-﻿using cccc1808.ProcessEngine.Model.Abstract.Common.Entities;
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
+﻿using cccc1808.ProcessEngine.Model.Abstract.Dto;
+using cccc1808.ProcessEngine.Model.Common.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
 {
@@ -35,6 +35,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         public short? ReTryCount { get; set; }
 
         public ProcessErrorDbEntity<TId> Error { get; set; }
+
+        #endregion
+
+        #region Timer
+
+        public TId? TimerLinkedProcessId { get; set; }
+        public ProcessDbEntity<TId>? LinkedProcess { get; set; }
+        public DateTimeOffset TimerDate { get; set; }
 
         #endregion
     }

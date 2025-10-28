@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions;
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
+using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components;
@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
         private readonly ProcessIdDto_Id_Condition<TId, TTimerProcessEntity> _processIdDto_Id_Condition;
         private readonly IId_RangeCondition<TId, TTimerProcessEntity> _timer_id_RangeCondition;
         
-        private readonly TimerProcess_AsyncExecute_Condition<TId, TTimerProcessEntity> _process_AsyncExecute_Condition;
+        private readonly Process_AsyncExecute_Condition<TId, TTimerProcessEntity> _process_AsyncExecute_Condition;
 
         public EFTimerChangeTrackerRepository(
             TDbContext dbContext,
@@ -44,7 +44,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             _processLoaders = processLoaders;
             _processIdDto_Id_Condition = new ProcessIdDto_Id_Condition<TId, TTimerProcessEntity>();
             _timer_id_RangeCondition = new IId_RangeCondition<TId, TTimerProcessEntity>();
-            _process_AsyncExecute_Condition = new TimerProcess_AsyncExecute_Condition<TId, TTimerProcessEntity>();           
+            _process_AsyncExecute_Condition = new Process_AsyncExecute_Condition<TId, TTimerProcessEntity>();           
         }
 
         public virtual async Task<ICollection<IProcessContainer<TId>>> GetRangeWithLockAsync(

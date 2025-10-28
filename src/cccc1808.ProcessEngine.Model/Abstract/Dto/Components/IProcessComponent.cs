@@ -33,5 +33,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
         JsonElement? ErrorJson { get; set; }
 
         #endregion
+
+
+        #region Timer
+
+        DateTimeOffset TimerDate { get; set; }
+
+        #endregion
     }
 }

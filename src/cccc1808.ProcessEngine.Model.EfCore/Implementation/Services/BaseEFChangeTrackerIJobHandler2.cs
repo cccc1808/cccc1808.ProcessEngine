@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.Implementation;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;

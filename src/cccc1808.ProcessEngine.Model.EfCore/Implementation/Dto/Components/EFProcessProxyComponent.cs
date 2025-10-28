@@ -58,5 +58,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
             get => ProcessDbEntity.Error.Error;
             set => ProcessDbEntity.Error.Error = value;
         }
+        public DateTimeOffset TimerDate
+        {
+            get => ProcessDbEntity.TimerDate;
+            set => ProcessDbEntity.TimerDate = value;
+        }
     }
 }

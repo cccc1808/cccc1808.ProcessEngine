@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
+using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 using Microsoft.EntityFrameworkCore;

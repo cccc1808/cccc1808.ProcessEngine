@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint
+namespace cccc1808.ProcessEngine.Model.Common.QueryHint
 {
     /// <summary>
     /// Указатели для запроса

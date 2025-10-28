@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
+using cccc1808.ProcessEngine.Model.Common.Condition;
 
 using EntityFrameworkCore.MemoryJoin;
 

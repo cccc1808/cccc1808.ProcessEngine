@@ -19,6 +19,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             ProcessStatusEnum status)
         {
             process.Process.Status = status;
+
+            if (process.TryGetComponent<IWakeUpComponent>(out var w))
+            {
+                w.Timestamp = DateTimeOffset.UtcNow;
+                if (status == ProcessStatusEnum.AsyncExecute)
+                {
+                    w.IsAsyncExecuting = true;
+                }
+                else 
+                {
+                    w.IsAsyncExecuting = false;
+                }
+            }
         }
 
         public void ClearError<TId>(IProcessContainer<TId> process)
@@ -32,9 +45,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             process.CurrentSession.RetryTimerCreated = false;
         }
 
-        public void SetError<TId>(IProcessContainer<TId> process, Exception ex)
+        public void SetError<TId>(
+            IProcessContainer<TId> process, 
+            Exception ex,
+            bool allowRetry)
         {
-            if ((process.Process.ReTryCount ?? 0) > process.CurrentSession.ReTryLimit)
+            if (
+                allowRetry
+                && (process.Process.ReTryCount ?? 0) <= process.CurrentSession.ReTryLimit
+                && !process.Process.HaveErrorFlag
+                )
+            {
+                process.Process.HaveErrorFlag = false;
+                process.Process.ReTryCount = (short)((process.Process.ReTryCount ?? 0) + 1);
+
+                process.CurrentSession.HaveError = true;
+                process.CurrentSession.CreateRetryTimer = DateTimeOffset.UtcNow + process.Process.ReTryCount * TimeSpan.FromSeconds(10);
+                // process.CurrentSession.RetryTimerCreated = false;
+
+                // Тут статус не трогаем.                
+            }
+            else
             {
                 process.Process.HaveErrorFlag = true;
 
@@ -45,17 +76,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                 // Ожидает таймер
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
-            else
-            {
-                process.Process.HaveErrorFlag = false;
-                process.Process.ReTryCount = (short)((process.Process.ReTryCount ?? 0) + 1);
-
-                process.CurrentSession.HaveError = true;
-                process.CurrentSession.CreateRetryTimer = DateTimeOffset.UtcNow + process.Process.ReTryCount * TimeSpan.FromSeconds(10);
-                // process.CurrentSession.RetryTimerCreated = false;
-
-                // Тут статус не трогаем.
-            }
 
             process.Process.ErrorJson = JsonSerializer.SerializeToDocument(ex).RootElement.Clone();
         }
@@ -64,8 +84,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             IProcessContainer<TId> process, 
             DateTimeOffset date)
         {
-            var component = process.GetComponent<ITimerProcessComponent<TId>>();
-            component.TimerDate = date;
+            process.Process.TimerDate = date;
             //component.LinkedProcessId = linkedProcess?.linkedId;
             //component.IsProcessOrTimer = linkedProcess?.isProcessOrTimer;
         }

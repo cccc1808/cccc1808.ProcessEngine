@@ -8,14 +8,14 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.Storage;
+using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute
 {
@@ -33,6 +33,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         private readonly IIsolationService _isolationService;
         private readonly Func<IHandler> _jobFactory;
         private readonly IProcessSetter _processSetter;
+        private readonly IWakeUpService<TId> _wakeUpService;
         private readonly IProcessContainer_ProcessInstanceInfoDto_Condition<TId, IProcessContainer<TId>> _processEntity_ProcessInstanceInfoDto_Condition;
         private readonly IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>> _processEntity_Id_Condition;
 
@@ -141,10 +142,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                         cancellationToken);
                 },
                 cancellationToken
-                );            
+                );
+
+            await _wakeUpService.AfterAsyncSessionHandlerAsync(
+                processes.Values,
+                (p, t) =>
+                {
+                    return ValueTask.FromResult<ICollection<(TId, bool)>>(
+                        p.Select(e => (e.Id, true)).ToArray()
+                        );
+                },
+                async (p, t) =>
+                {
+                    await handler.SaveWakeupRangeAsync(
+                        p,
+                        cancellationToken);
+                },
+                cancellationToken);
         }
 
-        private async Task<IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>>> LoadDataAsync(
+        private async Task<Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>> LoadDataAsync(
             IHandler handler,
             IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
             Guid sessionId,
@@ -181,8 +198,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                 Exception ex,
                 CancellationToken cancellationToken);
 
+            /// <summary>
+            /// Сохранить состояние процесса целиком.
+            /// </summary>
             Task SaveRangeAsync(
                 IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
+                CancellationToken cancellationToken);
+
+            /// <summary>
+            /// Сохранить состояние <see cref="IWakeUpComponent" /> и статус и таймер процесса.
+            /// </summary>
+            /// <param name="processes"></param>
+            /// <param name="cancellationToken"></param>
+            /// <returns></returns>
+            Task SaveWakeupRangeAsync(
+                ICollection<IProcessContainer<TId>> processes,
                 CancellationToken cancellationToken);
         }
 

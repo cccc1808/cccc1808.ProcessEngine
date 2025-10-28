@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities;
+using cccc1808.ProcessEngine.Model.Common.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
 {

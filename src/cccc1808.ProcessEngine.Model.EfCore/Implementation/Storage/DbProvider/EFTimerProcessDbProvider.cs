@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities.Conditions;
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
+using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
+using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Dto.Components;
@@ -22,7 +22,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
     internal class EFTimerProcessDbProvider<TId, TDbContext, TProcessDbEntity, TTimerProcessDbEntity>
         : IProcessDbProvider<TId>
         where TDbContext : DbContext
-        where TTimerProcessDbEntity : TimerProcessDbEntity<TId>
+        where TTimerProcessDbEntity : ProcessDbEntity<TId>
         where TProcessDbEntity : ProcessDbEntity<TId>
     {
         protected readonly TDbContext _dbContext;

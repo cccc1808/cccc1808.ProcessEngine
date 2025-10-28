@@ -14,7 +14,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Services
 
         void SetError<TId>(
             IProcessContainer<TId> process,
-            Exception ex);
+            Exception ex,
+            bool allowRetry);
 
         void SetTimer<TId>(
             IProcessContainer<TId> process,

@@ -1,5 +1,11 @@
-﻿using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
+using cccc1808.ProcessEngine.Model.Common.Condition;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions
 {
@@ -8,34 +14,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions
     /// <see cref="Model.Abstract.Dto.Components.Conditions.IProcessContainer_AsyncExecute_Condition{TId}"/>
     /// </summary>
     internal class Process_AsyncExecute_Condition<TId, TProcessEntity>
-        : 
-        IInMemoryCondition<TProcessEntity, object?>,
-        IQueryableCondition<TProcessEntity, object?>
+        :
+        IInMemoryCondition<TProcessEntity, DateTimeOffset>,
+        IQueryableCondition<TProcessEntity, DateTimeOffset>
         where TProcessEntity : ProcessDbEntity<TId>
     {
         public bool Check(
             TProcessEntity source,
-            object? parameters)
+            DateTimeOffset parameters)
         {
             return
                 source.Status == ProcessStatusEnum.AsyncExecute
-                && !source.HaveErrorFlag;
+                && !source.HaveErrorFlag
+                && source.TimerDate < parameters;
         }
 
         public IEnumerable<TProcessEntity> ApplayEnumerable(
             IEnumerable<TProcessEntity> source,
-            object? parameters)
+            DateTimeOffset parameters)
         {
             return source.Where(e => Check(e, parameters));
         }
 
         public IQueryable<TProcessEntity> ApplayQueryable(
             IQueryable<TProcessEntity> source,
-            object? parameters)
+            DateTimeOffset parameters)
         {
-            return source.Where(e => 
-                e.Status == ProcessStatusEnum.AsyncExecute 
-                && !e.HaveErrorFlag);
-        }        
+            return source.Where(e =>
+                e.Status == ProcessStatusEnum.AsyncExecute
+                && !e.HaveErrorFlag
+                && e.TimerDate < parameters);
+        }
     }
 }

@@ -11,7 +11,7 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Impleme
 {
     internal class MessageStreamComponent<TId>
     {
-        public TimerProcessDbEntity<TId> StreamProcessDbEntity { get; init; }
+        public ProcessDbEntity<TId> StreamProcessDbEntity { get; init; }
         // public StreamProcessDataDbEntity<TId> StreamDataDbEntity { get; init; }
     }
 }
