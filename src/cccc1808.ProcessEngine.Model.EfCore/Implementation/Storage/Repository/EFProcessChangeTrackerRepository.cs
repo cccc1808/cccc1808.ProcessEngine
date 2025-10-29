@@ -125,6 +125,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                         entry.State = EntityState.Unchanged;
                     }
 
+                    // Так как мы уже считали с блокировкой, то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
+                    e.SelectLock = DateTimeOffset.MinValue.UtcDateTime;
+
                     return new ProcessContainer<TId>(
                         new EFProcessProxyComponent<TId>(e),
                         new CurrentSessionComponent()

@@ -85,6 +85,7 @@ namespace cccc1808.ProcessEngine.Model.Common
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             try
             {
+                cancellationTokenSource.CancelAfter(timeout);
                 await action(param, cancellationTokenSource.Token);
                 return true;
             }

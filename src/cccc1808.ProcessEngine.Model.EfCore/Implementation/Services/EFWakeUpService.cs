@@ -30,7 +30,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         private readonly IId_RangeCondition<TId, WakeUpProcessDbEntity<TId>> _w_id_RangeCondition;
         private readonly WakeUpProcessDbEntity_IsAsyncExecuting_Condition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_Condition;
         private readonly WakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition;
-        private readonly TimeSpan _waitLockTimeout;
+        private readonly TimeSpan _wakeupEndUpdLockTimeout = TimeSpan.FromSeconds(2);
+        private readonly TimeSpan _sessionEndUpdLockTimeout = TimeSpan.FromSeconds(2);
+        private readonly int _wakeupUpdLockRetryLimit = 2;
+
 
         public EFWakeUpService(
             TDbContext dbContext,
@@ -81,7 +84,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 {
                     var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                         (_dbContext, _w_id_RangeCondition, context),
-                        _waitLockTimeout,
+                        _sessionEndUpdLockTimeout,
                         static async (p, t) =>
                         {
                             return await p._dbContext.Set<WakeUpProcessDbEntity<TId>>()
@@ -216,71 +219,94 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 return;
             }
 
-            var buffer = data.ToDictionary(
-                e => e.Id,
-                e => (e.delayMinDate, Wakeup: (WakeUpProcessDbEntity<TId>)null!));
-            // 1) Если StreamActiveFlag, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
-            using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
-            {
-                var wakeups = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                    .AsNoTracking()
-                    .ApplayFilterCondition(
-                        _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition,
-                        (
-                            _dbContext,
-                            buffer.Select(e => (e.Key, e.Value.delayMinDate)).ToArray()
-                        ))
-                    .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
+            var checkBuffer = data.ToDictionary(e => e.Id, e => e.delayMinDate);
+            var updateBuffer = new Dictionary<TId, (DateTimeOffset delayMinDate, WakeUpProcessDbEntity<TId> Wakeup)>(data.Length);
 
-                // Флаг взведен и дата меньше.
-                foreach (var elem in buffer)
+            // Делаем попытки убедиться, что либо share lock если условие выполняется, либо updlock если не выполняется.
+            
+            for (int i = 0; i < _wakeupUpdLockRetryLimit; i++)
+            {
+                // 1) Если StreamActiveFlag, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
+                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                 {
-                    if (wakeups.ContainsKey(elem.Key))
+                    var wakeups = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                        .AsNoTracking()
+                        .ApplayFilterCondition(
+                            _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition,
+                            (
+                                _dbContext,
+                                checkBuffer.Select(e => (e.Key, e.Value)).ToArray()
+                            )
+                            )
+                        .Select(e => e.Id)
+                        .ToArrayAsync(cancellationToken);
+
+                    // Флаг взведен и дата меньше.
+                    foreach (var elem in wakeups)
                     {
                         // Пробуждение не нужно.
-                        buffer.Remove(elem.Key);
+                        checkBuffer.Remove(elem);
                     }
-                    else
+                }
+
+                // 2) Пробуем получить updlock.
+                var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
+                    (This: this, checkBuffer, updateBuffer),
+                    _wakeupEndUpdLockTimeout,
+                    static async (p, t) =>
                     {
-                        // Пробуждение нужно.
-                    }
+                        WakeUpProcessDbEntity<TId>[] wakeupsWithLock;
+                        using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+                        {
+                            wakeupsWithLock = await p.This._dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                                .AsNoTracking()
+                                .ApplayFilterCondition(p.This._w_id_RangeCondition, p.checkBuffer.Keys)
+                                .ToArrayAsync(t);
+                        }
+
+                        // Блокировка получена.
+                        foreach (var elem in wakeupsWithLock)
+                        {
+                            var checkDate = p.checkBuffer[elem.Id];
+
+                            if (p.This._wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition.Check(elem, checkDate))
+                            {
+                                // Кто-то уже обновил, Пробуждение не нужно.
+                                p.checkBuffer.Remove(elem.Id);
+                            }
+                            else
+                            {
+                                // Пробуждение нужно.
+                                p.updateBuffer.Add(elem.Id, (checkDate, elem));
+                                p.checkBuffer.Remove(elem.Id);
+                            }
+                        }
+                    },
+                    cancellationToken
+                    );
+
+                if (result)
+                {
+                    break;
                 }
             }
 
-            // 2) Ждем UpdateLock.
+            // Если не получилось (высокая конкрунция с другим сигналом), то не будем обновлять дату, а проверим только IsAsyncExecute.
+            if (checkBuffer.Count != 0)
             {
-                WakeUpProcessDbEntity<TId>[] wakeupsWithLock;
-                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
-                {
-                    wakeupsWithLock = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                        .AsNoTracking()
-                        .ApplayFilterCondition(_w_id_RangeCondition, buffer.Keys)
-                        .ToArrayAsync(cancellationToken);
-                }
-
-                foreach (var elem in wakeupsWithLock)
-                {
-                    if (_wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition.Check(elem, buffer[elem.Id].delayMinDate))
-                    {
-                        // Кто-то уже обновил, Пробуждение не нужно.
-                        buffer.Remove(elem.Id);
-                    }
-                    else
-                    {
-                        // Пробуждение нужно.
-                        buffer[elem.Id] = (buffer[elem.Id].delayMinDate, elem);
-                    }
-                }
+                await WakeUpWithoutDateAsync(
+                    checkBuffer.Keys, 
+                    cancellationToken);
             }
 
             // 3) Обновляем wakeup и process
             {
-                var processIsActiveGroups = buffer
+                var processIsActiveGroups = updateBuffer
                     .Select(e => e.Value.Wakeup)
                     .GroupBy(e => e.IsAsyncExecuting)
                     .ToArray();
 
-                foreach (var elem in buffer.Values)
+                foreach (var elem in updateBuffer.Values)
                 {
                     elem.Wakeup.TimeStamp = DateTimeOffset.UtcNow;
                     elem.Wakeup.IsAsyncExecuting = true;
@@ -310,7 +336,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         }
 
                         elem.Status = ProcessStatusEnum.AsyncExecute;
-                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
+                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, updateBuffer[elem.Id].delayMinDate);
                     }
                 }
 
@@ -337,75 +363,87 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         }
 
                         elem.Status = ProcessStatusEnum.AsyncExecute;
-                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, buffer[elem.Id].delayMinDate);
+                        elem.TimerDate = DateTimeOffsetHelper.Min(elem.TimerDate, updateBuffer[elem.Id].delayMinDate);
                     }
                 }
             }
         }
 
         private async Task WakeUpWithoutDateAsync(
-            TId[] data,
+            ICollection<TId> data,
             CancellationToken cancellationToken)
         {
-            if (data.Length == 0)
+            if (data.Count == 0)
             {
                 return;
             }
 
-            var buffer = data.ToDictionary(e => e, e => (WakeUpProcessDbEntity<TId>)null!);
-            // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
-            using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
-            {
-                var actives = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                    .AsNoTracking()
-                    .ApplayFilterCondition(
-                        _w_id_RangeCondition,
-                        data
-                        )
-                    .ApplayFilterCondition(_wakeUpProcessDbEntity_IsAsyncExecuting_Condition, default)
-                    .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
+            var checkBuffer = data.ToHashSet();
+            var updateBuffer = new Dictionary<TId, WakeUpProcessDbEntity<TId>>(data.Count);
 
-                foreach (var elem in data)
+            while (true) 
+            {
+                // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
+                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                 {
-                    if (actives.ContainsKey(elem))
+                    var wakeups = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                        .AsNoTracking()
+                        .ApplayFilterCondition(
+                            _w_id_RangeCondition,
+                            data
+                            )
+                        .ApplayFilterCondition(_wakeUpProcessDbEntity_IsAsyncExecuting_Condition, default)
+                        .Select(e => e.Id)
+                        .ToArrayAsync(cancellationToken);
+
+                    foreach (var elem in wakeups)
                     {
                         // Пробуждение не нужно.
-                        buffer.Remove(elem);
-                    }
-                    else
-                    {
-                        // Пробуждение нужно.
+                        checkBuffer.Remove(elem);
                     }
                 }
-            }
 
-            // 2) Иначе нужнен UpdateLock и необходимо обновление.
-            using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
-            {
-                var wakeupsWithLock = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                    .AsNoTracking()
-                    .ApplayFilterCondition(_w_id_RangeCondition, buffer.Keys)
-                    .ToArrayAsync(cancellationToken);
+                // 2) Пробуем получить UpdateLock.
+                var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
+                    (This: this, checkBuffer, updateBuffer),
+                    _wakeupEndUpdLockTimeout,
+                    static async (p,t) => 
+                    {
+                        using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+                        {
+                            var wakeupsWithLock = await p.This._dbContext.Set<WakeUpProcessDbEntity<TId>>()
+                                .AsNoTracking()
+                                .ApplayFilterCondition(p.This._w_id_RangeCondition, p.checkBuffer)
+                                .ToArrayAsync(t);
 
-                // У нас монопольная блокировка через updlock.
-                foreach (var elem in wakeupsWithLock)
+                            // У нас монопольная блокировка через updlock.
+                            foreach (var elem in wakeupsWithLock)
+                            {
+                                if (p.This._wakeUpProcessDbEntity_IsAsyncExecuting_Condition.Check(elem, default))
+                                {
+                                    // Пробуждение не нужно.
+                                    p.checkBuffer.Remove(elem.Id);
+                                }
+                                else
+                                {
+                                    // Пробуждение нужно.
+                                    p.updateBuffer.Add(elem.Id, elem);
+                                    p.checkBuffer.Remove(elem.Id);
+                                }
+                            }
+                        }
+                    },
+                    cancellationToken
+                    );
+                if (result)
                 {
-                    if (_wakeUpProcessDbEntity_IsAsyncExecuting_Condition.Check(elem, default))
-                    {
-                        // Пробуждение не нужно.
-                        buffer.Remove(elem.Id);
-                    }
-                    else
-                    {
-                        // Пробуждение нужно.
-                        buffer[elem.Id] = elem;
-                    }
-                }
-            }
+                    break;
+                }                
+            }            
 
             // Обновляем wakeup и process
             {
-                foreach (var elem in buffer.Values)
+                foreach (var elem in updateBuffer.Values)
                 {
                     elem.TimeStamp = DateTimeOffset.UtcNow;
                     elem.IsAsyncExecuting = true;
@@ -416,7 +454,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
                     processes = await _dbContext.Set<ProcessDbEntity<TId>>()
-                        .ApplayFilterCondition(_process_id_RangeCondition, buffer.Keys)
+                        .ApplayFilterCondition(_process_id_RangeCondition, updateBuffer.Keys)
                         .ToArrayAsync(cancellationToken);
                 }
 
