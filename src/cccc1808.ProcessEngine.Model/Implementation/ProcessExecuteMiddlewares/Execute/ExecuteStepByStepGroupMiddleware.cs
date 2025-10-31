@@ -42,16 +42,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         public ExecuteStepByStepGroupMiddleware(
             IServiceProvider serviceProvider,
             IIsolationService isolationService,
-            IProcessSetter processSetter, 
-            Func<IServiceProvider, ValueTask<IHandler>> factory)
+            IProcessSetter processSetter,
+            IWakeUpService<TId> wakeUpService,
+            Func<IServiceProvider, ValueTask<IHandler>> factory
+            )            
         {
             _serviceProvider = serviceProvider;
             _isolationService = isolationService;
             _processSetter = processSetter;
+            _wakeUpService = wakeUpService;
             _factory = factory;
+
             _processEntity_ProcessIdDto_Condition = new IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>>();
             _processEntity_ProcessInstanceInfoDto_Condition = new IProcessContainer_ProcessInstanceInfoDto_Condition<TId, IProcessContainer<TId>>();
-            _processEntity_AsyncExecute_Condition = new IProcessContainer_AsyncExecute_Condition<TId>();
+            _processEntity_AsyncExecute_Condition = new IProcessContainer_AsyncExecute_Condition<TId>();            
         }
 
         public async ValueTask HandleRangeAsync(
@@ -74,11 +78,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                 sessionId,
                 cancellationToken);
 
-            //allProcesses = allProcesses
-            //    // Если процесс уже завершился.
-            //    .Where(e => _processEntity_AsyncExecute_Condition.Check(e.Value, default))
-            //    .ToDictionary();
-
             if (allProcesses.Count == 0)
             {
                 return;
@@ -92,6 +91,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             {
                 // Весь набор обработан.
                 if (!executingProcesses.Any())
+                {
+                    break;
+                }
+
+                if (allProcesses.Values
+                    .Any(e => e.TryGetComponent<ISoftTimeoutComponent>(out var component) && component.CheckTimeout()))
                 {
                     break;
                 }

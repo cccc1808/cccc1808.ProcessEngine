@@ -20,6 +20,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
         {
             return IsImplementInterface(type, typeof(TInterface));
         }
+
         public static bool IsImplementInterface(
             Type type,
             Type interfaceType

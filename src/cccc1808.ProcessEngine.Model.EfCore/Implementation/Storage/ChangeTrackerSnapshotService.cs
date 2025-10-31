@@ -204,10 +204,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
                         var isCollection =
                             elem.PropertyType.IsClass
                             && (
-                                TypeHelper.TryGetGenericInterfaceParameter(elem.PropertyType, genericType, 0, out collectionItemType)
                                 //Предполагаем, что коллекация мутабельная, и интерфейс используется, чтобы в нее не писали напрямую,
                                 //но выполнить каст к ICollection можно.
-                                || TypeHelper.TryGetGenericInterfaceParameter(elem.PropertyType, typeof(ICollection<>), 0, out collectionItemType)
+                                TypeHelper.TryGetGenericInterfaceParameter(elem.PropertyType, genericType, 0, out collectionItemType)
                                 );
 
                         if (isCollection)

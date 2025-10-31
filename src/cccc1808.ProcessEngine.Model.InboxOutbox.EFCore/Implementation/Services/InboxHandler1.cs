@@ -4,30 +4,24 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
-using cccc1808.ProcessEngine.Model.MessageStream.EFCore.Implementation.Entities.Conditions;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Abstract;
 using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 {
-    public class InboxHandler1<TId, TDbContext> : BaseEFChangeTrackerIJobHandler1<TId, TDbContext>
+    public class InboxHandler1<TId, TDbContext> 
+        : BaseEFChangeTrackerIJobHandler1<TId, TDbContext>
         where TDbContext : DbContext
     {
-        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IInboxHandlerFactory<TId> _inboxHandlerFactory;
-        private readonly IMessageStreamTechService<TId> _messageStreamTechService;
         private readonly MessageDbEntity_ForProcessgByStream1_RangeCondition<TId> messageDbEntity_ForProcessgByStream1_RangeCondition;
 
         public InboxHandler1(
@@ -57,10 +51,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                 cancellationToken);
 
             var inboxComponenets = processes.Values
-                .Select(e => e.GetComponent<InboxStreamDataDbEntity<TId>>())
+                .Select(e => e.GetComponent<InboxProcessDataDbEntity<TId>>())
                 .ToDictionary(e => e.Id, e => e);
 
-            (MessageDbEntity<TId> StreamMessage, InboxMessageDataDbEntity<TId> InboxMessage)[] messages;
+            (MessageDbEntity<TId> StreamMessage, InboxMessageDbEntity<TId> InboxMessage)[] messages;
             using (var hintScope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
                 var data = await _dbContext.Set<MessageDbEntity<TId>>()
@@ -69,7 +63,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                         processes.Values.Select(e => e.Id).ToArray()
                         )
                     .Join(
-                        _dbContext.Set<InboxMessageDataDbEntity<TId>>(),
+                        _dbContext.Set<InboxMessageDbEntity<TId>>(),
                         e => e.Id,
                         e => e.Id,
                         (e1, e2) => new { e1, e2 })

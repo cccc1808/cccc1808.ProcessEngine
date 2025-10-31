@@ -8,14 +8,24 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
 {
     public interface IWakeUpComponent
     {
-        DateTimeOffset SessionStartTimeStamp { get; }
+        #region persist        
 
         DateTimeOffset Timestamp { get; set; }
 
         bool IsAsyncExecuting { get; set; }
 
-        DateTimeOffset TimerDate { get; set; }        
+        DateTimeOffset TimerDate { get; set; }
+
+        #endregion
+
+        #region inmemory
+
+        DateTimeOffset SessionStartTimeStamp { get; }
+
+        bool InAsyncExecuting { get; set; }
 
         bool NeedUpdate { get; set; }
+
+        #endregion
     }
 }

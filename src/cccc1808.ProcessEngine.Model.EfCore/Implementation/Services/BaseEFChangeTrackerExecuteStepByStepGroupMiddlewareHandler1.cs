@@ -12,7 +12,6 @@ using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
@@ -100,39 +99,39 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             foreach (var elem in group.Group.Values)
             {
-                //await _isolationService.ExecuteAsync(
-                //    UseSavepoint
-                //    // Если включены savepoint, то используем scope ручного отката (_manualCompensateService),
-                //    // чтобы предоставить разработчику возможность откатить изменения (когда запись идет в БД напрямую, а не через ChangeTracker) вручную
-                //    // и не распространять ошибку на всю группу процессов, а сохранить ошибку только в один процесс.
-                //    ? IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual
-                //    // В этом случае можно использовать только ChangeTracker, писать напрямую в БД нельзя.
-                //    : IIsolationService.IsolationMode.ChangeTrackerSnapshot,
-                //    (1, 2),
-                //    static async (p, t) =>
-                //    {
-                //        var result = await StepAsync(
-                //            elem,
-                //            cancellationToken);
+                await _isolationService.ExecuteAsync(
+                    UseSavepoint
+                    // Если включены savepoint, то используем scope ручного отката (_manualCompensateService),
+                    // чтобы предоставить разработчику возможность откатить изменения (когда запись идет в БД напрямую, а не через ChangeTracker) вручную
+                    // и не распространять ошибку на всю группу процессов, а сохранить ошибку только в один процесс.
+                    ? IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual
+                    // В этом случае можно использовать только ChangeTracker, писать напрямую в БД нельзя.
+                    : IIsolationService.IsolationMode.ChangeTrackerSnapshot,
+                    (This: this, elem, complete, group),
+                    static async (p, t) =>
+                    {
+                        var result = await p.This.StepAsync(
+                            p.elem,
+                            t);
 
-                //        if (!result)
-                //        {
-                //            complete.Add(elem.Process.Info.Id);
-                //        }
-                //    },
-                //    static async (p, ex, t) => 
-                //    {
-                //        await OnExceptionRangeAsync(
-                //            new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                //                group.Key,
-                //                new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem }
-                //                ),
-                //            ex,
-                //            cancellationToken);
-                //    },
-                //    null,
-                //    cancellationToken
-                //    );
+                        if (!result)
+                        {
+                            p.complete.Add(p.elem.Process.Info.Id);
+                        }
+                    },
+                    static async (p, ex, t) =>
+                    {
+                        await p.This.OnExceptionRangeAsync(
+                            new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
+                                p.group.Key,
+                                new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [p.elem.Process.Info.Id] = p.elem }
+                                ),
+                            ex,
+                            t);
+                    },
+                    null,
+                    cancellationToken
+                    );
             }               
 
             return complete;
@@ -142,9 +141,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
             IProcessContainer<TId> process,
             CancellationToken cancellationToken);
 
-        public Task SaveWakeupRangeAsync(ICollection<IProcessContainer<TId>> process, CancellationToken cancellationToken)
+        public async Task SaveWakeupRangeAsync(
+            ICollection<IProcessContainer<TId>> process,
+            CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            await _repository.UpdateWakeupAsync(process, cancellationToken);
         }
 
         protected abstract bool UseSavepoint { get; }

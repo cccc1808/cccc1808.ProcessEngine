@@ -31,12 +31,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
         public void AddComponent<T>(T component)
         {
             _components.Add(typeof(T), component!);
-
-            if (component is IDataComponent dataComponent 
-                && typeof(T) != typeof(IDataComponent))
-            {
-                _components.Add(typeof(IDataComponent), dataComponent);
-            }
         }
 
         public bool TryGetComponent<T>(out T result)
@@ -55,8 +49,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
         public void RemoveComponent<T>()
         {
             _components.Remove(typeof(T));
-
-            // TODO: remove data component.
         }
     }
 }

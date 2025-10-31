@@ -133,7 +133,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            await _repository.UpdateAsync(
+            await _repository.UpdateWakeupAsync(
                 processes,
                 cancellationToken);
         }

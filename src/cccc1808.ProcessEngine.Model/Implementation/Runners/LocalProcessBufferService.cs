@@ -52,9 +52,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
             var buffer = new List<ProcessInstanceInfoDto<TId>>(limit);
 
             await TimeoutHelper.ExecuteWithTimeoutAsync(
-                (limit, buffer, This: this),
+                (limit, buffer, This: this, cancellationToken),
                 timeout,
-                static async (p, t) => 
+                static async (p) => 
                 {
                     while (p.buffer.Count < p.limit)
                     {
@@ -73,11 +73,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                 }
                             }
 
-                            await p.This._channel.Reader.WaitToReadAsync(t);
+                            await p.This._channel.Reader.WaitToReadAsync(p.cancellationToken);
                         }
                     }
-                },
-                cancellationToken
+                }
                 );
 
             return buffer;
@@ -85,24 +84,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
 
         public async ValueTask<IReadOnlyList<ProcessInstanceInfoDto<TId>>> ConsumeBatch2Async(
             int limit,
-            TimeSpan timeout, 
+            TimeSpan timeout,
             CancellationToken cancellationToken)
         {
             var buffer = new List<ProcessInstanceInfoDto<TId>>(limit);
 
-            {
-                while (buffer.Count < limit)
-                {
-                    if (_channel.Reader.TryRead(out var item))
-                    {
-                        Interlocked.Decrement(ref _size);
-                        buffer.Add(item);
 
-                        // Таймер запускается только после считывания первого элемента
-                        await TimeoutHelper.ExecuteWithTimeoutAsync(
-                            (limit, buffer, This: this),
-                            timeout,
-                            static async (p, t) =>
+            while (buffer.Count < limit)
+            {
+                if (_channel.Reader.TryRead(out var item))
+                {
+                    Interlocked.Decrement(ref _size);
+                    buffer.Add(item);
+
+                    // Таймер запускается только после считывания первого элемента
+                    await TimeoutHelper.ExecuteWithTimeoutAsync(
+                        (limit, buffer, This: this, cancellationToken),
+                        timeout,
+                        static async (p) =>
+                        {
+                            while (p.buffer.Count < p.limit)
                             {
                                 if (p.This._channel.Reader.TryRead(out var item))
                                 {
@@ -116,15 +117,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                         elem(p.This);
                                     }
 
-                                    await p.This._channel.Reader.WaitToReadAsync(t);
+                                    await p.This._channel.Reader.WaitToReadAsync(p.cancellationToken);
                                 }
-                            }, 
-                            cancellationToken);
-                    }
-                    else
-                    {
-                        await _channel.Reader.WaitToReadAsync(cancellationToken);
-                    }
+                            }
+                        });
+                }
+                else
+                {
+                    await _channel.Reader.WaitToReadAsync(cancellationToken);
                 }
             }
 

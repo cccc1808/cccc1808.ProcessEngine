@@ -12,12 +12,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract
     public interface IInboxHandlerFactory<TId>
     {
         IHandler GetHandler(
-            InboxStreamDataDbEntity<TId> stream);
+            InboxProcessDataDbEntity<TId> stream);
 
         public interface IHandler 
         {
             ValueTask HandleAsync(
-                InboxStreamDataDbEntity<TId> stream,
+                InboxProcessDataDbEntity<TId> stream,
                 ICollection<MessageDto> messages,
                 CancellationToken cancellationToken
                 );

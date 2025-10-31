@@ -29,6 +29,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
         private readonly Func<IServiceProvider, IProcessSelectQuery<TId>> _selectFactory;
         private readonly Func<IServiceProvider, IProcessHandlerMiddleware<TId>> _rootMiddlewareFactory;
 
+        private List<Task> RunningTasks { get; }
+            = new List<Task>();
+
         public ProcessRunner(
             IServiceProvider serviceProvider,
             OptionsDto options,
@@ -46,10 +49,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
             _processCountLimiter = processCountLimiter;
             _selectFactory = selectFactory;
             _rootMiddlewareFactory = rootMiddlewareFactory;           
-        }
-
-        private List<Task> RunningTasks { get; } 
-            = new List<Task>();        
+        }          
 
         public async ValueTask DisposeAsync()
         {
@@ -111,10 +111,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
 
                                     ;
                                     var produceResult = _buffer.TryProduce(elem);
-                                    freeSpace = produceResult.FreeSpace;
 
                                     // Буфер заполнен.
-                                    if (freeSpace == 0)
+                                    if (produceResult.ids.Count != 0)
                                     {
                                         // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
                                         // чтобы их могли взять в обработку другие экземпляры.
@@ -131,8 +130,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                 await TimeoutHelper.ExecuteWithTimeoutAsync(
                                     wakeUpTask,
                                     _options.selectEmptyTimeout,
-                                    static async (p, t) => await p.Task,
-                                    cancellationToken
+                                    static async (p) => await p.Task
                                     );
                             }
                         }

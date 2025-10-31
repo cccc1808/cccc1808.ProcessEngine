@@ -40,14 +40,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         public ExecuteJobRangeMiddleware(
             IIsolationService isolationService,
             Func<IHandler> jobFactory,
-            IProcessSetter processSetter
-            )
+            IProcessSetter processSetter,
+            IWakeUpService<TId> wakeUpService)
         {
             _isolationService = isolationService;
             _jobFactory = jobFactory;
             _processSetter = processSetter;
+            _wakeUpService = wakeUpService;
             _processEntity_ProcessInstanceInfoDto_Condition = new IProcessContainer_ProcessInstanceInfoDto_Condition<TId, IProcessContainer<TId>>();
-            _processEntity_Id_Condition = new IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>>();
+            _processEntity_Id_Condition = new IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>>();            
         }
 
         public async ValueTask HandleRangeAsync(

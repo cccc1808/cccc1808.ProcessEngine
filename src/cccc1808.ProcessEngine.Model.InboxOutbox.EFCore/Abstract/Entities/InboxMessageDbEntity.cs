@@ -5,22 +5,34 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Entities;
+using cccc1808.ProcessEngine.Model.MessageStream.EFCore.Abstract;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 {
-    public class InboxMessageDataDbEntity<TId>
-        : IId<TId>
+    public class InboxMessageDbEntity<TId>
+        : IMessageDbEntity<TId>
     {
+        #region IMessageDbEntity
+
         public TId Id { get; set; }
+
+        public short Priority { get; set; }
+
+        public long OrderId { get; set; }
+
+        public TId StreamProcessId { get; set; }
+
+        public bool IsActive { get; set; }
+
+        #endregion
 
         public string Key { get; set; }
 
-        public TId StreamId { get; set; }
         public string IdemporencyId { get; set; }
 
         public JsonElement Body { get; set; }
 
         public JsonElement Headers { get; set; }
+        
     }
 }

@@ -5,8 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Common.Condition;
-using cccc1808.ProcessEngine.Model.Abstract.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
@@ -15,100 +13,58 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
-using cccc1808.ProcessEngine.Model.MessageStream.EFCore.Implementation.Entities.Conditions;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Abstract;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities;
-
-using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Dto.Componenets;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 {
-    public class OutboxHandler1<TId, TDbContext>
-        : BaseEFChangeTrackerIJobHandler1<TId, TDbContext>
-        where TDbContext : DbContext
+    public class OutboxHandler1<TId>
+        : BaseEFChangeTrackerIJobHandler1<TId>
     {
-        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IQueueProviderFactory _queueProviderFactory;
-        private readonly IMessageStreamTechService<TId> _messageStreamTechService;
-        private readonly MessageDbEntity_ForProcessgByStream1_RangeCondition<TId> messageDbEntity_ForProcessgByStream1_RangeCondition;
 
         public OutboxHandler1(
-            TDbContext dbContext,
             IProcessRepository<TId> repository,
             IProcessSetter setter,
-            ILockQueryHintStore lockQueryHintStore,
-            IQueueProviderFactory queueProviderFactory,
-            IMessageStreamTechService<TId> messageStreamTechService)
+            IQueueProviderFactory queueProviderFactory)
             : base(
-                  dbContext,
                   repository,
                   setter)
         {
-            _lockQueryHintStore = lockQueryHintStore;
             _queueProviderFactory = queueProviderFactory;
-            _messageStreamTechService = messageStreamTechService;
-            messageDbEntity_ForProcessgByStream1_RangeCondition = new MessageDbEntity_ForProcessgByStream1_RangeCondition<TId>();      
         }
 
         public override async ValueTask HandleRangeAsync(
             IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes, 
             CancellationToken cancellationToken)
         {
-            await _messageStreamTechService.BeforeStreamExecuteAsync(
-                processes.Values.ToArray(),
-                cancellationToken);
+            var context = processes.ToDictionary(
+                e => e.Key.Id,
+                e => (Process: 
+                    e.Value,
+                    outbox: e.Value.GetComponent<OutboxProcessComponent<TId>>(), 
+                    softTimeout: e.Value.GetComponent<ISoftTimeoutComponent>()));
 
-            var outboxComponenets = processes.Values
-                .Select(e => e.GetComponent<OutboxStreamDataDbEntity<TId>>())
-                .ToDictionary(e => e.Id, e => e);
-
-            (MessageDbEntity<TId> StreamMessage, OutboxMessageDataDbEntity<TId> OutboxMessage)[] messages;
-            using (var hintScope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
-            {
-                var data = await _dbContext.Set<MessageDbEntity<TId>>()
-                    .ApplayFilterCondition(
-                        messageDbEntity_ForProcessgByStream1_RangeCondition,
-                        processes.Values.Select(e => e.Id).ToArray()
-                        )
-                    .Join(
-                        _dbContext.Set<OutboxMessageDataDbEntity<TId>>(), 
-                        e => e.Id, 
-                        e => e.Id, 
-                        (e1, e2) => new { e1, e2 })
-                    .Take(250)
-                    .ToArrayAsync(cancellationToken);
-
-                messages = data
-                    .Select(e => (e.e1, e.e2))
-                    .ToArray();
-            }
-
-            var groupByStream = messages
-                .GroupBy(e => e.StreamMessage.StreamId)
-                .ToDictionary(e => e.Key, e => e);
-
-            var groupByQueue = outboxComponenets.Values
-                .Where(e => groupByStream[e.Id].Any())
-                .GroupBy(e => e.Queue)
+            var groupByQueue = context.Values
+                .Where(e => e.outbox.Messages.Any())
+                .GroupBy(e => e.outbox.Data.Queue)
                 .ToArray();
 
             // TODO: обработка ошибок
             foreach (var elem in groupByQueue)
             {
-                var queueBatch = groupByQueue
-                    .SelectMany(e => e.SelectMany(e2 => groupByStream[e2.Id]))
-                    .OrderByDescending(e => e.StreamMessage.Priority)
-                    .ThenBy(e => e.StreamMessage.OrderId)
+                var queueBatch = elem
+                    .SelectMany(e1 => e1.outbox.Messages.Select(e2 => (Data: e1, Message: e2))
+                    .OrderByDescending(e => e.Message.Priority)
+                    .ThenBy(e => e.Message.OrderId)
                     .Select(e => (
-                        e.StreamMessage,
-                        e.OutboxMessage, 
+                        Message: e,
                         producerMessage: new MessageDto(
-                            e.OutboxMessage.Key,
-                            outboxComponenets[e.StreamMessage.Id].Queue.Name,
-                            e.OutboxMessage.Headers.Deserialize<HeaderDto[]>() ?? Array.Empty<HeaderDto>(),
-                            e.OutboxMessage.Body,
-                            e.OutboxMessage.Partition
-                            )))
+                            e.Message.Key,
+                            elem.Key.Name,
+                            e.Message.Headers.Deserialize<HeaderDto[]>() ?? Array.Empty<HeaderDto>(),
+                            e.Message.Body,
+                            e.Message.Partition
+                            ))))
                     .ToArray();
 
                 var producer = await _queueProviderFactory.GetProducerAsync(elem.Key.Name, cancellationToken);
@@ -120,39 +76,29 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 
                     foreach (var elem2 in queueBatch)
                     {
-                        elem2.StreamMessage.IsActive = false;
-                        elem2.OutboxMessage.Status = OutboxMessageDataDbEntity<TId>.StatusEnum.Complete;
-                        elem2.OutboxMessage.SendDate = DateTimeOffset.UtcNow;
+                        elem2.Message.Message.IsActive = false;
+                        elem2.Message.Message.Status = OutboxMessageDbEntity<TId>.StatusEnum.Complete;
+                        elem2.Message.Message.SendDate = DateTimeOffset.UtcNow;
+                        elem2.Message.Data.outbox.ProcessCount++;
                     }
                 }
                 catch (Exception ex)
                 {
-                    var streamIds = groupByQueue
-                        .SelectMany(e => e.Select(e2 => groupByStream[e2.Id].Key))
-                        .ToArray();
-
-                    foreach (var elem2 in streamIds) 
+                    foreach (var elem2 in elem) 
                     {
-                        _setter.SetError(processes[new ProcessIdDto<TId>(elem2)], ex);
+                        _setter.SetError(elem2.Process, ex, allowRetry: true);
                     }
                 }
             }
 
-            // Сбрасываем selectDate т.к. мы могли обработать не все сообщения во всех стрим, а блокировку на них сейчас держим.
-            // Можно сделать более хитрую политику.
-            foreach (var elem in processes.Values)
+            // Стримы у которых все сообщения обработаны - засыпают.
+            foreach (var elem in context.Values)
             {
-                if (elem.CurrentSession.HaveError)
+                if (elem.outbox.UnreadCount == elem.outbox.ProcessCount)
                 {
-                    continue;
+                    _setter.SetStatus(elem.Process, ProcessStatusEnum.WaitEvent);
                 }
-
-                _setter.SetTimer(elem, DateTimeOffset.MinValue.UtcDateTime);
             }
-
-            await _messageStreamTechService.AfterStreamExecuteAsync(
-                    processes.Values.ToArray(),
-                    cancellationToken);
         }
     }
 }

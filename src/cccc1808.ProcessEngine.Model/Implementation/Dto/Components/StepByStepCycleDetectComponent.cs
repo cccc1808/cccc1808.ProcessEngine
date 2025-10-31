@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
 {
+    /// <summary>
+    /// Компонент для обнаружения зацикливания процесса.
+    /// </summary>
     internal class StepByStepCycleDetectComponent
     {
         public int StepCount { get; set; }

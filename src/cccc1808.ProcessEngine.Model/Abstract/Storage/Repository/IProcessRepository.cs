@@ -11,8 +11,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Storage.Repository
 {
     public interface IProcessRepository<TId>
     {
-        Task<ICollection<IProcessContainer<TId>>> GetRangeWithLockAsync(
+        Task<ICollection<IProcessContainer<TId>>> GetRange(
             ICollection<ProcessIdDto<TId>> ids,
+            bool withLock,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -27,6 +28,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Storage.Repository
 
         Task UpdateAsync(
             ICollection<IProcessContainer<TId>> processes, 
+            CancellationToken cancellationToken);
+
+        Task UpdateWakeupAsync(
+            ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken);
     }
 }

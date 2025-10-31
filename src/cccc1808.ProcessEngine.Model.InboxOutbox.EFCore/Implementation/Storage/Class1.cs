@@ -36,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
             var founded = new Dictionary<(TId QueueId, TId AggregateId), TId>(aggregateIds.Count);
             var notFounded = new HashSet<(TId QueueId, TId AggregateId)>(aggregateIds.Count);
             {
-                var inboxStreamData = await _dbContext.Set<InboxStreamDataDbEntity<TId>>()
+                var inboxStreamData = await _dbContext.Set<InboxProcessDataDbEntity<TId>>()
                     .Where(e => aggregateIds.Contains((e.QueueId, e.AggregateId)))
                     .ToDictionaryAsync(e => e.AggregateId, e => e.Id, cancellationToken);
 
@@ -59,11 +59,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
             }
 
             {
-                var createdStreams = await _dbContext.Set<InboxStreamDataDbEntity<TId>>()
+                var createdStreams = await _dbContext.Set<InboxProcessDataDbEntity<TId>>()
                     .UpsertRange(
                         notFounded
                             .Select(
-                                e => new InboxStreamDataDbEntity<TId>() 
+                                e => new InboxProcessDataDbEntity<TId>() 
                                 {
                                     Id = default,
                                     AggregateId = e.AggregateId,
@@ -113,7 +113,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
                 {
                     
 
-                    inboxStreamData = await dbContext.Set<InboxStreamDataDbEntity<TId>>()
+                    inboxStreamData = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
                         .AsNoTracking()
                         .FirstAsync(e => e.AggregateId == elem.Key, cancelationToken);
                     aggregateIdCache.Add(elem.Key, inboxStreamData.Id);

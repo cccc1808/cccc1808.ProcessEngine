@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
@@ -47,12 +46,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             _process_AsyncExecute_Condition = new Process_AsyncExecute_Condition<TId, TDbEntity>();
         }
 
-        public virtual async Task<ICollection<IProcessContainer<TId>>> GetRangeWithLockAsync(
+        public virtual async Task<ICollection<IProcessContainer<TId>>> GetRange(
             ICollection<ProcessIdDto<TId>> ids,
+            bool withLock,
             CancellationToken cancellationToken)
         {
             TDbEntity[] data;
-            using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+            using (var hint = _lockQueryHintStore.StartScope(withLock ? LockHintEnum.ForNoKeyUpdateAndSkipLocked : LockHintEnum.No))
             {
                 data = await _dbContext.Set<TDbEntity>()
                     //.Include(e => e.Error)
@@ -89,9 +89,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                 })
                 .ToDictionary(e => e.Process.Info.Id.Id, e => (IProcessContainer<TId>)e);
 
+            var byTypeIndex = containers.Values
+                .GroupBy(e => e.Process.Info.ProcessType)
+                .ToDictionary(
+                    e => e.Key, 
+                    e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
             foreach (var elem in _processLoaders)
             {
-                await elem.LoadForAsyncProcessingAsync(containers, cancellationToken);
+                await elem.LoadRangeAsync(
+                    containers,
+                    byTypeIndex,
+                    withLock,
+                    cancellationToken);
             }
 
             return containers.Values;
@@ -142,9 +151,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                 })
                 .ToDictionary(e => e.Process.Info.Id.Id, e => (IProcessContainer<TId>)e);
 
+            var byTypeIndex = containers.Values
+                .GroupBy(e => e.Process.Info.ProcessType)
+                .ToDictionary(
+                    e => e.Key,
+                    e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
             foreach (var elem in _processLoaders)
             {
-                await elem.LoadForAsyncProcessingAsync(containers, cancellationToken);
+                await elem.LoadForAsyncProcessingAsync(
+                    containers,
+                    byTypeIndex,
+                    cancellationToken);
             }
 
             return containers.Values;
@@ -154,11 +171,27 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
+            var byTypeIndex = processes
+                .GroupBy(e => e.Process.Info.ProcessType)
+                .ToDictionary(
+                    e => e.Key,
+                    e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
+
             foreach (var elem in _processLoaders)
             {
-                await elem.UpdateAsync(processes, cancellationToken);
+                await elem.UpdateAsync(
+                    processes, 
+                    byTypeIndex,
+                    cancellationToken);
             }
 
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task UpdateWakeupAsync(
+            ICollection<IProcessContainer<TId>> processes,
+            CancellationToken cancellationToken)
+        {
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }

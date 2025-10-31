@@ -11,7 +11,6 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Abstract;
 using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities;
 
 using Microsoft.EntityFrameworkCore;
@@ -155,7 +154,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                         {
                             if (!aggregateIdCache.TryGetValue(elem.Key, out _))
                             {
-                                var inboxStreamData = await dbContext.Set<InboxStreamDataDbEntity<TId>>()
+                                var inboxStreamData = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
                                     .AsNoTracking()
                                     .FirstOrDefaultAsync(e => e.AggregateId == elem.Key, cancelationToken);
 
@@ -164,8 +163,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                                     // Создаем стрим, если его нет.
                                     await using (var transaction = await transactionManager.StartTransactionAsync(cancelationToken))
                                     {
-                                        var result = await dbContext.Set<InboxStreamDataDbEntity<TId>>()
-                                            .Upsert(new InboxStreamDataDbEntity<TId>()
+                                        var result = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
+                                            .Upsert(new InboxProcessDataDbEntity<TId>()
                                             {
                                                 Id = _idFactory(null),
                                                 AggregateId = elem.Key,
@@ -173,7 +172,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                                             })
                                             .RunAsync(cancelationToken);
 
-                                        inboxStreamData = await dbContext.Set<InboxStreamDataDbEntity<TId>>()
+                                        inboxStreamData = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
                                             .AsNoTracking()
                                             .FirstAsync(e => e.AggregateId == elem.Key, cancelationToken);
                                         aggregateIdCache.Add(elem.Key, inboxStreamData.Id);
@@ -216,7 +215,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                         // Записываем сообщения и запускаем стрим.
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancelationToken))
                         {
-                            var forInsert = new Dictionary<string, InboxMessageDataDbEntity<TId>>(batch.Count);
+                            var forInsert = new Dictionary<string, InboxMessageDbEntity<TId>>(batch.Count);
                             foreach (var elem in aggregates.SelectMany(e => e.Select(e2 => e2)))
                             {
                                 using var headersJson = JsonSerializer.SerializeToDocument(
@@ -227,7 +226,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
 
                                 forInsert.Add(
                                     elem.Message.Key,
-                                    new InboxMessageDataDbEntity<TId>()
+                                    new InboxMessageDbEntity<TId>()
                                     {
                                         Id = _idFactory(null),
                                         Key = elem.Message.Key,
@@ -240,7 +239,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                             }
 
                             // Обработка повторяющися сообщений (IdemporencyId)
-                            var result = await dbContext.Set<InboxMessageDataDbEntity<TId>>()
+                            var result = await dbContext.Set<InboxMessageDbEntity<TId>>()
                                 .UpsertRange(forInsert.Values)
                                 .On(e => new { e.StreamId, e.IdemporencyId })
                                 .NoUpdate()

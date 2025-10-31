@@ -22,15 +22,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
 
             if (process.TryGetComponent<IWakeUpComponent>(out var w))
             {
-                w.Timestamp = DateTimeOffset.UtcNow;
-                if (status == ProcessStatusEnum.AsyncExecute)
+                if (!w.InAsyncExecuting)
                 {
-                    w.IsAsyncExecuting = true;
-                }
-                else 
-                {
-                    w.IsAsyncExecuting = false;
-                }
+                    if (status == ProcessStatusEnum.AsyncExecute)
+                    {
+                        w.IsAsyncExecuting = true;
+                    }
+                    else
+                    {
+                        w.IsAsyncExecuting = false;
+                    }
+
+                    w.Timestamp = DateTimeOffset.UtcNow;
+                    w.NeedUpdate = true;
+                }                
             }
         }
 
@@ -80,6 +85,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             process.Process.TimerDate = date;
             //component.LinkedProcessId = linkedProcess?.linkedId;
             //component.IsProcessOrTimer = linkedProcess?.isProcessOrTimer;
+
+            if (process.TryGetComponent<IWakeUpComponent>(out var w))
+            {
+                if (!w.InAsyncExecuting)
+                {
+                    w.TimerDate = date;
+
+                    w.Timestamp = DateTimeOffset.UtcNow;
+                    w.NeedUpdate = true;
+                }
+            }
         }
     }
 }

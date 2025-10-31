@@ -14,7 +14,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
     {
         private readonly WakeUpProcessDbEntity<TId> _dbEntity;
 
-        public DateTimeOffset SessionStartTimeStamp { get; private init; }
+        public DateTimeOffset SessionStartTimeStamp { get; }
 
         public DateTimeOffset Timestamp 
         {
@@ -35,11 +35,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
         }
 
         public bool NeedUpdate { get; set; }
+        public bool InAsyncExecuting { get; set; }
 
-        public EFWakeUpProxyComponent(WakeUpProcessDbEntity<TId> dbEntity)
+        public EFWakeUpProxyComponent(
+            WakeUpProcessDbEntity<TId> dbEntity,
+            bool inAsyncExecuting)
         {
             _dbEntity = dbEntity;
             SessionStartTimeStamp = dbEntity.TimeStamp;
-        }        
+            InAsyncExecuting = inAsyncExecuting;
+        }
     }
 }

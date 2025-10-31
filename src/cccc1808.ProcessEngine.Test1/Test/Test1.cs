@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Groupping;
@@ -132,6 +133,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                     s.GetRequiredService<IServiceProvider>(),
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
+                                    s.GetRequiredService<IWakeUpService<Guid>>(),
                                     (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                         s.GetRequiredService<Handler1>()
                                         )
@@ -261,6 +263,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                                 s.GetRequiredService<IServiceProvider>(),
                                                 s.GetRequiredService<IIsolationService>(),
                                                 s.GetRequiredService<IProcessSetter>(),
+                                                s.GetRequiredService<IWakeUpService<Guid>>(),
                                                 (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                                     s.GetRequiredService<Handler2>()
                                                     )

@@ -21,6 +21,7 @@ namespace cccc1808.ProcessEngine.Model.Common
             )
         {
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cancellationTokenSource.CancelAfter(timeout);
             try 
             {
                 return (true, await action(param, cancellationTokenSource.Token));
@@ -34,40 +35,6 @@ namespace cccc1808.ProcessEngine.Model.Common
 
                 throw;
             }
-
-            //if (timeout == TimeSpan.Zero)
-            //{
-            //    return (false, default!);
-            //}
-
-            //using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            //try
-            //{
-            //    var executeValueTask = action(param, cancellationTokenSource.Token);
-
-            //    if (executeValueTask.IsCompleted)
-            //    {
-            //        return (true, await executeValueTask);
-            //    }
-
-            //    var executeTask = executeValueTask.AsTask();
-            //    var delayTask = Task.Delay(timeout, cancellationTokenSource.Token);
-
-            //    var completedTask = await Task.WhenAny(
-            //        executeTask,
-            //        delayTask);
-
-            //    if (completedTask == executeTask)
-            //    {
-            //        return (true, await executeTask);
-            //    }
-
-            //    return (false, default!);
-            //}
-            //finally 
-            //{
-            //    cancellationTokenSource.Cancel();
-            //}
         }
 
         /// <summary>
@@ -83,9 +50,9 @@ namespace cccc1808.ProcessEngine.Model.Common
             )
         {
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cancellationTokenSource.CancelAfter(timeout);
             try
             {
-                cancellationTokenSource.CancelAfter(timeout);
                 await action(param, cancellationTokenSource.Token);
                 return true;
             }
@@ -98,40 +65,41 @@ namespace cccc1808.ProcessEngine.Model.Common
 
                 throw;
             }
+        }
 
-            //if (timeout == TimeSpan.Zero)
-            //{
-            //    return (false, default!);
-            //}
+        public static async ValueTask<bool> ExecuteWithTimeoutAsync<TParam>(
+            TParam param,
+            TimeSpan timeout,
+            Func<TParam, ValueTask> action)
+        {
+            using var wait = new SemaphoreSlim(1, 1);
 
-            //using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            //try
-            //{
-            //    var executeValueTask = action(param, cancellationTokenSource.Token);
+            Task executeTask;
+            {
+                var executeValueTask = action(param);
 
-            //    if (executeValueTask.IsCompleted)
-            //    {
-            //        return (true, await executeValueTask);
-            //    }
+                if (executeValueTask.IsCompleted)
+                {
+                    await executeValueTask;
+                    return true;
+                }
 
-            //    var executeTask = executeValueTask.AsTask();
-            //    var delayTask = Task.Delay(timeout, cancellationTokenSource.Token);
+                executeTask = executeValueTask.AsTask();
+            }
 
-            //    var completedTask = await Task.WhenAny(
-            //        executeTask,
-            //        delayTask);
+            var delayTask = wait.WaitAsync(timeout);
 
-            //    if (completedTask == executeTask)
-            //    {
-            //        return (true, await executeTask);
-            //    }
+            var completedTask = await Task.WhenAny(
+                executeTask,
+                delayTask);
 
-            //    return (false, default!);
-            //}
-            //finally 
-            //{
-            //    cancellationTokenSource.Cancel();
-            //}
+            if (completedTask == executeTask)
+            {
+                await executeTask;
+                return true;
+            }
+
+            return false;
         }
     }
 }
