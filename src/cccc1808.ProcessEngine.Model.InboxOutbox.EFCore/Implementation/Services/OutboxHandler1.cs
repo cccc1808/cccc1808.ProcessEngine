@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Batch;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
+using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
@@ -21,6 +23,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
         : BaseEFChangeTrackerIJobHandler1<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
+        
 
         public OutboxHandler1(
             IProcessRepository<TId> repository,

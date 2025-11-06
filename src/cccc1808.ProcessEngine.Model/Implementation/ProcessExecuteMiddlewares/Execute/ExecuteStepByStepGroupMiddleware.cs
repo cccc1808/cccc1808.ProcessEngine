@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Batch;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
@@ -24,6 +25,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
     {
         private readonly TDbContext _dbContext;
         private readonly OutboxRegistryDto _outboxRegistry;
+        private readonly ILocalProcessBufferService<TId> _localProcessBufferService;
         private readonly int _messagesLimit;
         private readonly IId_RangeCondition<TId, OutboxProcessDataDbEntity<TId>> _id_RangeCondition;
         private readonly MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>> _selectForProcessingCondition;
@@ -63,17 +65,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
                 .GroupBy(e => e.StreamProcessId, (e1, e2) => new { Id = e1, ActiveMessagesCount = e2.Count() })
                 .ToDictionaryAsync(e => e.Id, e => e.ActiveMessagesCount, cancellationToken);
 
+            // TODO: проблема - мы загрузили батч процессов (с блокировкой)
+            // и у некоторыз из них мы загрузили батч сообщений (но не у всех).
+            // И мы удерживаем блокировку даже по тем процессам, по которым не будет обработки (подумать).
+            // При это нужно не забывать по wakeup, если все сообщения прочитаны, то процесс нужно погрузить в сон.
+
             foreach (var elem in outboxProcesses)
             {
                 var process = processes[elem];
-
-                process.AddComponent(
-                    new OutboxProcessComponent<TId>()
-                    {
-                        Data = outboxData[process.Id],
-                        Messages = messagesByStream[process.Id].ToArray(),
-                        UnreadCount = activeMessagesCount[process.Id]
-                    });
+                var component = new OutboxProcessComponent<TId>()
+                {
+                    Data = outboxData[process.Id],
+                    Messages = messagesByStream[process.Id].ToArray(),
+                    UnreadCount = activeMessagesCount[process.Id]
+                };
+                process.AddComponent(component);
             }
         }
 

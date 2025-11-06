@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
+namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Batch
 {
     /// <summary>
     /// Мягкий timeout для долгих операциий.
@@ -16,4 +16,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
 
         bool CheckTimeout();
     }
+
+    //public interface ISoftTimeoutProviderComponent
+    //{
+    //    ISoftTimeoutComponent ;
+    //}
 }
