@@ -109,7 +109,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                         break;
                                     }
 
-                                    ;
                                     var produceResult = _buffer.TryProduce(elem);
 
                                     // Буфер заполнен.

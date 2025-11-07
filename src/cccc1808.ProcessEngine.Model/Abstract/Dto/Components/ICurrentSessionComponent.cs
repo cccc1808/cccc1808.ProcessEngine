@@ -29,5 +29,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
         /// Наличие ошибки процесса в текущей сессии
         /// </summary>
         bool HaveError { get; set; }
+
+        bool StopAsyncProcessingSession { get; set; }
     }
 }

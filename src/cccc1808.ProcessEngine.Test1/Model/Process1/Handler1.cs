@@ -8,13 +8,13 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
 {
     internal class Handler1
-        : BaseEFChangeTrackerExecuteStepByStepGroupMiddlewareHandler1<Guid>
+        : BaseSingleProcessHandler<Guid>
     {
         public Handler1(
             AppDbContext dbContext,
@@ -29,9 +29,10 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
         {
         }
 
-        protected override bool UseSavepoint => throw new NotImplementedException();
 
-        protected override ValueTask<bool> StepAsync(
+        protected override OptionsDto SingleOptions => Presets<Guid>.Preset2_Single;
+
+        protected override ValueTask StepAsync(
             IProcessContainer<Guid> process,
             CancellationToken cancellationToken)
         {
@@ -59,7 +60,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                     }
             }
 
-            return ValueTask.FromResult(true);
+            return ValueTask.CompletedTask;
         }
     }
 }

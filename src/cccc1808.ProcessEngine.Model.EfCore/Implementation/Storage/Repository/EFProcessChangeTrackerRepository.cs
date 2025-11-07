@@ -71,8 +71,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                             Id = e.Id,
                             Error = null
                         };
-                        var entry = _dbContext.Attach(e);
-                        entry.State = EntityState.Unchanged;
+                        var entry = _dbContext.Attach(e.Error);
+                        // entry.State = EntityState.Unchanged;
                     }
 
                     return new ProcessContainer<TId>(
@@ -84,7 +84,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                             IsSessionFirstStep = true,
                             ReTryLimit = 3,
                             RetryTimerCreated = false,
-                            SessionId = Guid.Empty
+                            SessionId = Guid.Empty,
+                            StopAsyncProcessingSession = false,
                         });
                 })
                 .ToDictionary(e => e.Process.Info.Id.Id, e => (IProcessContainer<TId>)e);
@@ -117,7 +118,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                     //.Include(e => e.Error)
                     .ApplayFilterCondition(_id_RangeCondition, ids.Select(e => e.Id).ToArray())
                     // Используем отдельный индекс.
-                    .ApplayFilterCondition(_process_AsyncExecute_Condition, default)
+                    .ApplayFilterCondition(_process_AsyncExecute_Condition, DateTimeOffset.UtcNow)
                     .ToArrayAsync(cancellationToken);
             }
 
@@ -130,8 +131,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                             Id = e.Id,
                             Error = null
                         };
-                        var entry = _dbContext.Attach(e);
-                        entry.State = EntityState.Unchanged;
+                        var entry = _dbContext.Attach(e.Error);
+                        // entry.State = EntityState.Unchanged;
                     }
 
                     // Так как мы уже считали с блокировкой, то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.

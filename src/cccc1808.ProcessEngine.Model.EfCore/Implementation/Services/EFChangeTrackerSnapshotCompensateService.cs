@@ -13,12 +13,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
     /// <summary>
     /// Система компенсации, основанная на создании снимка состояния DbContext.ChangeTracker.
     /// </summary>
-    internal class ChangeTrackerSnapshotCompensateService
+    public class EFChangeTrackerSnapshotCompensateService
         : IChangeTrackerSnapshotCompensateService
     {
         private readonly IChangeTrackerSnapshotService _changeTrackerSnapshotService;
 
-        public ChangeTrackerSnapshotCompensateService(
+        public EFChangeTrackerSnapshotCompensateService(
             IChangeTrackerSnapshotService changeTrackerSnapshotService)
         {
             _changeTrackerSnapshotService = changeTrackerSnapshotService;
@@ -27,8 +27,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(CancellationToken cancellationToken)
         {
             var snapshot = _changeTrackerSnapshotService.CaptureState();
-
-            throw new NotImplementedException();
+            return ValueTask.FromResult<ICompensateService.ICompensateScope>(
+                new Scope(snapshot));
         }
 
         private record Scope : ICompensateService.ICompensateScope

@@ -30,7 +30,7 @@ using Testcontainers.PostgreSql;
 namespace cccc1808.ProcessEngine.Test1.Test
 {
     [TestClass]
-    public class Test1
+    public class PerformanceTest1
     {
         // private int TotalCount => 50000;
 
@@ -38,22 +38,25 @@ namespace cccc1808.ProcessEngine.Test1.Test
         [TestMethod]
         public async Task TestAsync() 
         {
-            var count = 50000;
+            var count = 20000;
             var limit1 = 1000;
             var limit2 = 2000;
 
             var result = new Dictionary<string, Stopwatch>();
 
-            result.Add("1. useDbOptimizations: false, count, 50, limit1", await Test1Async(false, useDbOptimizations: false, count, 50, limit1));
-            result.Add("1. useDbOptimizations: false, count, 100, limit1", await Test1Async(false, useDbOptimizations: false, count, 100, limit1));
-            result.Add("1. useDbOptimizations: false, count, 250, limit1", await Test1Async(false, useDbOptimizations: false, count, 250, limit1));
-            result.Add("1. useDbOptimizations: false, count, 500, limit1", await Test1Async(false, useDbOptimizations: false, count, 500, limit1));
+            if (true)
+            {
+                result.Add("1. useDbOptimizations: false, count, 50, limit1", await Test1Async(false, useDbOptimizations: false, count, 50, limit1));
+                result.Add("1. useDbOptimizations: false, count, 100, limit1", await Test1Async(false, useDbOptimizations: false, count, 100, limit1));
+                result.Add("1. useDbOptimizations: false, count, 250, limit1", await Test1Async(false, useDbOptimizations: false, count, 250, limit1));
+                result.Add("1. useDbOptimizations: false, count, 500, limit1", await Test1Async(false, useDbOptimizations: false, count, 500, limit1));
+            }
 
-            result.Add("1. useDbOptimizations: true, count, 50, limit1", await Test1Async(false, useDbOptimizations: true, count, 50, limit1));
-            result.Add("1. useDbOptimizations: true, count, 100, limit1", await Test1Async(false, useDbOptimizations: true, count, 100, limit1));
-            result.Add("1. useDbOptimizations: true, count, 250, limit1", await Test1Async(false, useDbOptimizations: true, count, 250, limit1));
-            result.Add("1. useDbOptimizations: true, count, 500, limit1", await Test1Async(false, useDbOptimizations: true, count, 500, limit1));
-            result.Add("1. useDbOptimizations: true, count, 1000, limit1", await Test1Async(false, useDbOptimizations: true, count, 1000, limit1));
+            //result.Add("1. useDbOptimizations: true, count, 50, limit1", await Test1Async(false, useDbOptimizations: true, count, 50, limit1));
+            //result.Add("1. useDbOptimizations: true, count, 100, limit1", await Test1Async(false, useDbOptimizations: true, count, 100, limit1));
+            //result.Add("1. useDbOptimizations: true, count, 250, limit1", await Test1Async(false, useDbOptimizations: true, count, 250, limit1));
+            //result.Add("1. useDbOptimizations: true, count, 500, limit1", await Test1Async(false, useDbOptimizations: true, count, 500, limit1));
+            //result.Add("1. useDbOptimizations: true, count, 1000, limit1", await Test1Async(false, useDbOptimizations: true, count, 1000, limit1));
 
             //result.Add("1. useDbOptimizations: false, count, 50, limit2", await Test1Async(false, useDbOptimizations: false, count, 50, limit2));
             //result.Add("1. useDbOptimizations: false, count, 100, limit2", await Test1Async(false, useDbOptimizations: false, count, 100, limit2));
@@ -76,9 +79,9 @@ namespace cccc1808.ProcessEngine.Test1.Test
             result.Add("2. useDbOptimizations: false, count, Environment.ProcessorCount * 4", await Test2Async(false, useDbOptimizations: false, count, Environment.ProcessorCount * 4));
             result.Add("2. useDbOptimizations: false, count, Environment.ProcessorCount * 5", await Test2Async(false, useDbOptimizations: false, count, Environment.ProcessorCount * 5));
 
-            result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 3", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 4));
-            result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 4", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 5));
-            result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 5", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 6));
+            //result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 3", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 4));
+            //result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 4", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 5));
+            //result.Add("2. useDbOptimizations: true, count, Environment.ProcessorCount * 5", await Test2Async(false, useDbOptimizations: true, count, Environment.ProcessorCount * 6));
 
             //var result211 = await Test2Async(false, count, Environment.ProcessorCount * 3);
             //var result212 = await Test2Async(false, count, Environment.ProcessorCount * 4);

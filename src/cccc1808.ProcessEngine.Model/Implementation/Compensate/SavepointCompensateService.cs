@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.Compensate
 {
-    internal class SavepointCompensateService
+    public class SavepointCompensateService
         : ISavepointCompensateService
     {
         private readonly ITransactionManager _transactionManager;

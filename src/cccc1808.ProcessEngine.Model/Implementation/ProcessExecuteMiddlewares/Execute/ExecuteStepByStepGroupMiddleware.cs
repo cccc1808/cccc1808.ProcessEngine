@@ -73,40 +73,43 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             var handler = await _factory(_serviceProvider);
             var options = handler.Options;
 
-            var allProcesses = await LoadAsync(
-                handler,
-                ids.First(),
-                sessionId,
-                cancellationToken);
+            var allProcesses = LinkContainer.Create(
+                await LoadAsync(
+                    handler,
+                    ids.First(),
+                    sessionId,
+                    cancellationToken)
+                );
 
-            if (allProcesses.Count == 0)
+            if (allProcesses.Data.Count == 0)
             {
                 return;
             }
 
             // Выполняемые процессы
-            var executingProcesses = allProcesses
-                .ToDictionary();
+            var executingProcesses = LinkContainer.Create(
+                allProcesses
+                    .Data
+                    .ToDictionary()
+                );
 
             while (true)
             {
                 // Весь набор обработан.
-                if (!executingProcesses.Any())
+                if (!executingProcesses.Data.Any())
                 {
                     break;
                 }
 
-                if (allProcesses.Values
-                    .Any(e => e.TryGetComponent<ISoftTimeoutComponent>(out var component) && component.CheckTimeout()))
-                {
-                    break;
-                }
+                //if (allProcesses.Data.Values
+                //    .Any(e => e.TryGetComponent<ISoftTimeoutComponent>(out var component) && component.CheckTimeout()))
+                //{
+                //    break;
+                //}
 
-                ExecuteGroup? executionGroup = null;
+                var executionGroup = new LinkContainer<ExecuteGroup?>(null);
                 await _isolationService.ExecuteAsync(
-                    options.UseSavepoint 
-                     ? IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
-                     : IIsolationService.IsolationMode.ClearChangeTracker,
+                    options.IsolationMode,
                     (
                         This: this,
                         handler,
@@ -114,38 +117,39 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                         sessionId,
 
                         allProcesses,
-                        executingProcesses,                         
-                        executionGroup                        
+                        executingProcesses,
+                        executionGroup                      
                         ),
                     static async (p, cancellationToken) =>
                     {
-                        // Формирование группы выполнения.
-                        p.executionGroup = await p.handler.GetExecutionGroupAsync(
-                            p.executingProcesses,
+                        // 1) Формирование группы выполнения.
+                        p.executionGroup.Data = await p.handler.GetExecutionGroupAsync(
+                            p.executingProcesses.Data,
                             cancellationToken);
 
-                        // Шаг.
-                        var stopIds = await p.handler.StepRangeAsync(
-                            p.executionGroup.Value,
+                        // 2) Шаг.
+                        await p.handler.StepRangeAsync(
+                            p.executionGroup.Data.Value,
                             cancellationToken);
 
-                        // Проверка завершенных процессов
+                        // 3) Проверка завершенных процессов
                         {
-                            // 1) Разработчик указал прервать выполнение в текущей сессии. (Допустимо, что они AsyncExecuting).
-                            foreach (var elem in stopIds)
+                            // Условие остановки процесса.
+                            foreach (var elem in p.executionGroup.Data.Value.Group.Values)
                             {
-                                var process = p.executingProcesses[elem];
-                                if (!process.CurrentSession.HaveError)
+                                // Условие асинхронной обработки процесса.
+                                if (
+                                    elem.CurrentSession.StopAsyncProcessingSession
+                                    || !p.This._processEntity_AsyncExecute_Condition.Check(elem, DateTimeOffset.UtcNow))
                                 {
-                                    p.This._processSetter.ClearError(process);
+                                    if (!elem.CurrentSession.HaveError)
+                                    {
+                                        p.This._processSetter.ClearError(elem);
+                                    }
+
+                                    p.executingProcesses.Data.Remove(elem.Process.Info.Id);
                                 }
 
-                                p.executingProcesses.Remove(elem);
-                            }
-
-                            // 2) Условие остановки процесса.
-                            foreach (var elem in p.executionGroup.Value.Group.Values)
-                            {
                                 // Защита от зацикливания.
                                 {
                                     var stepCount = elem.GetComponent<StepByStepCycleDetectComponent>();
@@ -158,90 +162,91 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                                             new Exception("Ошибка зацикливания процесса."),
                                             allowRetry: false);
                                     }
-                                }
+                                }                                
 
-                                if (!p.This._processEntity_AsyncExecute_Condition.Check(elem, default))
-                                {
-                                    if (!elem.CurrentSession.HaveError)
-                                    {
-                                        p.This._processSetter.ClearError(elem);
-                                    }
-
-                                    p.executingProcesses.Remove(elem.Process.Info.Id);
-                                }
-
+                                // Сброс признака первого шага.
                                 {
                                     elem.CurrentSession.IsSessionFirstStep = false;
                                 }
                             }
                         }
 
-                        // Сохраненеи после шага.
-                        if (p.options.UseAfterGroupSave)
+                        // 4) Сохраненеи после шага.
+                        if (p.options.UseAfterStepSave)
                         {
                             await p.handler.SaveRangeAsync(
-                                p.executionGroup.Value,
+                                p.executionGroup.Data.Value,
                                 cancellationToken);
                         }
                     },
                     static async (p, ex, cancellationToken) =>
                     {
                         // Если ошибка возникла на этапе формирования группы выполнения, то ставим ошибку на весь executingProcesses.
-                        p.executionGroup = p.executionGroup
+                        p.executionGroup.Data = p.executionGroup.Data
                             ?? new ExecuteGroup(
                                 "",
-                                p.executingProcesses);
-
-                        // Пользовательский хендлер ошибки
+                                p.executingProcesses.Data);                        
 
                         // Перезагружаем данные после сброса.
-                        p.allProcesses = await p.This.LoadAsync(
-                            p.handler,
-                            p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                            p.sessionId,
-                            cancellationToken);
-                        // Пересобираем группу выполнения после перезагрузки из БД.
-                        p.executionGroup = new ExecuteGroup(
-                            p.executionGroup.Value.Key,
-                            p.allProcesses.Values
-                                .Where(e => p.executionGroup.Value.Group.ContainsKey(e.Process.Info.Id))
-                                .ToDictionary(e => e.Process.Info.Id, e => e));
+                        if (p.options.UseReloadAfterError)
+                        {
+                            p.allProcesses.Data = await p.This.LoadAsync(
+                                p.handler,
+                                p.allProcesses.Data.Values
+                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .ToArray(),
+                                p.sessionId,
+                                cancellationToken);
+
+                            // Пересобираем группу выполнения после перезагрузки из БД.
+                            p.executionGroup.Data = new ExecuteGroup(
+                                p.executionGroup.Data.Value.Key,
+                                p.allProcesses.Data.Values
+                                    .Where(e => p.executionGroup.Data.Value.Group.ContainsKey(e.Process.Info.Id))
+                                    .ToDictionary(e => e.Process.Info.Id, e => e));
+                        }                        
 
                         // Пользовательский хендлер ошибки.
                         await p.handler.OnExceptionRangeAsync(
-                            p.executionGroup.Value,
+                            p.executionGroup.Data.Value,
                             ex,
                             cancellationToken);
 
-                        if (p.options.UseAfterGroupSave)
+                        if (p.options.UseAfterStepSave)
                         {
                             await p.handler.SaveRangeAsync(
-                                p.executionGroup.Value,
+                                p.executionGroup.Data.Value,
                                 cancellationToken);
                         }
                     },
                     static async (p, ex, cancellationToken) => 
                     {
-                        // Хендлер критической ошибки.
-
                         // Перезагружаем данные после сброса.
-                        p.allProcesses = await p.This.LoadAsync(
-                            p.handler,
-                            p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                            p.sessionId,
-                            cancellationToken);
-                        p.executionGroup = new ExecuteGroup(
-                            p.executionGroup.Value.Key,
-                            p.allProcesses.Values
-                                .Where(e => p.executionGroup.Value.Group.ContainsKey(e.Process.Info.Id))
-                                .ToDictionary(e => e.Process.Info.Id, e => e));
-                        
-                        foreach (var elem in p.executingProcesses.Values)
+                        if (p.options.UseReloadAfterError)
+                        {
+                            p.allProcesses.Data = await p.This.LoadAsync(
+                                p.handler,
+                                p.allProcesses.Data.Values
+                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .ToArray(),
+                                p.sessionId,
+                                cancellationToken);
+
+                            // Пересобираем группу выполнения после перезагрузки из БД.
+                            p.executionGroup.Data = new ExecuteGroup(
+                                p.executionGroup.Data.Value.Key,
+                                p.allProcesses.Data.Values
+                                    .Where(e => p.executionGroup.Data.Value.Group.ContainsKey(e.Process.Info.Id))
+                                    .ToDictionary(e => e.Process.Info.Id, e => e));
+                        }
+
+                        // Хендлер критической ошибки.
+                        foreach (var elem in p.executionGroup.Data.Value.Group.Values)
                         {
                             p.This._processSetter.SetError(elem, ex, allowRetry: false);
                         }
                         await p.handler.SaveRangeAsync(
-                            p.executionGroup.Value,
+                            p.executionGroup.Data.Value,
                             cancellationToken);
                     },
                     cancellationToken
@@ -249,68 +254,88 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             }
 
             // Финальное сохранение в конце.
+            if (options.UseEndSave)
             {
                 var executionGroup = new ExecuteGroup(
-                    "EndSaveAll",                            
-                    allProcesses);
-                
+                    "EndSaveAll",
+                    allProcesses.Data);
+
                 await _isolationService.ExecuteAsync(
-                    options.UseSavepoint
-                        ? IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
-                        : IIsolationService.IsolationMode.ClearChangeTracker, // Предполагается атомарное сохранение внутри.
-                    (allProcesses, executingProcesses, executionGroup, handler, This: this, sessionId),
-                    static async (p, t) => 
-                    {  
+                    options.IsolationMode, 
+                    (
+                        allProcesses, 
+                        executingProcesses,
+                        executionGroup,
+                        
+                        options,
+                        handler, 
+                        This: this,
+                        sessionId
+                        ),
+                    static async (p, cancellationToken) =>
+                    {
                         await p.handler.SaveRangeAsync(
                             p.executionGroup,
-                            t
-                            );
+                            cancellationToken);
                     },
-                    static async (p, ex, t) =>
+                    static async (p, ex, cancellationToken) =>
                     {
-                        p.allProcesses = await p.This.LoadAsync(
+                        if (p.options.UseReloadAfterError)
+                        {
+                            p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
-                                p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
+                                p.allProcesses.Data.Values
+                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .ToArray(),
                                 p.sessionId,
-                                t);
-                        p.executionGroup = new ExecuteGroup(
-                            "EndSaveAll",
-                            p.allProcesses);
+                                cancellationToken);
+                            p.executionGroup = new ExecuteGroup(
+                                "EndSaveAll",
+                                p.allProcesses.Data);
+                        }                        
 
-                        await p.handler.OnExceptionRangeAsync(                                    
-                            p.executionGroup,                                    
-                            ex,                                    
-                            t);
-
-                        await p.handler.SaveRangeAsync(
+                        await p.handler.OnExceptionRangeAsync(
                             p.executionGroup,
-                            t);
-                    },
-                    static async (p, ex, t) => 
-                    {
-                        p.allProcesses = await p.This.LoadAsync(
-                                    p.handler,
-                                    p.allProcesses.Values.ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition).ToArray(),
-                                    p.sessionId,
-                                    t);
-                        p.executionGroup = new ExecuteGroup(
-                            "EndSaveAll",
-                            p.allProcesses);
+                            ex,
+                            cancellationToken);
 
-                        foreach (var elem in p.executingProcesses.Values)
+                        if (p.options.UseAfterStepSave)
+                        {
+                            await p.handler.SaveRangeAsync(
+                                p.executionGroup,
+                                cancellationToken);
+                        }
+                    },
+                    static async (p, ex, cancellationToken) =>
+                    {
+                        if (p.options.UseReloadAfterError)
+                        {
+                            p.allProcesses.Data = await p.This.LoadAsync(
+                                p.handler,
+                                p.allProcesses.Data.Values
+                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .ToArray(),
+                                p.sessionId,
+                                cancellationToken);
+                            p.executionGroup = new ExecuteGroup(
+                                "EndSaveAll",
+                                p.allProcesses.Data);
+                        }
+
+                        foreach (var elem in p.executingProcesses.Data.Values)
                         {
                             p.This._processSetter.SetError(elem, ex, allowRetry: false);
                         }
                         await p.handler.SaveRangeAsync(
                             p.executionGroup,
-                            t);
+                            cancellationToken);
                     },
                     cancellationToken
                     );
             }
 
             await _wakeUpService.AfterAsyncSessionHandlerAsync(
-                allProcesses.Values, 
+                allProcesses.Data.Values, 
                 //(p, t) => 
                 //{
                 //    return ValueTask.FromResult<ICollection<(TId, bool)>>(
@@ -376,7 +401,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             /// <param name="context"></param>
             /// <param name="cancellationToken"></param>
             /// <returns>Перечень процессов, по которым нужно остановить выполнение.</returns>
-            ValueTask<ICollection<ProcessIdDto<TId>>> StepRangeAsync(
+            ValueTask StepRangeAsync(
                 ExecuteGroup group,
                 CancellationToken cancellationToken);
 
@@ -402,13 +427,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
 
         public readonly record struct ExecuteGroup(
             string Key, 
-            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> Group);
+            IDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> Group);
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="CycleLimit">Лимит повторений выполнений (зацикливания) процесса.</param>
+        /// <param name="IsolationMode">Режим изоляции между шагами батча.</param>
+        /// <param name="UseAfterStepSave">Вызывать метод сохранения после шага.</param>
+        /// <param name="UseEndSave">Вызывать сохраненеи в конце обработки.</param>
+        /// <param name="UseReloadAfterError">Перезагружать процессы после сброса.</param>
         public record OptionsDto(
             short CycleLimit,
-            bool UseSavepoint,
-            bool UseAfterGroupSave,
-            bool UseEndSave
+            IIsolationService.IsolationMode IsolationMode,
+            bool UseAfterStepSave,
+            bool UseEndSave,
+            bool UseReloadAfterError
             );
 
         #endregion

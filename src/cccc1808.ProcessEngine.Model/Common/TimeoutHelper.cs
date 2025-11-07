@@ -72,7 +72,8 @@ namespace cccc1808.ProcessEngine.Model.Common
             TimeSpan timeout,
             Func<TParam, ValueTask> action)
         {
-            using var wait = new SemaphoreSlim(1, 1);
+            using var wait = new SemaphoreSlim(1);
+            wait.Wait();
 
             Task executeTask;
             {

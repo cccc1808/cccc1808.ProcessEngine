@@ -27,7 +27,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
             IChangeTrackerCompensateService changeTrackerCompensateService,
             IChangeTrackerSnapshotCompensateService changeTrackerSnapshotCompensateService,
             IManualCompensateService manualCompensateService,
-            bool transactionRequired)
+            bool transactionRequired = true)
         {
             _transactionManager = transactionManager;
             _savepointCompensateService = savepointCompensateService;
@@ -234,6 +234,52 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
                         break;
                     }
 
+                case IIsolationService.IsolationMode.ChangeTrackerSnapshot:
+                    {
+                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken))
+                        {
+                            try
+                            {
+                                await action(param, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                                {
+                                    throw;
+                                }
+
+                                await changeTrackerSnapshot.CompensateAsync(cancellationToken);
+
+                                try
+                                {
+                                    await exceptionHandler(param, ex, cancellationToken);
+                                }
+                                catch (Exception ex2)
+                                {
+                                    if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
+                                    {
+                                        throw;
+                                    }
+
+                                    await changeTrackerSnapshot.CompensateAsync(cancellationToken);
+
+                                    var aggregateException = new AggregateException(ex, ex2);
+                                    if (criticalExceptionHandler == null)
+                                    {
+                                        throw aggregateException;
+                                    }
+
+                                    await criticalExceptionHandler(param, aggregateException, cancellationToken);
+                                }
+                            }
+
+                            await changeTrackerSnapshot.CommitAsync(cancellationToken);
+                        }
+
+                        break;
+                    }
+
                 case IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual:
                     {
                         await using (var manualCompensate = await _manualCompensateService.StartScopeAsync(cancellationToken))
@@ -283,6 +329,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
 
                         break;
                     }
+
+                default: throw new NotImplementedException();
             }
         }
     }

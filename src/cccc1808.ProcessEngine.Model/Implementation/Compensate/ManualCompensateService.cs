@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Compensate
     /// Предоставляет разработчику возможность самостоятельно зарегестировать действие компенсации в момент выполнение какого-либо действия.
     /// Основное применение: откат изменений сделанных напрямую в БД, когда используется EF.ChangeTracker и ChangeTrackerSnapshotCompensateService (например когда нужен InsertOnConflict).
     /// </summary>
-    internal class ManualCompensateService
+    public class ManualCompensateService
         : IManualCompensateService
     {      
         private Scope? Current { get; set; }

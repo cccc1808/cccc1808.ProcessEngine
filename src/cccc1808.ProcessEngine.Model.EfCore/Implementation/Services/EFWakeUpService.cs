@@ -92,6 +92,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 }
             }
 
+            if (context.Count == 0)
+            {
+                return;
+            }
+
             {
                 // Блокировка используется, чтобы не допустить ситуации, когда другая транзакция попытается пробудить процесс,
                 // а мы это не увидим (и процесс уснент)

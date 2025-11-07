@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
             _connectionString = connectionString;
         }
 
-        public DbSet<MemoryJoinStubEntity> MemoryJoin => Set<MemoryJoinStubEntity>();
+        private DbSet<MemoryJoinStubEntity> MemoryJoin => Set<MemoryJoinStubEntity>();
 
         public DbSet<ProcessDbEntity<Guid>> Process => Set<ProcessDbEntity<Guid>>();
 

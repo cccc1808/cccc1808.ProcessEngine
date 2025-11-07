@@ -1,141 +1,141 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
+//using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Common;
-using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+//using cccc1808.ProcessEngine.Model.Abstract.Dto;
+//using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+//using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
+//using cccc1808.ProcessEngine.Model.Abstract.Services;
+//using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
+//using cccc1808.ProcessEngine.Model.Common;
+//using cccc1808.ProcessEngine.Model.Common.Condition;
+//using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
+//using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
 
-using Microsoft.EntityFrameworkCore;
+//using Microsoft.EntityFrameworkCore;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
-{
-    /// <summary>
-    /// Паттерн для использования на основе EF + ChangeTracker.
-    /// </summary>
-    /// <typeparam name="TId"></typeparam>
-    /// <typeparam name="TDbContext"></typeparam>
-    public abstract class BaseEFChangeTrackerIJobHandler2<TId>
-        : ExecuteJobRangeMiddleware<TId>.IHandler
-    {
-        private readonly IChangeTrackerSnapshotService _changeTrackerSnapshotService;
-        protected readonly IProcessRepository<TId> _repository;
-        protected readonly IProcessSetter _setter;
-        protected readonly ProcessInstanceInfoDto_Id_Condition<TId> _processInstanceInfoDto_Id_Condition;
+//namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
+//{
+//    /// <summary>
+//    /// Паттерн для использования на основе EF + ChangeTracker.
+//    /// </summary>
+//    /// <typeparam name="TId"></typeparam>
+//    /// <typeparam name="TDbContext"></typeparam>
+//    public abstract class BaseEFChangeTrackerIJobHandler2<TId>
+//        : ExecuteJobRangeMiddleware<TId>.IHandler
+//    {
+//        private readonly IChangeTrackerSnapshotService _changeTrackerSnapshotService;
+//        protected readonly IProcessRepository<TId> _repository;
+//        protected readonly IProcessSetter _setter;
+//        protected readonly ProcessInstanceInfoDto_Id_Condition<TId> _processInstanceInfoDto_Id_Condition;
 
-        protected BaseEFChangeTrackerIJobHandler2(
-            IChangeTrackerSnapshotService changeTrackerSnapshotService,
-            IProcessRepository<TId> repository, 
-            IProcessSetter setter)
-        {
-            _changeTrackerSnapshotService = changeTrackerSnapshotService;
-            _repository = repository;
-            _setter = setter;
-            _processInstanceInfoDto_Id_Condition = new ProcessInstanceInfoDto_Id_Condition<TId>();
-        }
+//        protected BaseEFChangeTrackerIJobHandler2(
+//            IChangeTrackerSnapshotService changeTrackerSnapshotService,
+//            IProcessRepository<TId> repository, 
+//            IProcessSetter setter)
+//        {
+//            _changeTrackerSnapshotService = changeTrackerSnapshotService;
+//            _repository = repository;
+//            _setter = setter;
+//            _processInstanceInfoDto_Id_Condition = new ProcessInstanceInfoDto_Id_Condition<TId>();
+//        }
 
-        #region ExecuteJobRangeMiddleware
+//        #region ExecuteJobRangeMiddleware
 
-        public ExecuteJobRangeMiddleware<TId>.OptionsDto Options { get; }
-            = new ExecuteJobRangeMiddleware<TId>.OptionsDto(
-                UseSavepoint: false,
-                UseSave: true);
+//        public ExecuteJobRangeMiddleware<TId>.OptionsDto Options { get; }
+//            = new ExecuteJobRangeMiddleware<TId>.OptionsDto(
+//                UseSavepoint: false,
+//                UseSave: true);
 
-        public virtual async Task<ICollection<IProcessContainer<TId>>> LoadWithLockRangeSkipLockedAsync(
-            IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
-            CancellationToken cancellationToken)
-        {
-            var data = await _repository.GetRangeForAsyncProcessingAsync(
-                ids.ApplayProjectionCondition(_processInstanceInfoDto_Id_Condition).ToArray(),
-                cancellationToken);
+//        public virtual async Task<ICollection<IProcessContainer<TId>>> LoadWithLockRangeSkipLockedAsync(
+//            IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
+//            CancellationToken cancellationToken)
+//        {
+//            var data = await _repository.GetRangeForAsyncProcessingAsync(
+//                ids.ApplayProjectionCondition(_processInstanceInfoDto_Id_Condition).ToArray(),
+//                cancellationToken);
 
-            return data;
-        }
+//            return data;
+//        }
 
-        public virtual async ValueTask HandleRangeAsync(
-            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
-            CancellationToken cancellationToken)
-        {
-            if (processes.Count == 1)
-            {
-                // Здесь можно писать в БД напрямую т.к. процессы нарезаны по 1 на savepoint (save).
+//        public virtual async ValueTask HandleRangeAsync(
+//            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
+//            CancellationToken cancellationToken)
+//        {
+//            if (processes.Count == 1)
+//            {
+//                // Здесь можно писать в БД напрямую т.к. процессы нарезаны по 1 на savepoint (save).
 
-                await HandleAsync(processes.Values.First(), cancellationToken);
-            }
-            else 
-            {
-                foreach (var elem in processes.Values)
-                {
-                    // Здесь не рекомендуется писать в БД напрямую т.к. в случае Exception нет никакого сброка БД.
+//                await HandleAsync(processes.Values.First(), cancellationToken);
+//            }
+//            else 
+//            {
+//                foreach (var elem in processes.Values)
+//                {
+//                    // Здесь не рекомендуется писать в БД напрямую т.к. в случае Exception нет никакого сброка БД.
 
-                    var changeTrackerSnapshot = _changeTrackerSnapshotService.CaptureState();
+//                    var changeTrackerSnapshot = _changeTrackerSnapshotService.CaptureState();
 
-                    try
-                    {
-                        await HandleAsync(elem, cancellationToken);
-                        changeTrackerSnapshot.NoRestore();
-                    }
-                    catch (Exception ex)
-                    {
-                        if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                        {
-                            changeTrackerSnapshot.NoRestore();
-                            throw;
-                        }
+//                    try
+//                    {
+//                        await HandleAsync(elem, cancellationToken);
+//                        changeTrackerSnapshot.NoRestore();
+//                    }
+//                    catch (Exception ex)
+//                    {
+//                        if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+//                        {
+//                            changeTrackerSnapshot.NoRestore();
+//                            throw;
+//                        }
 
-                        changeTrackerSnapshot.Restore();
-                        await OnExceptionRangeAsync(
-                            new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem },
-                            ex,
-                            cancellationToken);
-                    }
-                }
-            }
-        }
+//                        changeTrackerSnapshot.Restore();
+//                        await OnExceptionRangeAsync(
+//                            new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem },
+//                            ex,
+//                            cancellationToken);
+//                    }
+//                }
+//            }
+//        }
 
-        public virtual ValueTask OnExceptionRangeAsync(
-            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
-            Exception ex,
-            CancellationToken cancellationToken)
-        {
-            foreach (var elem in processes.Values)
-            {
-                _setter.SetError(elem, ex, allowRetry: true);
-            }
+//        public virtual ValueTask OnExceptionRangeAsync(
+//            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
+//            Exception ex,
+//            CancellationToken cancellationToken)
+//        {
+//            foreach (var elem in processes.Values)
+//            {
+//                _setter.SetError(elem, ex, allowRetry: true);
+//            }
 
-            return ValueTask.CompletedTask;
-        }
+//            return ValueTask.CompletedTask;
+//        }
 
-        public virtual async Task SaveRangeAsync(
-            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
-            CancellationToken cancellationToken)
-        {
-            await _repository.UpdateAsync(
-                processes.Values.ToArray(),
-                cancellationToken);
-        }
+//        public virtual async Task SaveRangeAsync(
+//            IReadOnlyDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> processes,
+//            CancellationToken cancellationToken)
+//        {
+//            await _repository.UpdateAsync(
+//                processes.Values.ToArray(),
+//                cancellationToken);
+//        }
 
-        #endregion
+//        #endregion
 
-        protected abstract ValueTask HandleAsync(
-            IProcessContainer<TId> process,
-            CancellationToken cancellationToken);
+//        protected abstract ValueTask HandleAsync(
+//            IProcessContainer<TId> process,
+//            CancellationToken cancellationToken);
 
-        public async Task SaveWakeupRangeAsync(
-            ICollection<IProcessContainer<TId>> processes,
-            CancellationToken cancellationToken)
-        {
-            await _repository.UpdateWakeupAsync(
-                processes,
-                cancellationToken);
-        }
-    }
-}
+//        public async Task SaveWakeupRangeAsync(
+//            ICollection<IProcessContainer<TId>> processes,
+//            CancellationToken cancellationToken)
+//        {
+//            await _repository.UpdateWakeupAsync(
+//                processes,
+//                cancellationToken);
+//        }
+//    }
+//}

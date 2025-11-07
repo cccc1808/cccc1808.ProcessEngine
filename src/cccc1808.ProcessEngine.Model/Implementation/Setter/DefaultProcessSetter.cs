@@ -77,7 +77,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                 process.CurrentSession.HaveError = true;
             }
 
-            using var json = JsonSerializer.SerializeToDocument(ex);
+            // TODO: форматирование
+            using var json = JsonSerializer.SerializeToDocument(new { ex.Message, ex.StackTrace });
             process.Process.ErrorJson = json.RootElement.Clone();
         }
 

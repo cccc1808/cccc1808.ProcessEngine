@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
@@ -14,9 +13,12 @@ using cccc1808.ProcessEngine.Model.Abstract.Storage.Query;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
 using cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query;
 using cccc1808.ProcessEngine.Model.Implementation;
+using cccc1808.ProcessEngine.Model.Implementation.Compensate;
 using cccc1808.ProcessEngine.Model.Implementation.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.Runners;
 using cccc1808.ProcessEngine.Model.Implementation.Setter;
@@ -80,10 +82,20 @@ namespace cccc1808.ProcessEngine.Test1.Model
                 .AddScoped<ITransactionManager, EFTransactionManager<AppDbContext>>()
                 .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
                 .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService<AppDbContext>>()
-                .AddScoped<Process1Repository>();
+                .AddScoped<Process1Repository>()
+                .AddScoped<IProcessDbProvider < Guid > , Process1DataDbProvider >()
+
+                .AddScoped<IIsolationService, EFIsolationService>()
+                .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
+                .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService<AppDbContext>>()
+                .AddScoped<IChangeTrackerSnapshotCompensateService, EFChangeTrackerSnapshotCompensateService>()
+                .AddScoped<IManualCompensateService, ManualCompensateService>()
+                
+                .AddScoped<IWakeUpService<Guid>, EFWakeUpService<Guid, AppDbContext>>();
 
             serviceCollection
-                .AddScoped<IProcessSetter, DefaultProcessSetter>()
+                .AddScoped<IProcessSetter>(
+                    s => new DefaultProcessSetter(retryDelayFunc: null))
                 .AddSingleton<IProcessRegistry, ProcessRegistry>()
                 ;
         }

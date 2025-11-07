@@ -89,7 +89,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
         {
             var buffer = new List<ProcessInstanceInfoDto<TId>>(limit);
 
-
             while (buffer.Count < limit)
             {
                 if (_channel.Reader.TryRead(out var item))
@@ -121,6 +120,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                                 }
                             }
                         });
+
+                    // Тут либо мы заполнили буфер, либо timeout.
+                    break;
                 }
                 else
                 {

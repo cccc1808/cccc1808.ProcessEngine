@@ -18,5 +18,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
         public bool RetryTimerCreated { get; set; }
 
         public short ReTryLimit { get; set; }
+        public bool StopAsyncProcessingSession { get; set; }
     }
 }
