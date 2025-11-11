@@ -10,15 +10,18 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
 {
     public class Process1DataDbEntity
-        : IId<Guid>
+        : IId<Guid>,
+        IProcessLinkedDbEntity<Guid>
     {
         public Guid Id { get; set; }
 
+        public Guid ProcessId { get; set; }
         public ProcessDbEntity<Guid> Process { get; set; }
 
         public int Counter { get; set; }
 
         public StatesEnum States { get; set; }
+        
 
         public enum StatesEnum 
         {

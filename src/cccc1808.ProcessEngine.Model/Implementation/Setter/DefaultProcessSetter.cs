@@ -37,6 +37,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                     );
         }
 
+        public void StopAsyncProcessingSession<TId>(
+            IProcessContainer<TId> process, 
+            bool value = true)
+        {
+            process.CurrentSession.StopAsyncProcessingSession = value;
+        }
+
         public void SetStatus<TId>(
             IProcessContainer<TId> process,
             ProcessStatusEnum status)
@@ -62,6 +69,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             process.Process.Error = null;
 
             process.CurrentSession.HaveError = false;
+            process.CurrentSession.NeedSaveError = 
+                process.CurrentSession.HaveErrorOnStart
+                || process.CurrentSession.HaveError;
         }
 
         public void SetError<TId>(
@@ -79,15 +89,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                 process.Process.HaveErrorFlag = false;
                 process.Process.ReTryCount = (short)((process.Process.ReTryCount ?? 0) + 1);
                 process.Process.TimerDate = _retryDelayFunc(process.Process.ReTryCount.Value, ex);
-                
-                process.CurrentSession.HaveError = true;
             }
             else
             {
                 process.Process.HaveErrorFlag = true;
-                process.CurrentSession.HaveError = true;
             }
-                       
+
+            process.CurrentSession.HaveError = true;
+            process.CurrentSession.NeedSaveError = true;
+
             process.Process.Error = new IProcessComponent<TId>.ErrorDto(
                 _formateExceptionFunc(ex),
                 process.CurrentSession.SessionId,
@@ -111,6 +121,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                     w.NeedUpdate = true;
                 }
             }
-        }
+        }        
     }
 }

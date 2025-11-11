@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.MessageStream.EFCore\cccc1808.ProcessEngine.Model.MessageStream.EFCore.csproj" />
   </ItemGroup>
 

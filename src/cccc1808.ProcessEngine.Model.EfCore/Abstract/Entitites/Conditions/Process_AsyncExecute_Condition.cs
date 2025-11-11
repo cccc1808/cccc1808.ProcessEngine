@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions
     /// Условие асинхронной обработки процесса.
     /// <see cref="Model.Abstract.Dto.Components.Conditions.IProcessContainer_AsyncExecute_Condition{TId}"/>
     /// </summary>
-    internal class Process_AsyncExecute_Condition<TId, TProcessEntity>
+    public class Process_AsyncExecute_Condition<TId, TProcessEntity>
         :
         IInMemoryCondition<TProcessEntity, DateTimeOffset?>,
         IQueryableCondition<TProcessEntity, DateTimeOffset?>

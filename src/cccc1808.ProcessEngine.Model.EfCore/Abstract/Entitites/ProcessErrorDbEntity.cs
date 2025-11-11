@@ -15,7 +15,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
     /// Можно отключить, и использовать только логи.
     /// </summary>
     public class ProcessErrorDbEntity<TId>
-        : IId<TId>
+        : IId<TId>,
+        IProcessLinkedDbEntity<TId>
     {
         public TId Id { get; set; }
 

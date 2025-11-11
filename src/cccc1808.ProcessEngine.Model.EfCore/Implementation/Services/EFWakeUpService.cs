@@ -30,7 +30,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         private readonly ILockQueryHintStore _lockQueryHintStore;
 
         private readonly IId_RangeCondition<TId, ProcessDbEntity<TId>> _process_id_RangeCondition;
-        private readonly ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId> _processWakeUpDbEntity_ProcessId_RangeCondition;
+        private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;
         private readonly ProcessWakeUpDbEntity_IsAsyncExecuting_Condition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_Condition;
         private readonly ProcessWakeUpDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition;
         private readonly TimeSpan _wakeupEndUpdLockTimeout = TimeSpan.FromSeconds(2);
@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
             _lockQueryHintStore = lockQueryHintStore;
 
             _process_id_RangeCondition = new IId_RangeCondition<TId, ProcessDbEntity<TId>>();
-            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId>();
+            _processWakeUpDbEntity_ProcessId_RangeCondition = new IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
             _wakeUpProcessDbEntity_IsAsyncExecuting_Condition = new ProcessWakeUpDbEntity_IsAsyncExecuting_Condition<TId>();
             _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition = new ProcessWakeUpDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId>();
         }

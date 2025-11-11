@@ -10,4 +10,8 @@
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Implementation\Entities\Conditions\" />
+  </ItemGroup>
+
 </Project>

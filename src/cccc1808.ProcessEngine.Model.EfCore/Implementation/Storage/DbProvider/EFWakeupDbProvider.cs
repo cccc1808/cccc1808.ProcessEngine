@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
+using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 using Microsoft.EntityFrameworkCore;
@@ -21,13 +22,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
         where TDbContext: DbContext
     {
         private readonly TDbContext _dbContext;
-        private readonly ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId> _processWakeUpDbEntity_ProcessId_RangeCondition;
+        private readonly ProcessTypeDto[] _registrys;
+        private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
 
         public EFWakeupDbProvider(
-            TDbContext dbContext)
+            TDbContext dbContext,
+            IEnumerable<WakeupRegistryDto> registrys)
         {
             _dbContext = dbContext;
-            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId>();
+            _registrys = registrys.Select(e => e.ProcessRegistry.ProcessType).ToArray();
+            _processWakeUpDbEntity_ProcessId_RangeCondition = new IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
         }
 
         public async Task LoadForAsyncProcessingAsync(
@@ -35,10 +39,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
+            var ids = byTypeIndex
+                .Where(e => _registrys.Contains(e.Key))
+                .SelectMany(e => e.Value)
+                .ToArray();
+
             // Не блокируем т.к. система отдельно управляет блокировками.
             var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
-                // TODO: filter process
-                .ApplayFilterCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, processes.Keys)
+                .ApplayFilterCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, ids)
                 .ToArrayAsync(cancellationToken);
 
             foreach (var elem in data)

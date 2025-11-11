@@ -9,6 +9,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Services
             IProcessContainer<TId> process,
             ProcessStatusEnum status);
 
+        void StopAsyncProcessingSession<TId>(
+            IProcessContainer<TId> process,
+            bool value = true);
+
         void ClearError<TId>(
             IProcessContainer<TId> process);
 

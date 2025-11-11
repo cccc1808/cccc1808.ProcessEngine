@@ -11,7 +11,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore\cccc1808.ProcessEngine.Model.InboxOutbox.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.csproj" />
   </ItemGroup>
 

@@ -7,8 +7,6 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
 
 using Confluent.Kafka;
 
-using static Confluent.Kafka.ConfigPropertyNames;
-
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Kafka.Implementation
 {
     public class KafkaConsumer : 

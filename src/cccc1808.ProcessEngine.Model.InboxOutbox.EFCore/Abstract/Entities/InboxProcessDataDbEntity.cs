@@ -5,13 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Common.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Classifiers;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 {
     public class InboxProcessDataDbEntity<TId>
-        : IId<TId>
+        : IId<TId>,
+        IProcessLinkedDbEntity<TId>
     {
         public TId Id { get; set; }
+
+        public TId ProcessId { get; set; }
+        // public ProcessDbEntity<TId> Process { get; set; }
 
         public TId AggregateId { get; set; }
         public AggregateClassifierDbEntity<TId> Aggregate { get; set; }

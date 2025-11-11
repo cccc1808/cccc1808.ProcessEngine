@@ -9,7 +9,8 @@ using cccc1808.ProcessEngine.Model.Common.Entities;
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
 {
     public class ProcessWakeUpDbEntity<TId>
-        : IId<TId>
+        : IId<TId>, 
+        IProcessLinkedDbEntity<TId>
     {
         public TId Id { get; set; }
 

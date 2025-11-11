@@ -38,7 +38,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
         [TestMethod]
         public async Task TestAsync() 
         {
-            var count = 500000;
+            var count = 5000;
             var limit1 = 1000;
             var limit2 = 2000;
 

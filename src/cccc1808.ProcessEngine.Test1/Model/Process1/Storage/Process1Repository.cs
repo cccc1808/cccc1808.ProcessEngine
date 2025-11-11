@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.Implementation.Storage;
 namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
 {
     internal class Process1Repository
-        : EFProcessChangeTrackerRepository<Guid, AppDbContext, ProcessDbEntity<Guid>>
+        : EFChangeTrackerProcessRepository<Guid, AppDbContext, ProcessDbEntity<Guid>>
     {
         public Process1Repository(
             AppDbContext dbContext,
@@ -37,6 +37,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
             var process = new Process1DataDbEntity()
             {
                 Id = id,
+                ProcessId = id,
                 States = Process1DataDbEntity.StatesEnum._1,
                 Process = new ProcessDbEntity<Guid>()
                 {

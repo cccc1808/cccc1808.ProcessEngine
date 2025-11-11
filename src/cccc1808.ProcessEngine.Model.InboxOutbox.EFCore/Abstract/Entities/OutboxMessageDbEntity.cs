@@ -5,12 +5,14 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.MessageStream.EFCore.Abstract;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 {
     public class OutboxMessageDbEntity<TId>
-        : IMessageDbEntity<TId>
+        : IMessageDbEntity<TId>,
+        IProcessLinkedDbEntity<TId>
     {
         #region IMessageDbEntity
 
@@ -22,7 +24,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 
         public long OrderId { get; set; }
 
-        public TId StreamProcessId { get; set; }
+        public TId ProcessId { get; set; }
 
         public bool IsActive { get; set; }
 
@@ -30,27 +32,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 
         public string Key { get; set; }
 
+        public string IdemporencyId { get; set; }
+
         public JsonElement Body { get; set; }
 
         public JsonElement Headers { get; set; }
 
         public DateTimeOffset? SendDate { get; set; }
-
-        /// <summary>
-        /// На проработке.
-        /// </summary>
-        public StatusEnum Status {  get; set; }        
-
-        //public ICollection<IInboxMessageEntity<TId>> Delivery { get; set; }
-
-        //public ICollection<IInboxMessageEntity<TId>> Responses { get; set; }
-
-        public enum StatusEnum
-        {
-            WaitToSend,
-            WaitDelivery,
-            WaitResponse,
-            Complete,
-        }
     }
 }
