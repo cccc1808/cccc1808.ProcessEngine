@@ -38,13 +38,12 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            var process1 = processes.Values
-                .Where(e => e.Process.Info.ProcessType.ProcessType == 0)
-                .ToArray();
+            var keys = byTypeIndex[new ProcessTypeDto(0, 0)];
+            var process1 = keys.Select(e => processes[e]);
 
             var data = await _dbContext.Process1Datas.ApplayFilterCondition(
                 id_RangeCondition,
-                process1.ApplayProjectionCondition(processEntity_Id_Condition).ToArray()
+                keys
                 )
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 

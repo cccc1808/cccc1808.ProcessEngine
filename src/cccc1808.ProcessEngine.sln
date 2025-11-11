@@ -23,7 +23,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Mode
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.InboxOutbox", "cccc1808.ProcessEngine.Model.InboxOutbox\cccc1808.ProcessEngine.Model.InboxOutbox.csproj", "{DD190B3F-0229-4F44-B66D-371BC7BAE493}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "InbxoOutbox", "InbxoOutbox", "{34C0F5A9-73A5-4E36-A02D-F78A70155E38}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "InboxOutbox", "InboxOutbox", "{34C0F5A9-73A5-4E36-A02D-F78A70155E38}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{44F60CCA-9BC8-49C9-A83D-0E4D704F8957}"
 EndProject

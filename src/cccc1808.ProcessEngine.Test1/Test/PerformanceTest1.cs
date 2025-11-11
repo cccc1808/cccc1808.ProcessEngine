@@ -53,7 +53,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
             }
 
             //result.Add("1. useDbOptimizations: true, count, 50, limit1", await Test1Async(false, useDbOptimizations: true, count, 50, limit1));
-            //result.Add("1. useDbOptimizations: true, count, 100, limit1", await Test1Async(false, useDbOptimizations: true, count, 100, limit1));
+            result.Add("1. useDbOptimizations: true, count, 100, limit1", await Test1Async(false, useDbOptimizations: true, count, 100, limit1));
             //result.Add("1. useDbOptimizations: true, count, 250, limit1", await Test1Async(false, useDbOptimizations: true, count, 250, limit1));
             //result.Add("1. useDbOptimizations: true, count, 500, limit1", await Test1Async(false, useDbOptimizations: true, count, 500, limit1));
             //result.Add("1. useDbOptimizations: true, count, 1000, limit1", await Test1Async(false, useDbOptimizations: true, count, 1000, limit1));
