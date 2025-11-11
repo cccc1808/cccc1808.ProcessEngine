@@ -13,8 +13,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
     /// <typeparam name="TId"></typeparam>
     public interface IProcessComponent<TId>
     {
-        #region prop
-
         ProcessInstanceInfoDto<TId> Info { get; set; }
 
         #region Status
@@ -29,8 +27,16 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
         #endregion
 
 
+        #region error
+
         short? ReTryCount { get; set; }
-        JsonElement? ErrorJson { get; set; }
+
+        ErrorDto? Error { get; set; }
+
+        public readonly record struct ErrorDto(
+            JsonElement ErrorJson,
+            Guid SessionId,
+            DateTimeOffset Date);
 
         #endregion
 

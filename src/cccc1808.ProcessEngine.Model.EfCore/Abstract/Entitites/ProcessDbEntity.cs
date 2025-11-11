@@ -41,7 +41,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         #region Timer
 
         public DateTimeOffset TimerDate { get; set; }
+
         public int WakeupLockCounter { get; set; }
+        public ProcessWakeUpDbEntity<TId> Wakeup { get; set; }
 
         #endregion
     }

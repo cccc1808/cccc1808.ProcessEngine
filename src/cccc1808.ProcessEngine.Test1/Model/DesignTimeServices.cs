@@ -13,6 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Test1.Model
 {
+    /// <summary>
+    /// Для миграции
+    /// </summary>
     public class DesignTimeServices : IDesignTimeDbContextFactory<AppDbContext>
     {
         public AppDbContext CreateDbContext(string[] args)

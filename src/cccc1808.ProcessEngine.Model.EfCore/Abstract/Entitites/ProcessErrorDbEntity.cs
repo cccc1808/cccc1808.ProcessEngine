@@ -19,6 +19,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
     {
         public TId Id { get; set; }
 
+        public TId ProcessId { get; set; }
+        public ProcessDbEntity<TId> Process { get; set; }
+
         public JsonElement? Error { get; set; }
 
         public DateTimeOffset? ErrorDate { get; set; }

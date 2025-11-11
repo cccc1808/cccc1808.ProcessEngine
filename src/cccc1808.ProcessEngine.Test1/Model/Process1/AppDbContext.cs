@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
@@ -81,6 +80,23 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                 {
                     b.HasKey(e => e.Id);
                     b.Property(e => e.Id).ValueGeneratedNever();
+
+                    b.HasOne(e => e.Process)
+                        .WithOne(e => e.Error)
+                        .HasForeignKey<ProcessErrorDbEntity<Guid>>(e => e.ProcessId)
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity<ProcessWakeUpDbEntity<Guid>>(
+                b =>
+                {
+                    b.HasKey(e => e.Id);
+                    b.Property(e => e.Id).ValueGeneratedNever();                    
+
+                    b.HasOne(e => e.Process)
+                        .WithOne(e => e.Wakeup)
+                        .HasForeignKey<ProcessWakeUpDbEntity<Guid>>(e => e.ProcessId)
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity<ProcessDbEntity<Guid>>(
@@ -96,12 +112,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                     // Для выборки в очередь.
                     b.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.TimerDate, e.SelectLock })
                         .IncludeProperties(e => e.Id)
-                        .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
-
-                    b.HasOne(e => e.Error)
-                        .WithOne()
-                        .HasForeignKey<ProcessErrorDbEntity<Guid>>(e => e.Id)
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");                    
                 });
 
             modelBuilder.Entity<Process1DataDbEntity>(

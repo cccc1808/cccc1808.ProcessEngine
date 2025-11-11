@@ -45,22 +45,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.InboxOutbox
                     b.HasKey(e => e.Id);
                     b.Property(e => e.Id).ValueGeneratedNever();
                 });
-
-            //-------------------------------------
-
-            modelBuilder.Entity<MessageDbEntity<Guid>>(
-                b => 
-                {
-                    
-                });
-
-            //modelBuilder.Entity<StreamActiveDbEntity<Guid>>(
-            //    b =>
-            //    {
-
-            //    });
-
-            //-------------------------------------
         }
     }
 }

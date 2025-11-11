@@ -9,26 +9,26 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 
 namespace cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities.Conditions
 {
-    internal class WakeUpProcessDbEntity_IsAsyncExecuting_Condition<TId>
+    internal class ProcessWakeUpDbEntity_IsAsyncExecuting_Condition<TId>
         : 
-        IInMemoryCondition<WakeUpProcessDbEntity<TId>, object?>,
-        IQueryableCondition<WakeUpProcessDbEntity<TId>, object?>
+        IInMemoryCondition<ProcessWakeUpDbEntity<TId>, object?>,
+        IQueryableCondition<ProcessWakeUpDbEntity<TId>, object?>
     {
         public bool Check(
-            WakeUpProcessDbEntity<TId> source, object? parameters)
+            ProcessWakeUpDbEntity<TId> source, object? parameters)
         {
             return source.IsAsyncExecuting;
         }
 
-        public IEnumerable<WakeUpProcessDbEntity<TId>> ApplayEnumerable(
-            IEnumerable<WakeUpProcessDbEntity<TId>> source, 
+        public IEnumerable<ProcessWakeUpDbEntity<TId>> ApplayEnumerable(
+            IEnumerable<ProcessWakeUpDbEntity<TId>> source, 
             object? parameters)
         {
             return source.Where(e => Check(e, parameters));
         }
 
-        public IQueryable<WakeUpProcessDbEntity<TId>> ApplayQueryable(
-            IQueryable<WakeUpProcessDbEntity<TId>> source, object? parameters)
+        public IQueryable<ProcessWakeUpDbEntity<TId>> ApplayQueryable(
+            IQueryable<ProcessWakeUpDbEntity<TId>> source, object? parameters)
         {
             return source.Where(e => e.IsAsyncExecuting);
         }        

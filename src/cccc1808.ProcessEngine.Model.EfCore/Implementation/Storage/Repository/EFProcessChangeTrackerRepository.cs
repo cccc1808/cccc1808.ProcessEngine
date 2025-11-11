@@ -129,6 +129,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                         e.Error = new ProcessErrorDbEntity<TId>()
                         {
                             Id = e.Id,
+                            ProcessId = e.Id,
                             Error = null
                         };
                         var entry = _dbContext.Attach(e.Error);

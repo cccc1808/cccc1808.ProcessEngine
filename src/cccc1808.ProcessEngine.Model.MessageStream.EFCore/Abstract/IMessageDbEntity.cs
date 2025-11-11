@@ -21,7 +21,7 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EFCore.Abstract
         /// </summary>
         long OrderId { get; set; }
 
-        TId StreamProcessId { get; set; }
+        TId ProcessId { get; set; }
 
         /// <summary>
         /// Ожидает обработки.

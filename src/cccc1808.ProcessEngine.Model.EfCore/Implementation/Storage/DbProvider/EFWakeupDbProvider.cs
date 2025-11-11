@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
@@ -21,14 +21,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
         where TDbContext: DbContext
     {
         private readonly TDbContext _dbContext;
-        private readonly IId_RangeCondition<TId, WakeUpProcessDbEntity<TId>> _id_RangeCondition;
+        private readonly ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId> _processWakeUpDbEntity_ProcessId_RangeCondition;
 
         public EFWakeupDbProvider(
-            TDbContext dbContext, 
-            IId_RangeCondition<TId, WakeUpProcessDbEntity<TId>> id_RangeCondition)
+            TDbContext dbContext)
         {
             _dbContext = dbContext;
-            _id_RangeCondition = id_RangeCondition;
+            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessWakeUpDbEntity_ProcessId_RangeCondition<TId>();
         }
 
         public async Task LoadForAsyncProcessingAsync(
@@ -37,14 +36,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
             CancellationToken cancellationToken)
         {
             // Не блокируем т.к. система отдельно управляет блокировками.
-            var data = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
+            var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                 // TODO: filter process
-                .ApplayFilterCondition(_id_RangeCondition, processes.Keys)
+                .ApplayFilterCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, processes.Keys)
                 .ToArrayAsync(cancellationToken);
 
             foreach (var elem in data)
             {
-                var process = processes[elem.Id];
+                var process = processes[elem.ProcessId];
 
                 process.AddComponent(
                     new EFWakeUpProxyComponent<TId>(elem, inAsyncExecuting: true));
@@ -58,13 +57,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
             CancellationToken cancellationToken)
         {
             // Не блокируем при withLock.
-            var data = await _dbContext.Set<WakeUpProcessDbEntity<TId>>()
-                .ApplayFilterCondition(_id_RangeCondition, processes.Keys)
+            var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+                .ApplayFilterCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, processes.Keys)
                 .ToArrayAsync(cancellationToken);
 
             foreach (var elem in data)
             {
-                var process = processes[elem.Id];
+                var process = processes[elem.ProcessId];
 
                 process.AddComponent<IWakeUpComponent>(
                     new EFWakeUpProxyComponent<TId>(elem, inAsyncExecuting: false));
@@ -76,6 +75,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
+            // EF change tracker.
             foreach (var elem in processes)
             {
                 elem.GetComponent<IWakeUpComponent>().NeedUpdate = false;

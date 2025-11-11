@@ -53,11 +53,30 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Dto.Components
             get => ProcessDbEntity.ReTryCount;
             set => ProcessDbEntity.ReTryCount = value;
         }
-        public JsonElement? ErrorJson
+        public IProcessComponent<TId>.ErrorDto? Error
         {
-            get => ProcessDbEntity.Error.Error;
-            set => ProcessDbEntity.Error.Error = value;
-        }
+            get => ProcessDbEntity.Error.Error.HasValue 
+                ? new IProcessComponent<TId>.ErrorDto(
+                    ProcessDbEntity.Error.Error.Value,
+                    ProcessDbEntity.Error.ErrorSessionId.Value,
+                    ProcessDbEntity.Error.ErrorDate.Value)
+                : null;
+            set 
+            {
+                if (value.HasValue)
+                {
+                    ProcessDbEntity.Error.Error = value.Value.ErrorJson;
+                    ProcessDbEntity.Error.ErrorSessionId = value.Value.SessionId;
+                    ProcessDbEntity.Error.ErrorDate = value.Value.Date;
+                }
+                else 
+                {
+                    ProcessDbEntity.Error.Error = null;
+                    ProcessDbEntity.Error.ErrorSessionId = null;
+                    ProcessDbEntity.Error.ErrorDate = null;
+                }
+            }
+        }        
         public DateTimeOffset TimerDate
         {
             get => ProcessDbEntity.TimerDate;

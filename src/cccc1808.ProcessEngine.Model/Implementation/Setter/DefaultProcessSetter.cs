@@ -16,14 +16,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
         : IProcessSetter
     {
         private readonly Func<short, Exception, DateTimeOffset> _retryDelayFunc;
+        private readonly Func<Exception, JsonElement> _formateExceptionFunc;
 
         public DefaultProcessSetter(
-            Func<short, Exception, DateTimeOffset>? retryDelayFunc)
+            Func<short, Exception, DateTimeOffset>? retryDelayFunc,
+            Func<Exception, JsonElement>? formateExceptionFunc = null)
         {
             _retryDelayFunc = retryDelayFunc
                 ?? (
                 (count, _) => DateTimeOffset.UtcNow.Add(count * TimeSpan.FromSeconds(10))
                 );
+            _formateExceptionFunc = formateExceptionFunc 
+                ?? (
+                    (ex) => 
+                    {
+                        // TODO: форматирование 
+                        using var json = JsonSerializer.SerializeToDocument(new { ex.Message, ex.StackTrace });
+                        return json.RootElement.Clone();
+                    }
+                    );
         }
 
         public void SetStatus<TId>(
@@ -48,7 +59,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
         {
             process.Process.ReTryCount = null;
             process.Process.HaveErrorFlag = false;
-            process.Process.ErrorJson = null;
+            process.Process.Error = null;
 
             process.CurrentSession.HaveError = false;
         }
@@ -76,10 +87,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
                 process.Process.HaveErrorFlag = true;
                 process.CurrentSession.HaveError = true;
             }
-
-            // TODO: форматирование
-            using var json = JsonSerializer.SerializeToDocument(new { ex.Message, ex.StackTrace });
-            process.Process.ErrorJson = json.RootElement.Clone();
+                       
+            process.Process.Error = new IProcessComponent<TId>.ErrorDto(
+                _formateExceptionFunc(ex),
+                process.CurrentSession.SessionId,
+                DateTimeOffset.UtcNow
+                );
         }
 
         public void SetTimer<TId>(

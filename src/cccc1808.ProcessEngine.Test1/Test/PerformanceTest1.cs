@@ -38,7 +38,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
         [TestMethod]
         public async Task TestAsync() 
         {
-            var count = 20000;
+            var count = 500000;
             var limit1 = 1000;
             var limit2 = 2000;
 
@@ -186,9 +186,9 @@ namespace cccc1808.ProcessEngine.Test1.Test
                         }
                         await appDbContext.SaveChangesAsync();
                         appDbContext.ChangeTracker.Clear();
-                    }
-                    GC.Collect(3, GCCollectionMode.Forced);
+                    }                    
                 }
+                GC.Collect(3, GCCollectionMode.Forced);
 
                 await using (var scope = serviceProvider.CreateAsyncScope())
                 {
@@ -318,9 +318,9 @@ namespace cccc1808.ProcessEngine.Test1.Test
                         }
                         await appDbContext.SaveChangesAsync();
                         appDbContext.ChangeTracker.Clear();
-                    }
-                    GC.Collect(3, GCCollectionMode.Forced);
+                    }                    
                 }
+                GC.Collect(3, GCCollectionMode.Forced);
 
                 await using (var scope = serviceProvider.CreateAsyncScope())
                 {
