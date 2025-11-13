@@ -79,19 +79,20 @@ namespace cccc1808.ProcessEngine.Test1.Model
                     connectionString
                     )
                     )
-                .AddScoped<ITransactionManager, EFTransactionManager<AppDbContext>>()
+                .AddScoped<ITransactionManager, EFTransactionManager>()
                 .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
-                .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService<AppDbContext>>()
+                .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService>()
                 .AddScoped<Process1Repository>()
-                .AddScoped<IProcessDbProvider < Guid > , Process1DataDbProvider >()
+                .AddScoped<IProcessDbProvider < Guid > , Process1DataDbProvider>()
+                .AddScoped<IEFDbContext>(s => new EFDbContext(s.GetRequiredService<AppDbContext>()))
 
                 .AddScoped<IIsolationService, EFIsolationService>()
                 .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
-                .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService<AppDbContext>>()
+                .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService>()
                 .AddScoped<IChangeTrackerSnapshotCompensateService, EFChangeTrackerSnapshotCompensateService>()
                 .AddScoped<IManualCompensateService, ManualCompensateService>()
                 
-                .AddScoped<IWakeUpService<Guid>, EFWakeUpService<Guid, AppDbContext>>();
+                .AddScoped<IWakeUpService<Guid>, EFWakeUpService<Guid>>();
 
             serviceCollection
                 .AddScoped<IProcessSetter>(
@@ -103,10 +104,10 @@ namespace cccc1808.ProcessEngine.Test1.Model
         public static Func<IServiceProvider, IProcessSelectQuery<Guid>> Selector1(
             TimeSpan lockDelay)
         {
-            return (s) => new EFProcessSelectQuery<Guid, AppDbContext, ProcessDbEntity<Guid>>(
-                new EFProcessSelectQuery<Guid, AppDbContext, ProcessDbEntity<Guid>>.OptionsDto(
+            return (s) => new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>(
+                new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.OptionsDto(
                     SelectoLockDelay: lockDelay),
-                s.GetRequiredService<AppDbContext>(),
+                s.GetRequiredService<IEFDbContext>(),
                 s.GetRequiredService<ITransactionManager>(),
                 s.GetRequiredService<ILockQueryHintStore>()
                 );

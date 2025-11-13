@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
@@ -11,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
     internal static class EFQueryHelper
     {
         public static async Task<Dictionary<TKey, (bool IsInserterted, TEntity Entity)>> GetOrInsertAsync<TEntity, TKey>(
-            DbContext context,
+            IEFDbContext context,
             ICollection<TKey> keys,
             Func<IQueryable<TEntity>> selectQueryFunc,
             Func<TEntity, TKey> keySelectorFunc,

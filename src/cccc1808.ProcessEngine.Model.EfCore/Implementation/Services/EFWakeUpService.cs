@@ -15,17 +15,17 @@ using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities.Conditions;
 
 using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 {
-    public class EFWakeUpService<TId, TDbContext> 
-        : IWakeUpService<TId> 
-        where TDbContext : DbContext
+    public class EFWakeUpService<TId> 
+        : IWakeUpService<TId>
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
         private readonly IProcessSetter _processSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
 
@@ -38,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         private readonly int _wakeupUpdLockRetryLimit = 2;
 
         public EFWakeUpService(
-            TDbContext dbContext,
+            IEFDbContext dbContext,
             IProcessSetter processSetter,
             ILockQueryHintStore lockQueryHintStore)
         {

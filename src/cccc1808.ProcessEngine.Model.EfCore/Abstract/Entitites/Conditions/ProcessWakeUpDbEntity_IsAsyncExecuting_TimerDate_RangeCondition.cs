@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 using EntityFrameworkCore.MemoryJoin;
 
@@ -16,7 +17,7 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Impleme
     internal class ProcessWakeUpDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId>
         : 
         IInMemoryCondition<ProcessWakeUpDbEntity<TId>, DateTimeOffset>,
-        IQueryableCondition<ProcessWakeUpDbEntity<TId>, (DbContext dbContext, (TId processId, DateTimeOffset Date)[] Ids)>
+        IQueryableCondition<ProcessWakeUpDbEntity<TId>, (IEFDbContext dbContext, (TId processId, DateTimeOffset Date)[] Ids)>
     {
         public bool Check(ProcessWakeUpDbEntity<TId> source, DateTimeOffset parameters)
         {
@@ -34,15 +35,12 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Impleme
 
         public IQueryable<ProcessWakeUpDbEntity<TId>> ApplayQueryable(
             IQueryable<ProcessWakeUpDbEntity<TId>> source, 
-            (DbContext dbContext, (TId processId, DateTimeOffset Date)[] Ids) parameters)
+            (IEFDbContext dbContext, (TId processId, DateTimeOffset Date)[] Ids) parameters)
         {
-            var queryList = parameters.dbContext.FromLocalList(
+            var queryList = parameters.dbContext.QueryFromCollection(
                 parameters.Ids
                     .Select(e => new { ProcessId = e.processId, Date = e.Date })
-                    .ToArray(),
-                typeof(MemoryJoinStubEntity),
-                ValuesInjectionMethod.ViaParameters
-                );
+                    .ToArray());
 
             var query = from e1 in source
             from e2 in queryList.Where(e2 => 

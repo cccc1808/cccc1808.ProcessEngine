@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                    .AddScoped<AppDbContext>(s => new AppDbContext(
                        s.GetRequiredService<IServiceProvider>(),
                        $"Host=localhost;Port={postgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres"))
-                   .AddScoped<ITransactionManager, EFTransactionManager<AppDbContext>>()
+                   .AddScoped<ITransactionManager, EFTransactionManager>()
                    .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
                    .AddScoped<Process1Repository>();
 
@@ -96,7 +96,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                    .AddScoped<AppDbContext>(s => new AppDbContext(
                        s.GetRequiredService<IServiceProvider>(),
                        $"Host=localhost;Port={postgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres"))
-                   .AddScoped<ITransactionManager, EFTransactionManager<AppDbContext>>()
+                   .AddScoped<ITransactionManager, EFTransactionManager>()
                    .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
                    .AddScoped<Process1Repository>();
 

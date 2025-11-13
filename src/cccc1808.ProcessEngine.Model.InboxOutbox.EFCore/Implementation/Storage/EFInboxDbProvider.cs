@@ -8,6 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry;
@@ -19,18 +20,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation
 {
-    public class EFInboxDbProvider<TId, TDbContext>
+    public class EFInboxDbProvider<TId>
         : IProcessDbProvider<TId>
-        where TDbContext : DbContext
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly int _messagesLimit;
         private readonly IId_RangeCondition<TId, InboxProcessDataDbEntity<TId>> _id_RangeCondition;
         private readonly IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, InboxMessageDbEntity<TId>> _selectForProcessingCondition;
 
         public EFInboxDbProvider(
-            TDbContext dbContext, 
+            IEFDbContext dbContext, 
             InboxRegistryDto inboxRegistryDto,
             int messagesLimit)
         {

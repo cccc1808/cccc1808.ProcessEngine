@@ -10,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
@@ -17,16 +18,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
 {
-    public class EFWakeupDbProvider<TId, TDbContext>
+    public class EFWakeupDbProvider<TId>
         : IProcessDbProvider<TId>
-        where TDbContext: DbContext
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
         private readonly ProcessTypeDto[] _registrys;
         private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
 
         public EFWakeupDbProvider(
-            TDbContext dbContext,
+            IEFDbContext dbContext,
             IEnumerable<WakeupRegistryDto> registrys)
         {
             _dbContext = dbContext;

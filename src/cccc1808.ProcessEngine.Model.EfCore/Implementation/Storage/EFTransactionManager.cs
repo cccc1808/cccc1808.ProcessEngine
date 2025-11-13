@@ -6,18 +6,16 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-
-using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
 {
-    public class EFTransactionManager<TDbContext>
+    public class EFTransactionManager
         : ITransactionManager
-        where TDbContext : DbContext
     {
-        protected readonly TDbContext _dbContext;
+        protected readonly IEFDbContext _dbContext;
 
         private TransactionContainer? CurrentTransactionContainer { get; set; }
         protected bool IsReadOnlyTransaction { get; set; }
@@ -26,7 +24,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
 
 
         public EFTransactionManager(
-            TDbContext dbContext)
+            IEFDbContext dbContext)
         {
             _dbContext = dbContext;
         }
@@ -44,7 +42,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
                 throw new NotSupportedException();
             }
 
-            var dbTransaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            var dbTransaction = await _dbContext.DbContext.Database.BeginTransactionAsync(cancellationToken);
             _savePointNameCounter = 0;
             CurrentTransactionContainer = new TransactionContainer(this, dbTransaction);
 
@@ -102,7 +100,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
         private class TransactionContainer
             : ITransactionManager.ITransactionContainer
         {
-            private readonly EFTransactionManager<TDbContext> _unitOfWork;
+            private readonly EFTransactionManager _unitOfWork;
 
             private bool IsUsed { get; set; }
             private bool IsDisposed { get; set; }
@@ -110,7 +108,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
             public IDbContextTransaction Transaction { get; }
 
             public TransactionContainer(
-                EFTransactionManager<TDbContext> unitOfWork,
+                EFTransactionManager unitOfWork,
                 IDbContextTransaction transaction)
             {
                 _unitOfWork = unitOfWork;

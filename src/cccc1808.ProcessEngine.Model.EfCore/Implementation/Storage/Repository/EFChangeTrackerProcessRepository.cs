@@ -13,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Dto.Components;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
@@ -21,12 +22,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
 {
-    public class EFChangeTrackerProcessRepository<TId, TDbContext, TDbEntity>
+    public class EFChangeTrackerProcessRepository<TId, TDbEntity>
         : IProcessRepository<TId>
-        where TDbContext : DbContext
         where TDbEntity : ProcessDbEntity<TId>
     {
-        protected readonly TDbContext _dbContext;
+        protected readonly IEFDbContext _dbContext;
         protected readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
 
@@ -36,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
         private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessErrorDbEntity<TId>> _processErrorDbEntity_RangeCondition;
 
         public EFChangeTrackerProcessRepository(
-            TDbContext dbContext,
+            IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
             IEnumerable<IProcessDbProvider<TId>> processLoaders)
         {

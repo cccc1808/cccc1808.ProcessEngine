@@ -14,18 +14,18 @@ using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
 {
-    public class EFProcessSelectQuery<TId, TDbContext, TEntity> 
+    public class EFProcessSelectQuery<TId, TEntity> 
         : IProcessSelectQuery<TId>
-        where TDbContext : DbContext
         where TEntity : ProcessDbEntity<TId>
     {
         private readonly OptionsDto _options;
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
         private readonly ITransactionManager _transactionManager;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IId_RangeCondition<TId, TEntity> _id_RangeCondition;
@@ -35,7 +35,7 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
 
         public EFProcessSelectQuery(
             OptionsDto options,
-            TDbContext dbContext, 
+            IEFDbContext dbContext, 
             ITransactionManager transactionManager,
             ILockQueryHintStore lockQueryHintStore)
         {

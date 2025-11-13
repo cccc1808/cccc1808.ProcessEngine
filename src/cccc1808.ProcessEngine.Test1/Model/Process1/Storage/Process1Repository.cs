@@ -5,19 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
 {
     internal class Process1Repository
-        : EFChangeTrackerProcessRepository<Guid, AppDbContext, ProcessDbEntity<Guid>>
+        : EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>
     {
         public Process1Repository(
-            AppDbContext dbContext,
+            IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
             IEnumerable<IProcessDbProvider<Guid>> processLoaders) 
             : base(
@@ -56,7 +56,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
                 }
             };
 
-            _dbContext.Add(process);
+            _dbContext.DbContext.Add(process);
             return process;
         }
     }

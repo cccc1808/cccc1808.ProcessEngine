@@ -6,29 +6,23 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-
-using EntityFrameworkCore.MemoryJoin;
-
-using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions
 {
     public class Process_ProcessRegistry_RangeCondition<TId, TEntity>
-        : IQueryableCondition<TEntity, (DbContext dbContext, ICollection<ProcessRegistryDto> data)>
+        : IQueryableCondition<TEntity, (IEFDbContext dbContext, ICollection<ProcessRegistryDto> data)>
         where TEntity : ProcessDbEntity<TId>
     {
         public IQueryable<TEntity> ApplayQueryable(
             IQueryable<TEntity> source, 
-            (DbContext dbContext, ICollection<ProcessRegistryDto> data) parameters)
+            (IEFDbContext dbContext, ICollection<ProcessRegistryDto> data) parameters)
         {
             var joinData = parameters
                 .data
                 .Select(e => new { ProcessTypeId = e.ProcessType.ProcessType, e.ProcessType.ProcessVersion, e.Priority })
                 .ToArray();
-            var queryList = parameters.dbContext.FromLocalList(
-                joinData,
-                typeof(MemoryJoinStubEntity),
-                ValuesInjectionMethod.ViaParameters);
+            var queryList = parameters.dbContext.QueryFromCollection(joinData);
 
             var query = from e2 in queryList
                 from e in source.Where(e1 =>

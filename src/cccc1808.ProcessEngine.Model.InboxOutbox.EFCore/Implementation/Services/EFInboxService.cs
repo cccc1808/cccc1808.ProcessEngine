@@ -7,8 +7,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
@@ -22,11 +24,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Services
 {
-    public class EFInboxService<TId, TDbContext> 
-        : IEFInboxService where TDbContext 
+    public class EFInboxService<TId>
         : DbContext
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
         private readonly IWakeUpService<TId> _wakeUpService;
         private readonly InboxRegistryDto _inboxRegistryDto;
 
@@ -37,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Service
         private readonly Func<MessageDto, string> _idempotencyIdFactory;
 
         public EFInboxService(
-            TDbContext dbContext, 
+            IEFDbContext dbContext, 
             IWakeUpService<TId> wakeUpService,
             InboxRegistryDto inboxRegistryDto, 
             Func<string, TId> idFactory,
@@ -147,16 +148,17 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Service
                             ProcessVersion = _inboxRegistryDto.ProcessType.ProcessVersion,
                             ReTryCount = null,
                             SelectLock = DateTimeOffset.MinValue.UtcDateTime,
-                            Status = Model.Abstract.Dto.ProcessStatusEnum.WaitEvent,
+                            Status = ProcessStatusEnum.WaitEvent,
                             TimerDate = DateTimeOffset.MinValue.UtcDateTime,
                         }
                     )
                     )
                 .ToArray();
 
-            await _dbContext.AddRangeAsync(
-                processes.Select(e => e.Process),
-                cancellationToken);
+            await _dbContext.Set<ProcessDbEntity<TId>>()
+                .AddRangeAsync(
+                    processes.Select(e => e.Process),
+                    cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             foreach (var elem in processes)

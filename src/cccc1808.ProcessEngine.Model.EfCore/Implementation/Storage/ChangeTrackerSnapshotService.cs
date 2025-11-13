@@ -12,63 +12,17 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 using Microsoft.EntityFrameworkCore;
 
-using static cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.ChangeTrackerSnapshotService;
 using static cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.ChangeTrackerSnapshotService.DbContextSnapshot;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
 {
-    public static class ChangeTrackerSnapshotService 
-    {
-        #region Types        
-
-        public readonly record struct DbContextSnapshot
-        {
-            public IReadOnlyList<EntitySnapshot> Entities { get; init; }
-            public IReadOnlyDictionary<Type, List<int>> TypeIndex { get; init; }
-
-
-            public static DbContextSnapshot EmptyConst { get; }
-                = new DbContextSnapshot()
-                {
-                    TypeIndex = ImmutableDictionary<Type, List<int>>.Empty,
-                    Entities = Array.Empty<EntitySnapshot>(),
-                };
-
-            #region Types
-
-            /// <summary>
-            /// Снимок сущности
-            /// </summary>
-            public readonly record struct EntitySnapshot
-            {
-                public object Entity { get; init; }
-                public EntityState State { get; init; }
-                public IReadOnlyDictionary<string, PropertySnapshot> Properties { get; init; }
-            }
-
-            /// <summary>
-            /// Снимок свойства
-            /// </summary>
-            public readonly record struct PropertySnapshot
-            {
-                public object? CurrentValue { get; init; }
-                public object? OriginalValue { get; init; }
-            }
-
-            #endregion
-        }
-
-        #endregion
-    }
-
-    public class ChangeTrackerSnapshotService<TDbContext>
+    public class ChangeTrackerSnapshotService
         : IChangeTrackerSnapshotService
-        where TDbContext : DbContext
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
 
         public ChangeTrackerSnapshotService(
-            TDbContext dbContext
+            IEFDbContext dbContext
             )
         {
             _dbContext = dbContext;
@@ -79,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
 
         public IChangeTrackerSnapshotService.ISubscribe CaptureState()
         {
-            var trackerEntities = _dbContext.ChangeTracker.Entries()
+            var trackerEntities = _dbContext.DbContext.ChangeTracker.Entries()
                 .ToArray();
 
             if (trackerEntities.Length == 0)
@@ -140,7 +94,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
             in DbContextSnapshot snapshot
             )
         {
-            _dbContext.ChangeTracker.Clear();
+            _dbContext.DbContext.ChangeTracker.Clear();
 
             if (snapshot.Entities.Count == 0)
             {
@@ -168,7 +122,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
                 var elem = snapshot.Entities[i];
 
                 // 2.1) Присоединяем
-                var entry = _dbContext.Entry(elem.Entity);
+                var entry = _dbContext.DbContext.Entry(elem.Entity);
 
                 //if (!currentData.TryGetValue(i, out var currentDataElem))
                 {
@@ -281,18 +235,55 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage
         #endregion
 
 
-        #region types
+        #region types   
+
+        public readonly record struct DbContextSnapshot
+        {
+            public IReadOnlyList<EntitySnapshot> Entities { get; init; }
+            public IReadOnlyDictionary<Type, List<int>> TypeIndex { get; init; }
+
+
+            public static DbContextSnapshot EmptyConst { get; }
+                = new DbContextSnapshot()
+                {
+                    TypeIndex = ImmutableDictionary<Type, List<int>>.Empty,
+                    Entities = Array.Empty<EntitySnapshot>(),
+                };
+
+            #region Types
+
+            /// <summary>
+            /// Снимок сущности
+            /// </summary>
+            public readonly record struct EntitySnapshot
+            {
+                public object Entity { get; init; }
+                public EntityState State { get; init; }
+                public IReadOnlyDictionary<string, PropertySnapshot> Properties { get; init; }
+            }
+
+            /// <summary>
+            /// Снимок свойства
+            /// </summary>
+            public readonly record struct PropertySnapshot
+            {
+                public object? CurrentValue { get; init; }
+                public object? OriginalValue { get; init; }
+            }
+
+            #endregion
+        }
 
         protected record Subscribe
             : IChangeTrackerSnapshotService.ISubscribe
         {
-            private readonly ChangeTrackerSnapshotService<TDbContext> _captureStateService;
+            private readonly ChangeTrackerSnapshotService _captureStateService;
             private readonly DbContextSnapshot _snapshot;
             private bool IsUsed { get; set; }
 
 
             public Subscribe(
-                ChangeTrackerSnapshotService<TDbContext> captureStateService,
+                ChangeTrackerSnapshotService captureStateService,
                 in DbContextSnapshot snapshot
                 )
             {

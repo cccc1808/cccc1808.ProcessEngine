@@ -41,9 +41,10 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
             var keys = byTypeIndex[new ProcessTypeDto(0, 0)];
             var process1 = keys.Select(e => processes[e]);
 
-            var data = await _dbContext.Process1Datas.ApplayFilterCondition(
-                id_RangeCondition,
-                keys
+            var data = await _dbContext.Process1Datas
+                .ApplayFilterCondition(
+                    id_RangeCondition,
+                    keys
                 )
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 

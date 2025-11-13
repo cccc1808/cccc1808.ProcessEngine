@@ -5,27 +5,23 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Classifiers;
-
-using EntityFrameworkCore.MemoryJoin;
-
-using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Conditions
 {
     public class AggregateClassifierDbEntity_AggregateDto_Condition<TId>
-        : IQueryableCondition<AggregateClassifierDbEntity<TId>, (DbContext context, ICollection<AggregateDto> ids)>
+        : IQueryableCondition<AggregateClassifierDbEntity<TId>, (IEFDbContext context, ICollection<AggregateDto> ids)>
     {
         public IQueryable<AggregateClassifierDbEntity<TId>> ApplayQueryable(
             IQueryable<AggregateClassifierDbEntity<TId>> source, 
-            (DbContext context, ICollection<AggregateDto> ids) parameters)
+            (IEFDbContext context, ICollection<AggregateDto> ids) parameters)
         {
-            var queryList = parameters.context.FromLocalList(
-                parameters.ids.Select(e => new { e.AggregateType, e.AggregateId }).ToArray(),
-                typeof(MemoryJoinStubEntity),
-                method: ValuesInjectionMethod.ViaParameters);
+            var queryList = parameters.context.QueryFromCollection(
+                parameters.ids
+                    .Select(e => new { e.AggregateType, e.AggregateId })
+                    .ToArray());
 
             var query = from e1 in source
             from e2 in queryList.Where(e2 =>

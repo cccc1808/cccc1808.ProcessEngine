@@ -6,18 +6,16 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-
-using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
 {
-    public class EFChangeTrackerCompensateService<TDbContext> :
+    public class EFChangeTrackerCompensateService :
         IChangeTrackerCompensateService
-        where TDbContext: DbContext
     {
-        private readonly TDbContext _dbContext;
+        private readonly IEFDbContext _dbContext;
 
-        public EFChangeTrackerCompensateService(TDbContext dbContext)
+        public EFChangeTrackerCompensateService(IEFDbContext dbContext)
         {
             _dbContext = dbContext;
         }
@@ -32,11 +30,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
         private class Scope
             : IChangeTrackerCompensateService.ICompensateScope
         {
-            private readonly TDbContext _dbContext;
+            private readonly IEFDbContext _dbContext;
 
             private bool IsCommited { get; set; }
 
-            public Scope(TDbContext dbContext)
+            public Scope(IEFDbContext dbContext)
             {
                 _dbContext = dbContext;
             }            
@@ -59,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation
                     throw new InvalidOperationException();
                 }
 
-                _dbContext.ChangeTracker.Clear();
+                _dbContext.DbContext.ChangeTracker.Clear();
                 return ValueTask.CompletedTask;
             }
 
