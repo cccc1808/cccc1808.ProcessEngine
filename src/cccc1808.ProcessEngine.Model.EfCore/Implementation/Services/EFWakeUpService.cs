@@ -11,12 +11,10 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Common;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities.Conditions;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -28,28 +26,24 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
         private readonly IEFDbContext _dbContext;
         private readonly IProcessSetter _processSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-
-        private readonly IId_RangeCondition<TId, ProcessDbEntity<TId>> _process_id_RangeCondition;
-        private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;
-        private readonly ProcessWakeUpDbEntity_IsAsyncExecuting_Condition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_Condition;
-        private readonly ProcessWakeUpDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId> _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition;
-        private readonly TimeSpan _wakeupEndUpdLockTimeout = TimeSpan.FromSeconds(2);
-        private readonly TimeSpan _sessionEndUpdLockTimeout = TimeSpan.FromSeconds(2);
-        private readonly int _wakeupUpdLockRetryLimit = 2;
+        private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
+        private readonly IProcessWakeUpDbEntityConditions<TId> _processWakeUpDbEntityConditions;
+        private readonly OptionsDto _optionsDto;
 
         public EFWakeUpService(
             IEFDbContext dbContext,
             IProcessSetter processSetter,
-            ILockQueryHintStore lockQueryHintStore)
+            ILockQueryHintStore lockQueryHintStore,
+            IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
+            IProcessWakeUpDbEntityConditions<TId> processWakeUpDbEntityConditions,
+            OptionsDto optionsDto)
         {
             _dbContext = dbContext;
             _processSetter = processSetter;
             _lockQueryHintStore = lockQueryHintStore;
-
-            _process_id_RangeCondition = new IId_RangeCondition<TId, ProcessDbEntity<TId>>();
-            _processWakeUpDbEntity_ProcessId_RangeCondition = new IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
-            _wakeUpProcessDbEntity_IsAsyncExecuting_Condition = new ProcessWakeUpDbEntity_IsAsyncExecuting_Condition<TId>();
-            _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition = new ProcessWakeUpDbEntity_IsAsyncExecuting_TimerDate_RangeCondition<TId>();
+            _processDbEntityConditions = processDbEntityConditions;
+            _processWakeUpDbEntityConditions = processWakeUpDbEntityConditions;
+            _optionsDto = optionsDto;
         }
 
         #region IWakeUpService
@@ -104,20 +98,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 // а мы это не увидим (и процесс уснент)
                 // (ждем завершения блокировок всех сигналов).
 
-
                 // Пробуем получить все записи с блокировкой.
                 ProcessWakeUpDbEntity<TId>[]? wakeUps = null;
                 {
                     var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                         (This: this, context),
-                        _sessionEndUpdLockTimeout,
+                        _optionsDto.SessionEndUpdLockTimeout,
                         static async (p, t) =>
                         {
                             using (var hint = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                             {
                                 return await p.This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                                     .AsNoTracking()
-                                    .ApplayFilterCondition(p.This._processWakeUpDbEntity_ProcessId_RangeCondition, p.context.Keys)
+                                    .ApplayFilterCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.context.Keys)
                                     .ToArrayAsync(t);
                             }
                         },
@@ -136,7 +129,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     {
                         wakeUps = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                             .AsNoTracking()
-                            .ApplayFilterCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, context.Keys)
+                            .ApplayFilterCondition(_processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, context.Keys)
                             .ToArrayAsync(cancellationToken);
                     }
                 }
@@ -164,7 +157,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         // Не засыпаем.
                         elem.WakeUpComponent.InAsyncExecuting = true;
                         _processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
-                        // elem.WakeUpComponent.NeedUpdate = false; // Не получили блокирову, не сохраняем.
 
                         // Ставим задержку т.к. процесс хотел уснуть
                         // (Либо все имеющиеся данные были обработаны, либо намерение накопить батч побольше перед обработкой).
@@ -174,7 +166,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         // TODO: в параметры.
                         elem.Process.Process.TimerDate = DateTimeOffsetHelper.Max(
                             elem.Process.Process.TimerDate,
-                            DateTimeOffset.UtcNow + elem.Process.Process.WakeupLockCounter * TimeSpan.FromSeconds(10)
+                            DateTimeOffset.UtcNow + elem.Process.Process.WakeupLockCounter * _optionsDto.ProcessCannotLockWakeupTimeout
                             );
                     }
                     else
@@ -249,7 +241,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             // Делаем попытки убедиться, что либо share lock если условие выполняется, либо updlock если не выполняется.
             
-            for (int i = 0; i < _wakeupUpdLockRetryLimit; i++)
+            for (int i = 0; i < _optionsDto.WakeupUpdLockRetryLimit; i++)
             {
                 // 1) Если StreamActiveFlag, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
@@ -257,7 +249,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     var wakeups = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                         .AsNoTracking()
                         .ApplayFilterCondition(
-                            _wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition,
+                            _processWakeUpDbEntityConditions.IsAsyncExecuting_TimerDate.QueryRange,
                             (
                                 _dbContext,
                                 checkBuffer.Select(e => (e.Key, e.Value)).ToArray()
@@ -277,7 +269,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 // 2) Пробуем получить updlock.
                 var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                     (This: this, checkBuffer, updateBuffer),
-                    _wakeupEndUpdLockTimeout,
+                    _optionsDto.WakeupEndUpdLockTimeout,
                     static async (p, t) =>
                     {
                         ProcessWakeUpDbEntity<TId>[] wakeupsWithLock;
@@ -285,7 +277,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         {
                             wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                                 .AsNoTracking()
-                                .ApplayFilterCondition(p.This._processWakeUpDbEntity_ProcessId_RangeCondition, p.checkBuffer.Keys)
+                                .ApplayFilterCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer.Keys)
                                 .ToArrayAsync(t);
                         }
 
@@ -294,7 +286,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         {
                             var checkDate = p.checkBuffer[elem.ProcessId];
 
-                            if (p.This._wakeUpProcessDbEntity_IsAsyncExecuting_TimerDate_RangeCondition.Check(elem, checkDate))
+                            if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting_TimerDate.Memory.Check(elem, checkDate))
                             {
                                 // Кто-то уже обновил, Пробуждение не нужно.
                                 p.checkBuffer.Remove(elem.ProcessId);
@@ -346,7 +338,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         processes = await _dbContext.Set<ProcessDbEntity<TId>>()
                             .AsNoTracking()
                             .ApplayFilterCondition(
-                                _process_id_RangeCondition,
+                                _processDbEntityConditions.Id.QueryRange,
                                 processIsActiveGroups.First(e => !e.Key).Select(e => e.ProcessId).ToArray())
                             // .OrderBy(e => e.Id) // Для упорядочивания блокировки
                             .ToArrayAsync(cancellationToken);
@@ -374,7 +366,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                         streams = await _dbContext.Set<ProcessDbEntity<TId>>()
                             .AsNoTracking()
                             .ApplayFilterCondition(
-                                _process_id_RangeCondition,
+                                _processDbEntityConditions.Id.QueryRange,
                                 processIsActiveGroups.First(e => e.Key).Select(e => e.ProcessId).ToArray())
                             .ToArrayAsync(cancellationToken);
                     }
@@ -414,10 +406,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     var wakeups = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                         .AsNoTracking()
                         .ApplayFilterCondition(
-                            _processWakeUpDbEntity_ProcessId_RangeCondition,
+                            _processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
                             data
                             )
-                        .ApplayFilterCondition(_wakeUpProcessDbEntity_IsAsyncExecuting_Condition, default)
+                        .ApplayFilterCondition(_processWakeUpDbEntityConditions.IsAsyncExecuting.Query, default)
                         .Select(e => e.ProcessId)
                         .ToArrayAsync(cancellationToken);
 
@@ -428,23 +420,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     }
                 }
 
-                // 2) Пробуем получить UpdateLock.
+                // 2) Пробуем получить updlock.
                 var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                     (This: this, checkBuffer, updateBuffer),
-                    _wakeupEndUpdLockTimeout,
+                    _optionsDto.WakeupEndUpdLockTimeout,
                     static async (p,t) => 
                     {
                         using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                         {
                             var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
                                 .AsNoTracking()
-                                .ApplayFilterCondition(p.This._processWakeUpDbEntity_ProcessId_RangeCondition, p.checkBuffer)
+                                .ApplayFilterCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer)
                                 .ToArrayAsync(t);
 
                             // У нас монопольная блокировка через updlock.
                             foreach (var elem in wakeupsWithLock)
                             {
-                                if (p.This._wakeUpProcessDbEntity_IsAsyncExecuting_Condition.Check(elem, default))
+                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem, default))
                                 {
                                     // Пробуждение не нужно.
                                     p.checkBuffer.Remove(elem.ProcessId);
@@ -479,7 +471,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
                     processes = await _dbContext.Set<ProcessDbEntity<TId>>()
-                        .ApplayFilterCondition(_process_id_RangeCondition, updateBuffer.Keys)
+                        .ApplayFilterCondition(_processDbEntityConditions.Id.QueryRange, updateBuffer.Keys)
                         .ToArrayAsync(cancellationToken);
                 }
 
@@ -505,6 +497,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
             public IWakeUpComponent WakeUpComponent { get; init; }
 
             public ProcessWakeUpDbEntity<TId>? WakeupWithLock { get; set; }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="WakeupEndUpdLockTimeout">Timeout попытки получения updlock на wakeup.</param>
+        /// <param name="SessionEndUpdLockTimeout">В конце сессии timeout ожидания updlock на wakeup сущность.</param>
+        /// <param name="WakeupUpdLockRetryLimit">Кол-во попыток получить блокировку для обновления даты wakeup.</param>
+        /// <param name="ProcessCannotLockWakeupTimeout">Процесс хотел заснуть, но не смог получить updlock над wakeup сущности. Задержка перед следующей попыткой.</param>
+        public record OptionsDto(
+            TimeSpan WakeupEndUpdLockTimeout,
+            TimeSpan SessionEndUpdLockTimeout,
+            int WakeupUpdLockRetryLimit,
+            TimeSpan ProcessCannotLockWakeupTimeout 
+            )
+        {
+            public OptionsDto(
+                TimeSpan? WakeupEndUpdLockTimeout = null,
+                TimeSpan? SessionEndUpdLockTimeout = null,
+                int? WakeupUpdLockRetryLimit = null,
+                TimeSpan? ProcessCannotLockWakeupTimeout = null
+                ) 
+                : this(
+                      WakeupEndUpdLockTimeout ?? TimeSpan.FromSeconds(2),
+                      SessionEndUpdLockTimeout ?? TimeSpan.FromSeconds(2),
+                      WakeupUpdLockRetryLimit ?? 2,
+                      ProcessCannotLockWakeupTimeout ?? TimeSpan.FromSeconds(10)
+                      )
+            {
+            }
         }
     }
 }

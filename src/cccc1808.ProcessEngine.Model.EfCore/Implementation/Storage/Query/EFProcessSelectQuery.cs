@@ -10,7 +10,6 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Query;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
@@ -28,26 +27,20 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
         private readonly IEFDbContext _dbContext;
         private readonly ITransactionManager _transactionManager;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IId_RangeCondition<TId, TEntity> _id_RangeCondition;
-        private readonly Process_ProcessRegistry_RangeCondition<TId, TEntity> _process_ProcessRegistry_RangeCondition;
-        private readonly Process_SelectLock_Condition<TId, TEntity> _process_SelectLock_Condition;
-        private readonly Process_AsyncExecute_Condition<TId, TEntity> _process_AsyncExecute_Condition;
+        private readonly IProcessDbEntityConditions<TId, TEntity> _processDbEntityConditions;
 
         public EFProcessSelectQuery(
             OptionsDto options,
-            IEFDbContext dbContext, 
+            IEFDbContext dbContext,
             ITransactionManager transactionManager,
-            ILockQueryHintStore lockQueryHintStore)
+            ILockQueryHintStore lockQueryHintStore,
+            IProcessDbEntityConditions<TId, TEntity> processDbEntityConditions)
         {
             _options = options;
             _dbContext = dbContext;
             _transactionManager = transactionManager;
             _lockQueryHintStore = lockQueryHintStore;
-            _id_RangeCondition = new IId_RangeCondition<TId, TEntity>();
-            _process_ProcessRegistry_RangeCondition = new Process_ProcessRegistry_RangeCondition<TId, TEntity>();
-            _process_SelectLock_Condition = new Process_SelectLock_Condition<TId, TEntity>();
-            _process_AsyncExecute_Condition = new Process_AsyncExecute_Condition<TId, TEntity>();
-        }
+            _processDbEntityConditions = processDbEntityConditions;        }
 
         private static Queue<ProcessInstanceInfoDto<TId>> EmptyQueue { get; }
             = new Queue<ProcessInstanceInfoDto<TId>>(1);
@@ -72,9 +65,9 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
                         // TODO: можно сделать без загрузки, но не через LINQ.
                         var batch = await _dbContext.Set<TEntity>()
                             // Фильтр по типам процессов
-                            .ApplayFilterCondition(_process_ProcessRegistry_RangeCondition, (_dbContext, types))
-                            .ApplayFilterCondition(_process_AsyncExecute_Condition, now)
-                            .ApplayFilterCondition(_process_SelectLock_Condition, now)
+                            .ApplayFilterCondition(_processDbEntityConditions.ProcessRegistry.QueryRange, (_dbContext, types))
+                            .ApplayFilterCondition(_processDbEntityConditions.AsyncExecute.Query, now)
+                            .ApplayFilterCondition(_processDbEntityConditions.SelectLock.Query, now)
                             .OrderByDescending(e => e.Priority)
                             .Take(context.BatchSize)
                             .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority })
@@ -98,9 +91,15 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
 
                     // Устанавливаем отметку о блокировке выборки.
                     await _dbContext.Set<TEntity>()
-                        .ApplayFilterCondition(_id_RangeCondition, result.Select(e => e.Id.Id).ToArray())
+                        .ApplayFilterCondition(
+                            _processDbEntityConditions.Id.QueryRange,
+                            result.Select(e => e.Id.Id).ToArray()
+                            )
                         // Для оптимизации - использование фильтрующего индекса.
-                        .ApplayFilterCondition(_process_AsyncExecute_Condition, null)
+                        .ApplayFilterCondition(
+                            _processDbEntityConditions.AsyncExecute.Query, 
+                            null                        
+                            )
                         .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLock, selectDate), cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);
@@ -118,9 +117,12 @@ namespace cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query
 
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
-                .ApplayFilterCondition(_id_RangeCondition, ids.Select(e => e.Id.Id).ToArray())
+                .ApplayFilterCondition(
+                    _processDbEntityConditions.Id.QueryRange, 
+                    ids.Select(e => e.Id.Id).ToArray()
+                    )
                 // Для оптимизации - использование фильтрующего индекса.
-                .ApplayFilterCondition(_process_AsyncExecute_Condition, null)
+                .ApplayFilterCondition(_processDbEntityConditions.AsyncExecute.Query, null)
                 .ExecuteUpdateAsync(
                     e => e.SetProperty(e => e.SelectLock, DateTimeOffset.MinValue.UtcDateTime),
                     cancellationToken);

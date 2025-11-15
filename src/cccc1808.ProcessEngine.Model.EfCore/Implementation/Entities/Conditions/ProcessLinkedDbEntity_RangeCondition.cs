@@ -5,10 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Common.Condition;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions
+namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Entities.Conditions
 {
-    public class IProcessLinkedDbEntity_RangeCondition<TId, TEntity>
+    public class ProcessLinkedDbEntity_RangeCondition<TId, TEntity>
         : IQueryableCondition<TEntity, ICollection<TId>>
         where TEntity : IProcessLinkedDbEntity<TId>
     {

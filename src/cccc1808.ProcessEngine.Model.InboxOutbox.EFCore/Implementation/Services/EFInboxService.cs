@@ -16,7 +16,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Classifiers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Conditions;
 
@@ -30,27 +29,26 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Service
         private readonly IEFDbContext _dbContext;
         private readonly IWakeUpService<TId> _wakeUpService;
         private readonly InboxRegistryDto _inboxRegistryDto;
-
-        private readonly AggregateClassifierDbEntity_AggregateDto_Condition<TId> _aggregateClassifierDbEntity_AggregateDto_Condition;
+        private readonly IAggregateClassifierDbEntityCondition<TId> _aggregateClassifierDbEntityCondition;
 
         private readonly Func<string, TId> _idFactory;
         private readonly Func<MessageDto, AggregateDto> _aggregateIdFactory;
         private readonly Func<MessageDto, string> _idempotencyIdFactory;
 
         public EFInboxService(
-            IEFDbContext dbContext, 
+            IEFDbContext dbContext,
             IWakeUpService<TId> wakeUpService,
-            InboxRegistryDto inboxRegistryDto, 
+            InboxRegistryDto inboxRegistryDto,
+            IAggregateClassifierDbEntityCondition<TId> aggregateClassifierDbEntityCondition,
             Func<string, TId> idFactory,
-            Func<MessageDto, AggregateDto> aggregateIdFactory, 
-            Func<MessageDto, string> idempotencyIdFactory)
+            Func<MessageDto, AggregateDto> aggregateIdFactory,
+            Func<MessageDto, string> idempotencyIdFactory
+            )
         {
             _dbContext = dbContext;
             _wakeUpService = wakeUpService;
             _inboxRegistryDto = inboxRegistryDto;
-
-            _aggregateClassifierDbEntity_AggregateDto_Condition = new AggregateClassifierDbEntity_AggregateDto_Condition<TId>();
-
+            _aggregateClassifierDbEntityCondition = aggregateClassifierDbEntityCondition;
             _idFactory = idFactory;
             _aggregateIdFactory = aggregateIdFactory;
             _idempotencyIdFactory = idempotencyIdFactory;
@@ -91,7 +89,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Service
                 aggregatesKeys.Keys,
                 () => _dbContext.Set<AggregateClassifierDbEntity<TId>>()
                     .AsNoTracking()
-                    .ApplayFilterCondition(_aggregateClassifierDbEntity_AggregateDto_Condition, (_dbContext, aggregatesKeys.Keys)),
+                    .ApplayFilterCondition(_aggregateClassifierDbEntityCondition.AggregateDto.QueryRange, (_dbContext, aggregatesKeys.Keys)),
                 (e) => new AggregateDto(e.AggregateType, e.AggregateId),
                 (e) => new AggregateClassifierDbEntity<TId>()
                 {

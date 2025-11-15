@@ -6,10 +6,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
@@ -30,24 +28,21 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
         protected readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
 
-        private readonly ProcessIdDto_Id_Condition<TId, TDbEntity> _processIdDto_Id_Condition;
-        private readonly IId_RangeCondition<TId, TDbEntity> _id_RangeCondition;
-        private readonly Process_AsyncExecute_Condition<TId, TDbEntity> _process_AsyncExecute_Condition;
-        private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessErrorDbEntity<TId>> _processErrorDbEntity_RangeCondition;
+        private readonly IProcessDbEntityConditions<TId, TDbEntity> _processDbEntityConditions;
+        private readonly IProcessErrorDbEntityConditions<TId> _processErrorDbEntityConditions;
 
         public EFChangeTrackerProcessRepository(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
-            IEnumerable<IProcessDbProvider<TId>> processLoaders)
+            IEnumerable<IProcessDbProvider<TId>> processLoaders,
+            IProcessDbEntityConditions<TId, TDbEntity> processDbEntityConditions,
+            IProcessErrorDbEntityConditions<TId> processErrorDbEntityConditions)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _processLoaders = processLoaders;
-
-            _processIdDto_Id_Condition = new ProcessIdDto_Id_Condition<TId, TDbEntity>();
-            _id_RangeCondition = new IId_RangeCondition<TId, TDbEntity>();
-            _process_AsyncExecute_Condition = new Process_AsyncExecute_Condition<TId, TDbEntity>();
-            _processErrorDbEntity_RangeCondition = new IProcessLinkedDbEntity_RangeCondition<TId, ProcessErrorDbEntity<TId>>();
+            _processDbEntityConditions = processDbEntityConditions;
+            _processErrorDbEntityConditions = processErrorDbEntityConditions;
         }
 
         public virtual async Task<ICollection<IProcessContainer<TId>>> GetRange(
@@ -61,8 +56,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                 data = await _dbContext.Set<TDbEntity>()
                     //.Include(e => e.Error)
                     .ApplayFilterCondition(
-                        _id_RangeCondition,
-                        ids.ApplayProjectionCondition(_processIdDto_Id_Condition).ToArray())
+                        _processDbEntityConditions.Id.QueryRange,
+                        ids.Select(e => e.Id).ToArray())
                     .ToArrayAsync(cancellationToken);
             }
 
@@ -109,9 +104,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             {
                 var data = await _dbContext.Set<TDbEntity>()
                     //.Include(e => e.Error)
-                    .ApplayFilterCondition(_id_RangeCondition, ids.Select(e => e.Id).ToArray())
+                    .ApplayFilterCondition(_processDbEntityConditions.Id.QueryRange, ids.Select(e => e.Id).ToArray())
                     // Используем отдельный индекс.
-                    .ApplayFilterCondition(_process_AsyncExecute_Condition, DateTimeOffset.UtcNow)
+                    .ApplayFilterCondition(_processDbEntityConditions.AsyncExecute.Query, DateTimeOffset.UtcNow)
                     .ToArrayAsync(cancellationToken);
 
                 containers = data
@@ -177,7 +172,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
 
             var errorDbEntities = await _dbContext.Set<ProcessErrorDbEntity<TId>>()
                 .ApplayFilterCondition(
-                    _processErrorDbEntity_RangeCondition,
+                    _processErrorDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
                     errorStateChanged.Select(e => e.Id).ToArray())
                 .Select(e => new ProcessErrorDbEntity<TId>())
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);

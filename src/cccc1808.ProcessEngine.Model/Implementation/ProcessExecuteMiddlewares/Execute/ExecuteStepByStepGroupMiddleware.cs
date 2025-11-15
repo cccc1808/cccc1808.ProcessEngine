@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Batch;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
@@ -36,27 +35,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         private readonly IProcessSetter _processSetter;
         private readonly IWakeUpService<TId> _wakeUpService;
         private readonly Func<IServiceProvider, ValueTask<IHandler>> _factory;
-        private readonly IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>> _processEntity_ProcessIdDto_Condition;
-        private readonly IProcessContainer_ProcessInstanceInfoDto_Condition<TId, IProcessContainer<TId>> _processEntity_ProcessInstanceInfoDto_Condition;
-        private readonly IProcessContainer_AsyncExecute_Condition<TId> _processEntity_AsyncExecute_Condition;
+        private readonly IProcessContainerConditions<TId> _processContainerConditions;
 
         public ExecuteStepByStepGroupMiddleware(
             IServiceProvider serviceProvider,
             IIsolationService isolationService,
             IProcessSetter processSetter,
             IWakeUpService<TId> wakeUpService,
-            Func<IServiceProvider, ValueTask<IHandler>> factory
-            )            
+            Func<IServiceProvider, ValueTask<IHandler>> factory,
+            IProcessContainerConditions<TId> processContainerConditions)
         {
             _serviceProvider = serviceProvider;
             _isolationService = isolationService;
             _processSetter = processSetter;
             _wakeUpService = wakeUpService;
             _factory = factory;
-
-            _processEntity_ProcessIdDto_Condition = new IProcessContainer_ProcessIdDto_Condition<TId, IProcessContainer<TId>>();
-            _processEntity_ProcessInstanceInfoDto_Condition = new IProcessContainer_ProcessInstanceInfoDto_Condition<TId, IProcessContainer<TId>>();
-            _processEntity_AsyncExecute_Condition = new IProcessContainer_AsyncExecute_Condition<TId>();            
+            _processContainerConditions = processContainerConditions;
         }
 
         public async ValueTask HandleRangeAsync(
@@ -140,7 +134,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                                 // Условие асинхронной обработки процесса.
                                 if (
                                     elem.CurrentSession.StopAsyncProcessingSession
-                                    || !p.This._processEntity_AsyncExecute_Condition.Check(elem, DateTimeOffset.UtcNow))
+                                    || !p.This._processContainerConditions.AsyncExecute.Memory.Check(elem, DateTimeOffset.UtcNow))
                                 {
                                     if (!elem.CurrentSession.HaveError)
                                     {
@@ -193,7 +187,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
                                 p.allProcesses.Data.Values
-                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .Select(e => e.Process.Info)
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
@@ -227,7 +221,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
                                 p.allProcesses.Data.Values
-                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .Select(e => e.Process.Info)
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
@@ -285,7 +279,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
                                 p.allProcesses.Data.Values
-                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .Select(e => e.Process.Info)
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
@@ -313,7 +307,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
                                 p.allProcesses.Data.Values
-                                    .ApplayProjectionCondition(p.This._processEntity_ProcessInstanceInfoDto_Condition)
+                                    .Select(e => e.Process.Info)
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
@@ -362,7 +356,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                 cancellationToken);
 
             return processes.ToDictionary(
-                _processEntity_ProcessIdDto_Condition.ApplayProjection,
+                e => e.Process.Info.Id,
                 e => 
                 {
                     e.CurrentSession.SessionId = sessionId;

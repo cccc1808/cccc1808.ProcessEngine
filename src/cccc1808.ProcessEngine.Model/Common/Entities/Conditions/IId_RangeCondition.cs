@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Common.Condition;
-using cccc1808.ProcessEngine.Model.Common.Entities;
 
 namespace cccc1808.ProcessEngine.Model.Common.Entities.Conditions
 {

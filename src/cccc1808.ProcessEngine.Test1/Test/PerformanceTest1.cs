@@ -7,6 +7,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
@@ -139,7 +140,8 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                     s.GetRequiredService<IWakeUpService<Guid>>(),
                                     (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                         s.GetRequiredService<Handler1>()
-                                        )
+                                        ),
+                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                     ),
                                 s.GetRequiredService<ITransactionManager>()
                                 );
@@ -269,7 +271,8 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                                 s.GetRequiredService<IWakeUpService<Guid>>(),
                                                 (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                                     s.GetRequiredService<Handler2>()
-                                                    )
+                                                    ),
+                                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                                 ),
                                             s.GetRequiredService<ITransactionManager>()
                                             ),

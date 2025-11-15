@@ -26,7 +26,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
         private readonly OutboxRegistryDto _outboxRegistry;
         private readonly int _messagesLimit;
         private readonly IId_RangeCondition<TId, OutboxProcessDataDbEntity<TId>> _id_RangeCondition;
-        private readonly IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>> _selectForProcessingCondition;
+        private readonly MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>> _selectForProcessingCondition;
 
         public EFOutboxDbProvider(
             IEFDbContext dbContext, 
@@ -37,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
             _outboxRegistry = outboxRegistry;
             _messagesLimit = messagesLimit;
             _id_RangeCondition = new IId_RangeCondition<TId, OutboxProcessDataDbEntity<TId>>();
-            _selectForProcessingCondition = new IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>();
+            _selectForProcessingCondition = new MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>();
         }
 
         public async Task LoadForAsyncProcessingAsync(
@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
             var messages = await _dbContext.Set<OutboxMessageDbEntity<TId>>()
                 .ApplayFilterCondition(
                     _selectForProcessingCondition,
-                    new IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>.ParamDto(
+                    new MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>.ParamDto(
                         outboxProcesses, 
                         WithPriorityOrdering: true
                         )
@@ -73,7 +73,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Storage
             var activeMessagesCount = await _dbContext.Set<OutboxMessageDbEntity<TId>>()
                 .ApplayFilterCondition(
                     _selectForProcessingCondition, 
-                    new IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>.ParamDto(
+                    new MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, OutboxMessageDbEntity<TId>>.ParamDto(
                         outboxProcesses,
                         WithPriorityOrdering: false
                         )

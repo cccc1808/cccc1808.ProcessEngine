@@ -6,10 +6,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.Common.Entities.Conditions;
-using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +19,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
     {
         private readonly AppDbContext _dbContext;
         private readonly IId_RangeCondition<Guid, Process1DataDbEntity> id_RangeCondition;
-        private readonly IProcessContainer_Id_Condition<Guid> processEntity_Id_Condition;
 
         public Process1DataDbProvider(
             AppDbContext dbContext
@@ -29,8 +26,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
         {
             _dbContext = dbContext;
 
-            id_RangeCondition = new IId_RangeCondition<Guid, Process1DataDbEntity>();
-            processEntity_Id_Condition = new IProcessContainer_Id_Condition<Guid>();            
+            id_RangeCondition = new IId_RangeCondition<Guid, Process1DataDbEntity>();           
         }
 
         public async Task LoadForAsyncProcessingAsync(

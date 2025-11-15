@@ -9,9 +9,9 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
 using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Components;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.Entities.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.Storage;
 
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
     {
         private readonly IEFDbContext _dbContext;
         private readonly ProcessTypeDto[] _registrys;
-        private readonly IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
+        private readonly ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
 
         public EFWakeupDbProvider(
             IEFDbContext dbContext,
@@ -31,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.DbProvider
         {
             _dbContext = dbContext;
             _registrys = registrys.Select(e => e.ProcessRegistry.ProcessType).ToArray();
-            _processWakeUpDbEntity_ProcessId_RangeCondition = new IProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
+            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
         }
 
         public async Task LoadForAsyncProcessingAsync(

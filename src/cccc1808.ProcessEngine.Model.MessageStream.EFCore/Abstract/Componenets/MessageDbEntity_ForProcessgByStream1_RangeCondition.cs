@@ -12,8 +12,8 @@ namespace cccc1808.ProcessEngine.Model.MessageStream.EFCore.Abstract.Componenets
     /// Отбор сообщений для обработки на основании идентификаторов стримов.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public class IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, TEntity>
-        : IQueryableCondition<TEntity, IMessageDbEntity_ForProcessgByStream1_RangeCondition<TId, TEntity>.ParamDto>
+    public class MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, TEntity>
+        : IQueryableCondition<TEntity, MessageDbEntity_ForProcessgByStream1_RangeCondition<TId, TEntity>.ParamDto>
         where TEntity : IMessageDbEntity<TId>
     {
         public IQueryable<TEntity> ApplayQueryable(

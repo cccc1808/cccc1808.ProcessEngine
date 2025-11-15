@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Common.Condition;
@@ -18,7 +17,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
     {
         protected readonly IProcessRepository<TId> _repository;
         protected readonly IProcessSetter _processSetter;
-        private readonly ProcessInstanceInfoDto_Id_Condition<TId> _processInstanceInfoDto_Id_Condition;
 
         protected BaseRangeProcessHandler(
             IProcessRepository<TId> repository,
@@ -26,7 +24,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         {
             _repository = repository;
             _processSetter = processSetter;
-            _processInstanceInfoDto_Id_Condition = new ProcessInstanceInfoDto_Id_Condition<TId>();
         }
 
         #region ExecuteStepByStepGroupMiddleware<TId>.IHandler
@@ -50,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             CancellationToken cancellationToken)
         {
             var data = await _repository.GetRangeForAsyncProcessingAsync(
-                ids.ApplayProjectionCondition(_processInstanceInfoDto_Id_Condition).ToArray(),
+                ids.Select(e => e.Id).ToArray(),
                 cancellationToken);
 
             return data;

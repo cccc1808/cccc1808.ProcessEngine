@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.Storage.Query;
 using cccc1808.ProcessEngine.Model.Common.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
@@ -109,7 +110,8 @@ namespace cccc1808.ProcessEngine.Test1.Model
                     SelectoLockDelay: lockDelay),
                 s.GetRequiredService<IEFDbContext>(),
                 s.GetRequiredService<ITransactionManager>(),
-                s.GetRequiredService<ILockQueryHintStore>()
+                s.GetRequiredService<ILockQueryHintStore>(),
+                s.GetRequiredService<IProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>>>()
                 );
         }
     }
