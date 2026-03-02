@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
@@ -19,15 +20,19 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly string _connectionString;
+        private readonly bool _useLockQueryHintStore;
 
         public AppDbContext(
-            IServiceProvider serviceProvider, 
-            string connectionString)
+            IServiceProvider serviceProvider,
+            string connectionString,
+            bool useLockQueryHint)
         {
             _serviceProvider = serviceProvider;
             _connectionString = connectionString;
+            _useLockQueryHintStore = useLockQueryHint;
         }
 
+        [Obsolete("Для MemoryJoin.")]
         private DbSet<MemoryJoinStubEntity> MemoryJoin => Set<MemoryJoinStubEntity>();
 
         public DbSet<ProcessDbEntity<Guid>> Process => Set<ProcessDbEntity<Guid>>();
@@ -43,10 +48,18 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                 .UseNpgsql(_connectionString)
                 .UseSnakeCaseNamingConvention();
 
-            optionsBuilder.AddInterceptors(
-                new LockQueryHintInterceptor(
-                    _serviceProvider.GetRequiredService<ILockQueryHintStore>())
-                );
+            var interceptors = new List<IInterceptor>();
+
+            if (_useLockQueryHintStore)
+            {
+                interceptors.Add(
+                    new LockQueryHintInterceptor(
+                        _serviceProvider.GetRequiredService<ILockQueryHintStore>()
+                        )
+                    );
+            }
+
+            optionsBuilder.AddInterceptors(interceptors);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

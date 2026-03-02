@@ -13,15 +13,34 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract
 {
     public interface IInboxOutboxSetter
     {
+        /// <summary>
+        /// Подготовить группу к асинхронной обработке.
+        /// </summary>
+        /// <typeparam name="TId"></typeparam>
+        /// <param name="group"></param>
+        /// <returns></returns>
         ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup PrepareOutboxGroup<TId>(
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group);
 
+        /// <summary>
+        /// Хендлер, после успешной обработки сообщения.
+        /// </summary>
+        /// <typeparam name="TId"></typeparam>
+        /// <param name="process"></param>
+        /// <param name="outboxComponent"></param>
+        /// <param name="message"></param>
         void OutboxMessageProcessed<TId>(
             IProcessContainer<TId> process,
             IOutboxComponent<TId> outboxComponent,
             IOutboxMessageComponent<TId> message
             );
 
+        /// <summary>
+        /// Подготовить группу к асинхронной обработке.
+        /// </summary>
+        /// <typeparam name="TId"></typeparam>
+        /// <param name="group"></param>
+        /// <returns></returns>
         ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup PrepareInboxGroup<TId>(
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group);
 

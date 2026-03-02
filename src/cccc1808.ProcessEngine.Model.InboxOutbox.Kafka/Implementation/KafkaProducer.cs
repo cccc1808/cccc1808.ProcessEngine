@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
@@ -40,17 +41,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Kafka.Implementation
 
             foreach (var elem in messages)
             {
+                var message = new Message<string, JsonElement>()
+                {
+                    Key = elem.Key,
+                    Value = elem.Body,
+                };
+                foreach (var elem2 in elem.Headers)
+                {
+                    message.Headers.Add(elem2.key, Encoding.UTF8.GetBytes(elem2.value));
+                }
+
                 var produceResult = _producer.ProduceAsync(
                     new TopicPartition(
                         elem.Queue,
                         new Partition(elem.Partition)
                         ),
-                    new Message<string, JsonElement>()
-                    {
-                        Key = elem.Key,
-                        // Headers = new Headers().Add(new Header()) elem.Headers,
-                        Value = elem.Body,
-                    },
+                    message,
                     cancellationToken);
                 buffer.Add(produceResult);
             }

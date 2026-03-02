@@ -54,13 +54,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         public double? Double3 { get; set; }
 
         [Column("string1")]
-        public string String1 { get; set; }
+        public string String1 { get; set; } = null!;
 
         [Column("string2")]
-        public string String2 { get; set; }
+        public string String2 { get; set; } = null!;
 
         [Column("string3")]
-        public string String3 { get; set; }
+        public string String3 { get; set; } = null!;
 
         [Column("date1")]
         public DateTime? Date1 { get; set; }

@@ -18,13 +18,17 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 {
-    public class OutboxHandler1<TId>
+    /// <summary>
+    /// Outbox process -> queue.
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
+    public class OutboxRangeProcessHandler<TId>
         : BaseRangeProcessHandler<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
         private readonly IInboxOutboxSetter _inboxOutboxSetter;
 
-        public OutboxHandler1(
+        public OutboxRangeProcessHandler(
             IProcessRepository<TId> repository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
@@ -51,9 +55,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                     Outbox: e.Value.GetComponent<IOutboxComponent<TId>>())
                     )
                 .ToDictionary(
-                e => e.Process.Id,
-                e => e);
+                    e => e.Process.Id,
+                    e => e);
 
+            // Группируем по очередям.
             var groupByQueue = context.Values
                 .GroupBy(e => e.Outbox.Queue)
                 .ToArray();
@@ -84,7 +89,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                         _inboxOutboxSetter.OutboxMessageProcessed(
                             elem2.Message.Process,
                             elem2.Message.Outbox,
-                            elem2.Message.Message);                    
+                            elem2.Message.Message);
                     }
                 }
                 catch (Exception ex)

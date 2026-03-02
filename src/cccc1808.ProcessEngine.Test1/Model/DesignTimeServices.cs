@@ -25,7 +25,8 @@ namespace cccc1808.ProcessEngine.Test1.Model
             services
                    .AddScoped<AppDbContext>(s => new AppDbContext(
                        s.GetRequiredService<IServiceProvider>(),
-                       $"Host=localhost;Port={15433};Database=test;Username=postgres;Password=postgres"))
+                       connectionString: $"Host=localhost;Port={15433};Database=test;Username=postgres;Password=postgres",
+                       useLockQueryHint: true))
                    .AddScoped<ILockQueryHintStore, LockQueryHintStore>();
 
             return services.BuildServiceProvider()

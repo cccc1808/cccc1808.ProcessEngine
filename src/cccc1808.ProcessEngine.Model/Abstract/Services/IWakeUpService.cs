@@ -4,8 +4,8 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 {
     /// <summary>
-    /// Реализация системы внешнего пробуждения процесса.
-    /// Используется для конкрунтного пробуждения.
+    /// Реализация системы гарантированного внешнего пробуждения процесса.
+    /// Используется для конкурентного пробуждения.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public interface IWakeUpService<TId>

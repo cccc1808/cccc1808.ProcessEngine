@@ -14,14 +14,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
         : IId<TId>,
         IProcessLinkedDbEntity<TId>
     {
-        public TId Id { get; set; }
+        public TId Id { get; set; } = default!;
 
-        public TId ProcessId { get; set; }
+        public TId ProcessId { get; set; } = default!;
 
-        public TId AggregateId { get; set; }
-        public AggregateClassifierDbEntity<TId> Aggregate { get; set; }
+        public TId AggregateId { get; set; } = default!;
+        public AggregateClassifierDbEntity<TId> Aggregate { get; set; } = default!;
 
-        public TId QueueId { get; set; }
-        public QueueClassifierDbEntity<TId> Queue {  get; set; }
+        public TId QueueId { get; set; } = default!;
+        public QueueClassifierDbEntity<TId> Queue { get; set; } = default!;
     }
 }

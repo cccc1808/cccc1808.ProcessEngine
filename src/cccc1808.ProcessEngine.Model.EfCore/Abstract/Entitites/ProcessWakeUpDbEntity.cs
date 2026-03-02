@@ -12,10 +12,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         : IId<TId>, 
         IProcessLinkedDbEntity<TId>
     {
-        public TId Id { get; set; }
+        public TId Id { get; set; } = default!;
 
-        public TId ProcessId { get; set; }
-        public ProcessDbEntity<TId> Process { get; set; }
+        public TId ProcessId { get; set; } = default!;
+        public ProcessDbEntity<TId> Process { get; set; } = default!;
 
         /// <summary>
         /// Дата обновления.

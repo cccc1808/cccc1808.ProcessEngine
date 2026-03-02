@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices.JavaScript;
+using System.Text;
 using System.Text.Json;
 
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
@@ -57,7 +57,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Kafka.Implementation
                         new MessageDto(
                             consumeResult.Message.Key,
                             _topic,
-                            consumeResult.Message.Headers.Select(e => new HeaderDto()).ToArray(),
+                            consumeResult.Message.Headers
+                                .Select(
+                                    e => new HeaderDto(e.Key, Encoding.UTF8.GetString(e.GetValueBytes()))
+                                    )
+                                .ToArray(),
                             consumeResult.Message.Value,
                             consumeResult.Partition.Value
                             ));
@@ -65,7 +69,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Kafka.Implementation
                     _lastMessage = lastResult;
                 }
             }
-            stopwatch.Reset();
             return consumeBuffer;
         }
 

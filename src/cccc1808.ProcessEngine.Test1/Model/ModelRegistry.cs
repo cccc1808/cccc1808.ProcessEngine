@@ -33,6 +33,18 @@ namespace cccc1808.ProcessEngine.Test1.Model
 {
     internal class ModelRegistry
     {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="serviceCollection"></param>
+        /// <param name="options"><see cref="ProcessRunner<Guid>.OptionsDto"/></param>
+        /// <param name="selectFactory"></param>
+        /// <param name="rootMiddlewareFactory">Фабрика корневого middleware обработки.</param>
+        /// <param name="bufferLimit">Ограничение размера InMemory очереди.</param>
+        /// <param name="processCountLimiter"><see cref="ProcessCountLimiter"/></param>
+        /// <param name="dbPort"></param>
+        /// <param name="useMemory">Применить настройку буфера к Postgres connectio string.</param>
+        /// <param name="useLockQueryHint"><see cref="ILockQueryHintStore"/></param>
         public static void Registry(
             IServiceCollection serviceCollection,
             ProcessRunner<Guid>.OptionsDto options,
@@ -41,7 +53,8 @@ namespace cccc1808.ProcessEngine.Test1.Model
             int bufferLimit,
             int processCountLimiter,
             int dbPort,
-            bool useMemory)
+            bool useMemory,
+            bool useLockQueryHint)
         {
             serviceCollection
                 .AddSingleton<ILocalProcessBufferService<Guid>>(
@@ -77,7 +90,8 @@ namespace cccc1808.ProcessEngine.Test1.Model
             serviceCollection
                 .AddScoped<AppDbContext>(s => new AppDbContext(
                     s.GetRequiredService<IServiceProvider>(), 
-                    connectionString
+                    connectionString: connectionString,
+                    useLockQueryHint: useLockQueryHint
                     )
                     )
                 .AddScoped<ITransactionManager, EFTransactionManager>()

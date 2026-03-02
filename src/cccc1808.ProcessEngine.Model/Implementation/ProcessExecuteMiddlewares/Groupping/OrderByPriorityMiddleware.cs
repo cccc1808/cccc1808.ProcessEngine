@@ -17,6 +17,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
     {
         private readonly IProcessHandlerMiddleware<TId> _next;
 
+        public OrderByPriorityMiddleware(IProcessHandlerMiddleware<TId> next)
+        {
+            _next = next;
+        }
+
         public async ValueTask HandleRangeAsync(
             IReadOnlyList<IReadOnlyList<ProcessInstanceInfoDto<TId>>> ids,
             CancellationToken cancellationToken)

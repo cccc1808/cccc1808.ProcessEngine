@@ -46,7 +46,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             foreach (var elem in group.Group.Values)
             {
                 var elemGroup = new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                    group.Key,
                     new Dictionary<ProcessIdDto<TId>, IProcessContainer<TId>>() { [elem.Process.Info.Id] = elem }
                     );
 

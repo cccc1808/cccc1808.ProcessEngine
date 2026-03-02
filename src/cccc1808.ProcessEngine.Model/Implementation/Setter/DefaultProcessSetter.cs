@@ -69,7 +69,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             process.Process.Error = null;
 
             process.CurrentSession.HaveError = false;
-            process.CurrentSession.NeedSaveError = 
+            process.CurrentSession.NeedUpdateErrorData = 
                 process.CurrentSession.HaveErrorOnStart
                 || process.CurrentSession.HaveError;
         }
@@ -96,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
             }
 
             process.CurrentSession.HaveError = true;
-            process.CurrentSession.NeedSaveError = true;
+            process.CurrentSession.NeedUpdateErrorData = true;
 
             process.Process.Error = new IProcessComponent<TId>.ErrorDto(
                 _formateExceptionFunc(ex),

@@ -81,10 +81,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation
                         )
                     )
                 .GroupBy(e => e.ProcessId, (e1, e2) => new { Id = e1, ActiveMessagesCount = e2.Count() })
-                .ToDictionaryAsync(e => e.Id, e => e.ActiveMessagesCount, cancellationToken);
-
-            // 4) Загрузка необходимых бизнес агрегатов, типизация сообщений (десереализация в нужный тип).
-            // ...
+                .ToDictionaryAsync(e => e.Id, e => e.ActiveMessagesCount, cancellationToken);            
 
             foreach (var elem in inboxProcesses)
             {
@@ -99,6 +96,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation
                         activeMessagesCount[process.Id]
                         ));
             }
+
+            // 4) Загрузка необходимых бизнес агрегатов, типизация сообщений (десереализация в нужный тип).
+            // ...
         }
 
         public async Task LoadRangeAsync(

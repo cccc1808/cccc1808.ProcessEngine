@@ -10,12 +10,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
 
         public TId Id => Process.Info.Id.Id;
         public IProcessComponent<TId> Process { get; }
-        public ICurrentSessionComponent CurrentSession { get; }
+        public IAsyncSessionComponent CurrentSession { get; }
         
 
         public ProcessContainer(
             IProcessComponent<TId> process, 
-            ICurrentSessionComponent currentSession)
+            IAsyncSessionComponent currentSession)
         {
             Process = process;            
             CurrentSession = currentSession;

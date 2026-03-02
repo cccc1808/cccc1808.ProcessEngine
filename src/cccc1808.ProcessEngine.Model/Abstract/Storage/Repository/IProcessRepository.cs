@@ -26,10 +26,22 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Storage.Repository
             ICollection<ProcessIdDto<TId>> ids,
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Обновить данные процесса.
+        /// </summary>
+        /// <param name="processes"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         Task UpdateAsync(
             ICollection<IProcessContainer<TId>> processes, 
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Обновить данные модул
+        /// </summary>
+        /// <param name="processes"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
         Task UpdateWakeupAsync(
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken);

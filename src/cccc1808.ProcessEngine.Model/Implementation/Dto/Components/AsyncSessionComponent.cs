@@ -8,8 +8,8 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
 {
-    public class CurrentSessionComponent
-        : ICurrentSessionComponent
+    public class AsyncSessionComponent
+        : IAsyncSessionComponent
     {
         public Guid SessionId { get; set; }
         public bool IsSessionFirstStep { get; set; }
@@ -17,10 +17,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Dto.Components
 
         public short ReTryLimit { get; set; }
         public bool StopAsyncProcessingSession { get; set; }
-        public bool NeedSaveError { get; set; }
+        public bool NeedUpdateErrorData { get; set; }
         public bool HaveErrorOnStart { get; }
 
-        public CurrentSessionComponent(
+        public AsyncSessionComponent(
             short reTryLimit,
             bool haveErrorOnStart) 
         {

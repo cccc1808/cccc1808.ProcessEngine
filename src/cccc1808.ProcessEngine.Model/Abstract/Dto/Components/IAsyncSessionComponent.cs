@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
 {
     /// <summary>
-    /// Информация о текузей сессии асинхронной обработки.
+    /// Информация о текущей сессии асинхронной обработки.
     /// (Runtime данные, не сохраняются в БД).
-    /// Я вляется обязательным.
+    /// Является обязательным при ассинхронной обработке.
     /// </summary>
-    public interface ICurrentSessionComponent
+    public interface IAsyncSessionComponent
     {
         /// <summary>
-        /// Идентификатор сессии обработки
+        /// Идентификатор сессии асинъронной обработки.
         /// </summary>
         Guid SessionId { get; set; }
 
@@ -38,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
         /// <summary>
         /// Необходимость сохранить ошибку в БД.
         /// </summary>
-        bool NeedSaveError { get; set; }
+        bool NeedUpdateErrorData { get; set; }
 
         /// <summary>
         /// Взведение флага говорит движку прекратить асинхронную обработку экземпляра процесса.

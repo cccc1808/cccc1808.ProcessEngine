@@ -30,7 +30,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group)
         {
             return new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                group.Key,
                 group.Group
                     .Values
                     .Where(
@@ -98,7 +97,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group)
         {
             return new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                group.Key,
                 group.Group
                     .Values
                     .Where(
@@ -109,20 +107,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                             // Загружено хотя бы одно сообщение
                             if (outbox.Messages.Any())
                             {
+                                // Обработка нужна.
                                 return true;
                             }
                             else
                             {
-                                // Активных сообщений нет - засыпаем.
+                                // Активных сообщений нет.
                                 if (outbox.ActiveMessagesCount == 0)
                                 {
+                                    // Пытаемся уснуть.
                                     _processSetter.SetStatus(e, ProcessStatusEnum.WaitEvent);
                                 }
-                                // Активные сообщения есть, но ни одно не загружено - обработка не требуется.
+                                // Активные сообщения есть, но ни одно не загружено в текущей сессии.
                                 else
-                                {
-                                    // TODO: поместить в очередь
+                                {                                    
                                     _processSetter.StopAsyncProcessingSession(e);
+                                    // TODO: поместить в очередь
                                 }
 
                                 return false;

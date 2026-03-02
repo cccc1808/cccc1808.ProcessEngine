@@ -202,6 +202,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Service
                     .RunAndReturnAsync(cancellationToken);
             }
 
+            // Пробуждаем inbox процессы.
             await _wakeUpService.WakeUpProcessHandlerAsync(
                 messageByAggregate.Select(e => (aggregatesKeys[e.Key], (DateTimeOffset?)null)).ToArray(),
                 cancellationToken

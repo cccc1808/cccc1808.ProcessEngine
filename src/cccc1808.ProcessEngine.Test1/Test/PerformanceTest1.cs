@@ -158,7 +158,8 @@ namespace cccc1808.ProcessEngine.Test1.Test
                     bufferLimit: total,
                     processCountLimiter: limit,
                     dbPort: postgreSqlContainer.GetMappedPublicPort(),
-                    useMemory: useMemory
+                    useMemory: useMemory,
+                    useLockQueryHint: true
                     );
 
                 serviceCollection.AddSingleton(
@@ -292,7 +293,8 @@ namespace cccc1808.ProcessEngine.Test1.Test
                     bufferLimit: total,
                     processCountLimiter: parallelism,
                     dbPort: postgreSqlContainer.GetMappedPublicPort(),
-                    useMemory: useMemory);
+                    useMemory: useMemory,
+                    useLockQueryHint: true);
 
                 serviceCollection.AddSingleton(
                     new ProcessRegistryDto(

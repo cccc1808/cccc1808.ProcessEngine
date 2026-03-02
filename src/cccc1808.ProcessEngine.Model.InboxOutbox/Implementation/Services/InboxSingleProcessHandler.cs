@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
@@ -17,23 +16,29 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 {
-    public abstract class InboxHandler1<TId> 
+    /// <summary>
+    /// Inbox process -> inbox handler.
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
+    public abstract class InboxSingleProcessHandler<TId> 
         : BaseSingleProcessHandler<TId>
     {
         private readonly OptionsDto _options;
         protected readonly IInboxOutboxSetter _inboxOutboxSetter;
 
-        public InboxHandler1(
+        public InboxSingleProcessHandler(
             IIsolationService isolationService,
             IProcessRepository<TId> repository,
             IProcessSetter setter,
-            OptionsDto options)
+            OptionsDto options,
+            IInboxOutboxSetter inboxOutboxSetter)
             : base(
                   isolationService,
                   repository,
                   setter)
         {
-            _options = options;     
+            _options = options;
+            _inboxOutboxSetter = inboxOutboxSetter;
         }
 
         protected override OptionsDto SingleOptions 

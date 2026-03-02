@@ -66,7 +66,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
                 {
                     return new ProcessContainer<TId>(
                         new EFProcessProxyComponent<TId>(e),
-                        new CurrentSessionComponent(
+                        new AsyncSessionComponent(
                             reTryLimit: 3, 
                             haveErrorOnStart: e.HaveErrorFlag || e.ReTryCount.HasValue)
                         {
@@ -118,7 +118,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
 
                             return (IProcessContainer<TId>)new ProcessContainer<TId>(
                                 new EFProcessProxyComponent<TId>(e),
-                                new CurrentSessionComponent(
+                                new AsyncSessionComponent(
                                     reTryLimit: 3, 
                                     haveErrorOnStart: e.HaveErrorFlag || e.ReTryCount.HasValue)
                                 {
@@ -167,7 +167,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
             }
 
             var errorStateChanged = processes
-                .Where(e => e.CurrentSession.NeedSaveError)
+                .Where(e => e.CurrentSession.NeedUpdateErrorData)
                 .ToArray();
 
             var errorDbEntities = await _dbContext.Set<ProcessErrorDbEntity<TId>>()
@@ -190,7 +190,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository
 
             foreach (var elem in errorStateChanged)
             {
-                elem.CurrentSession.NeedSaveError = false;
+                elem.CurrentSession.NeedUpdateErrorData = false;
             }
         }
 

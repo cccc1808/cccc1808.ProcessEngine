@@ -35,10 +35,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(
-                new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(
-                    string.Empty,
-                    process
-                    )
+                new ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup(process)
                 );
         }
 

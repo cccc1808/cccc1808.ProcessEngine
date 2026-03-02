@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
     {
         #region IMessageDbEntity
 
-        public TId Id { get; set; }
+        public TId Id { get; set; } = default!;
 
         public int Partition { get; set; }
 
@@ -24,15 +24,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities
 
         public long OrderId { get; set; }
 
-        public TId ProcessId { get; set; }
+        public TId ProcessId { get; set; } = default!;
 
         public bool IsActive { get; set; }
 
         #endregion
 
-        public string Key { get; set; }
+        public string Key { get; set; } = default!;
 
-        public string IdemporencyId { get; set; }
+        public string IdemporencyId { get; set; } = default!;
 
         public JsonElement Body { get; set; }
 

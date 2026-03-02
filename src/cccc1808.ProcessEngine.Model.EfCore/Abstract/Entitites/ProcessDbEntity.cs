@@ -11,7 +11,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
     public class ProcessDbEntity<TId>
         : IId<TId>
     {
-        public TId Id { get; set; }
+        public TId Id { get; set; } = default!;
 
         public long ProcessTypeId { get; set; }
         public int ProcessVersion { get; set; }
@@ -34,7 +34,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
 
         public short? ReTryCount { get; set; }
 
-        public ProcessErrorDbEntity<TId> Error { get; set; }
+        public ProcessErrorDbEntity<TId> Error { get; set; } = default!;
 
         #endregion
 
@@ -43,7 +43,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         public DateTimeOffset TimerDate { get; set; }
 
         public int WakeupLockCounter { get; set; }
-        public ProcessWakeUpDbEntity<TId> Wakeup { get; set; }
+        public ProcessWakeUpDbEntity<TId> Wakeup { get; set; } = default!;
 
         #endregion
     }

@@ -73,8 +73,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
                     async () =>
                     {
                         // Для пробуждения, если очередь опустела.
-                        var wakeUpTask = new TaskCompletionSource(
-                            TaskCreationOptions.RunContinuationsAsynchronously);
+                        var wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
                         using var _ = _buffer.AddEmptyHandler(
                             (b) => wakeUpTask.TrySetResult());
@@ -179,6 +178,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Runners
         }
 
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SelectBatchLimit">Ограничение размера выборки одного запроса к хранилищу процессов.</param>
+        /// <param name="selectEmptyTimeout">Задержка, если процессов в хранилище нет или очередь заполнена.</param>
+        /// <param name="BatchLimit">Ограничение размера батча выборки из InMemory батча и отправки в обработку.</param>
+        /// <param name="BatchTimeout">Ограничения по времени на выборку батча (если батч не наполняется полностью).</param>
         public readonly record struct OptionsDto(
             int SelectBatchLimit,
             TimeSpan selectEmptyTimeout,

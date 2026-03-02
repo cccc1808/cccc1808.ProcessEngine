@@ -15,14 +15,21 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Dto.Components
     {
         TId Id { get; }
         IProcessComponent<TId> Process { get; }
-        ICurrentSessionComponent CurrentSession { get; }
+        IAsyncSessionComponent CurrentSession { get; }
 
+        /// <summary>
+        /// Добавить компонент.
+        /// </summary>
+        /// <param name="component"></param>
         void AddComponent<T>(T component);
 
         T GetComponent<T>();
 
         bool TryGetComponent<T>(out T result);
 
+        /// <summary>
+        /// Удалить компонент.
+        /// </summary>
         void RemoveComponent<T>();
     }
 }

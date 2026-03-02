@@ -14,8 +14,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox
 
         #region InMemory
 
+        /// <summary>
+        /// Индекс указатель сообщения для обработки из <see cref="Messages"/>.
+        /// </summary>
         int CurrentMessageIndex { get; set; }
 
+        /// <summary>
+        /// 
+        /// </summary>
         long ActiveMessagesCount { get; }
 
         #endregion

@@ -57,22 +57,26 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             foreach (var elem in processes)
             {
+                // Игнорируем процессы с ошибкой.
                 if (elem.Process.HaveErrorFlag || elem.CurrentSession.HaveError)
                 {
                     continue;
                 }
 
+                // Нет компонента.
                 if (!elem.TryGetComponent<IWakeUpComponent>(out var component))
                 {
                     continue;
                 }
 
+                // Флаг - что мы вышли из части ассинхронного выполнения.
                 if (!component.InAsyncExecuting)
                 {
                     throw new InvalidOperationException("Состояние.");
                 }
                 component.InAsyncExecuting = false;
 
+                // Обрабатываем только указанные статусы.
                 if (elem.Process.Status 
                     is ProcessStatusEnum.AsyncExecute 
                     or ProcessStatusEnum.WaitEvent)
@@ -95,7 +99,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             {
                 // Блокировка используется, чтобы не допустить ситуации, когда другая транзакция попытается пробудить процесс,
-                // а мы это не увидим (и процесс уснент)
+                // а мы это не увидим (и процесс уснет)
                 // (ждем завершения блокировок всех сигналов).
 
                 // Пробуем получить все записи с блокировкой.
@@ -145,9 +149,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
             foreach (var elem in context.Values)
             {
+                // Мы не получили блокировку, это значит что
                 if (elem.WakeupWithLock is null)
-                {
-                    // Мы не получили блокировку, это значит что
+                {                    
                     // 1) Мы не можем обновить состояние Wakeup в БД.
                     // 2) Мы не видим, уазано ли там меньшее значение таймера.
                     // 3) Идет интенсивная запись сигнала Wakeup, значит засыпать нам не нужно.
@@ -179,9 +183,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
                     continue;
                 }
 
+                // Получили блокировку.
                 elem.Process.Process.WakeupLockCounter = 0;
                 elem.WakeUpComponent.NeedUpdate = true;
-                
+
                 if (elem.WakeUpComponent.SessionStartTimeStamp == elem.WakeupWithLock.TimeStamp)
                 {
                     // Если дата не менялась с начала обработки, значит новых внешних сигналов пробуждения не было.
@@ -492,10 +497,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services
 
         private class ExecuteContextItemDto
         {
-            public IProcessContainer<TId> Process { get; init; }
+            public IProcessContainer<TId> Process { get; init; } = default!;
 
-            public IWakeUpComponent WakeUpComponent { get; init; }
+            public IWakeUpComponent WakeUpComponent { get; init; } = default!;
 
+            /// <summary>
+            /// Пробуждение с блокировкой.
+            /// </summary>
             public ProcessWakeUpDbEntity<TId>? WakeupWithLock { get; set; }
         }
 

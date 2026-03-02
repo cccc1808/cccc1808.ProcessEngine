@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,71 +23,80 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
         : IAsyncDisposable
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly IQueueProviderFactory _queueProviderFactory;
-        private readonly string[] _queues;
+        private readonly OptionsDto _options;
 
-        private List<(CancellationTokenSource Token, Task Task)> _consumers;
+        private WorkersState? State { get; set; }
 
         public IInboxWorker(
-            IServiceProvider serviceProvider, 
-            IQueueProviderFactory queueProviderFactory, 
-            string[] queues,
-            int aggregateCacheSize)
+            IServiceProvider serviceProvider,
+            IQueueProviderFactory _,
+            OptionsDto options)
         {
-            _serviceProvider = serviceProvider;
-            _queueProviderFactory = queueProviderFactory;
-            _queues = queues;
-            _consumers = new List<(CancellationTokenSource Token, Task Task)>(queues.Length);
+            _serviceProvider = serviceProvider;       
+            _options = options;
         }
 
-        public Task StartAsync()
+        public async Task StartAsync()
         {
-            _consumers.Clear();
-            foreach (var elem in _queues)
+            await StopAsync();
+
+            var state = new WorkersState()
             {
-                var token = new CancellationTokenSource();
+                ServiceScope = _serviceProvider.CreateAsyncScope(),
+                CancellationTokenSource = new CancellationTokenSource(),
+                Workers = new List<Task>(_options.Queues.Length),
+            };
+            State = state;
+
+            foreach (var elem in _options.Queues)
+            {
                 var task = Task.Run(
-                    async () => await Body(elem, token.Token)
+                    async () => await Body(
+                        state.ServiceScope.ServiceProvider,
+                        _options,
+                        elem,
+                        state.CancellationTokenSource.Token)
                     );
-                _consumers.Add((token, task));
+                state.Workers.Add(task);
             }
-            return Task.CompletedTask;
         }
 
         public async Task StopAsync()
         {
+            var state = State;
+            if (state is null)
+            {
+                return;
+            }
+
             try 
             {
-                foreach (var elem in _consumers)
-                {
-                    elem.Token.Cancel();
-                }
+                state.CancellationTokenSource.Cancel();
 
                 await Task.WhenAll(
-                    _consumers.Select(e => e.Task));
+                    state.Workers);
             }
             finally 
             {
-                foreach (var elem in _consumers)
-                {
-                    elem.Token.Dispose();
-                }
-
-                _consumers.Clear();
+                await state.ServiceScope.DisposeAsync();
+                State = null;
             }
         }
 
-
-        private async Task Body(
+        private static async Task Body(
+            IServiceProvider serviceProvider,
+            OptionsDto options,
             string queueName,
             CancellationToken cancelationToken)
         {
-            var consumer = await _queueProviderFactory.GetConsumerAsync(queueName, cancelationToken);
+            var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
+
+            var consumer = await queueProviderFactory.GetConsumerAsync(queueName, cancelationToken);
             while (!cancelationToken.IsCancellationRequested)
             {
                 var batch = await consumer.ConsumeBatchAsync(
-                    250,
-                    TimeSpan.FromSeconds(2),
+                    options.ConsumeBatchSize,
+                    options.ConsumeTimeout,
                     cancelationToken);
 
                 if (batch.Count == 0)
@@ -94,17 +104,43 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                     continue;
                 }
 
-                await using (var scope = _serviceProvider.CreateAsyncScope())
+                await using (var scope = serviceProvider.CreateAsyncScope())
                 {
                     var handler = scope.ServiceProvider.GetRequiredService<IEFInboxService>();
                     await handler.ProcessBatchAsync(batch, cancelationToken);
                 }
+
+                await consumer.CommitAsync(cancelationToken);
             }
         }
 
         public async ValueTask DisposeAsync()
         {
             await StopAsync();
+        }
+
+        private record WorkersState 
+        {
+            public AsyncServiceScope ServiceScope { get; init; }
+
+            public CancellationTokenSource CancellationTokenSource { get; init; } = default!;
+
+            public List<Task> Workers { get; init; } = default!;
+        }
+
+        public class OptionsDto 
+        {
+            /// <summary>
+            /// Список очередей.
+            /// </summary>
+            public string[] Queues { get; set; }
+                = Array.Empty<string>();
+
+            public int ConsumeBatchSize { get; set; } 
+                = 250;
+
+            public TimeSpan ConsumeTimeout { get; set; } 
+                = TimeSpan.FromSeconds(2);
         }
     }
 }

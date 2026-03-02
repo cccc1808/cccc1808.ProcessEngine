@@ -12,7 +12,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
         : IId<long>
     {
         public long Id { get; set; }
-        public string Name { get; set; }
+        public string Name { get; set; } = default!;
         public short Version { get; set; }
     }
 }

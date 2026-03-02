@@ -14,7 +14,6 @@ using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.Services;
 using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Common.Condition;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
 using cccc1808.ProcessEngine.Model.Implementation.Dto.Components;
 
@@ -177,9 +176,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                     {
                         // Если ошибка возникла на этапе формирования группы выполнения, то ставим ошибку на весь executingProcesses.
                         p.executionGroup.Data = p.executionGroup.Data
-                            ?? new ExecuteGroup(
-                                "",
-                                p.executingProcesses.Data);                        
+                            ?? new ExecuteGroup(p.executingProcesses.Data);                        
 
                         // Перезагружаем данные после сброса.
                         if (p.options.UseReloadAfterError)
@@ -194,7 +191,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
 
                             // Пересобираем группу выполнения после перезагрузки из БД.
                             p.executionGroup.Data = new ExecuteGroup(
-                                p.executionGroup.Data.Value.Key,
                                 p.allProcesses.Data.Values
                                     .Where(e => p.executionGroup.Data.Value.Group.ContainsKey(e.Process.Info.Id))
                                     .ToDictionary(e => e.Process.Info.Id, e => e));
@@ -228,7 +224,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
 
                             // Пересобираем группу выполнения после перезагрузки из БД.
                             p.executionGroup.Data = new ExecuteGroup(
-                                p.executionGroup.Data.Value.Key,
                                 p.allProcesses.Data.Values
                                     .Where(e => p.executionGroup.Data.Value.Group.ContainsKey(e.Process.Info.Id))
                                     .ToDictionary(e => e.Process.Info.Id, e => e));
@@ -250,9 +245,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
             // Финальное сохранение в конце.
             if (options.UseEndSave)
             {
-                var executionGroup = new ExecuteGroup(
-                    "EndSaveAll",
-                    allProcesses.Data);
+                var executionGroup = new ExecuteGroup(allProcesses.Data);
 
                 await _isolationService.ExecuteAsync(
                     options.IsolationMode, 
@@ -283,9 +276,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
-                            p.executionGroup = new ExecuteGroup(
-                                "EndSaveAll",
-                                p.allProcesses.Data);
+                            p.executionGroup = new ExecuteGroup(p.allProcesses.Data);
                         }                        
 
                         await p.handler.OnExceptionRangeAsync(
@@ -311,9 +302,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                                     .ToArray(),
                                 p.sessionId,
                                 cancellationToken);
-                            p.executionGroup = new ExecuteGroup(
-                                "EndSaveAll",
-                                p.allProcesses.Data);
+                            p.executionGroup = new ExecuteGroup(p.allProcesses.Data);
                         }
 
                         foreach (var elem in p.executingProcesses.Data.Values)
@@ -372,6 +361,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         {
             OptionsDto Options { get; }
 
+            /// <summary>
+            /// Загрузгка процессов.
+            /// </summary>
             ValueTask<ICollection<IProcessContainer<TId>>> LoadProcessesWithLockSkipLockedRangeAsync(
                 IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
                 CancellationToken cancellationToken);
@@ -389,12 +381,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
                 CancellationToken cancellationToken);
             
             /// <summary>
-            /// 
+            /// Выполнить шаг обработки процессов.
             /// </summary>
             /// <param name="group"></param>
             /// <param name="context"></param>
             /// <param name="cancellationToken"></param>
-            /// <returns>Перечень процессов, по которым нужно остановить выполнение.</returns>
             ValueTask StepRangeAsync(
                 ExecuteGroup group,
                 CancellationToken cancellationToken);
@@ -420,7 +411,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
         }
 
         public readonly record struct ExecuteGroup(
-            string Key, 
             IDictionary<ProcessIdDto<TId>, IProcessContainer<TId>> Group);
 
         /// <summary>

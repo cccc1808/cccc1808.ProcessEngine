@@ -10,7 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.
 {
     /// <summary>
     /// Замечание: относитесь аккуратно к выбору конфигурации.
-    /// Этовлияет на проихводительность, целостность, обработку ошибок.
+    /// Это влияет на производительность, целостность, обработку ошибок.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public static class Presets<TId>

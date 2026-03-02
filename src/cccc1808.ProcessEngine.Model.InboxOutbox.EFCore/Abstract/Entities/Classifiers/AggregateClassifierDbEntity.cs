@@ -15,9 +15,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.Entities.Clas
     public class AggregateClassifierDbEntity<TId>
         : IId<TId>
     {
-        public TId Id { get; set; }
+        public TId Id { get; set; } = default!;
 
-        public string AggregateType { get; set; }
-        public string AggregateId { get; set; }
+        public string AggregateType { get; set; } = default!;
+
+        public string AggregateId { get; set; } = default!;
     }
 }

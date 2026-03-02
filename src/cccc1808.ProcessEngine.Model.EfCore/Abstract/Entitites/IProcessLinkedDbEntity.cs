@@ -12,6 +12,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites
     /// <typeparam name="TId"></typeparam>
     public interface IProcessLinkedDbEntity<TId>
     {
+        /// <summary>
+        /// Id процесса.
+        /// </summary>
         TId ProcessId { get; }
     }
 }

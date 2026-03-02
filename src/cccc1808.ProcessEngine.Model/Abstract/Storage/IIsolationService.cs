@@ -56,7 +56,6 @@
 
             /// <summary>
             /// <see cref="ChangeTrackerSnapshot"/>  и <see cref="Manual"/>.
-            /// Ограничение: Если ведется запись в БД, то требуется регистрация ручной компенсации через <see cref="IManualCompensateService"/>.
             /// </summary>
             ChangeTrackerSnapshotAndManual
         }

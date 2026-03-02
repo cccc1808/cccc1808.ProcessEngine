@@ -6,12 +6,22 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
+	<!--Constructor init as error-->
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
+    <Compile Remove="Implementation\Entities\Conditions\**" />
+    <EmbeddedResource Remove="Implementation\Entities\Conditions\**" />
+    <None Remove="Implementation\Entities\Conditions\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Implementation\Entities\Conditions\" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
   </ItemGroup>
 
 </Project>
