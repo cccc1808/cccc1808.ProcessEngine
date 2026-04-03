@@ -106,7 +106,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
 
                 await using (var scope = serviceProvider.CreateAsyncScope())
                 {
-                    var handler = scope.ServiceProvider.GetRequiredService<IEFInboxService>();
+                    var handler = scope.ServiceProvider.GetRequiredService<IInboxService>();
                     await handler.ProcessBatchAsync(batch, cancelationToken);
                 }
 

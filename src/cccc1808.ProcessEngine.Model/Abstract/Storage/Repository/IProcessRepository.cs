@@ -17,7 +17,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Storage.Repository
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// For update skip locker, where <see cref="IProcessEntity_AsyncExecute_Condition"/>
+        /// For update skip locked, where <see cref="IProcessEntity_AsyncExecute_Condition"/>
         /// </summary>
         /// <param name="ids"></param>
         /// <param name="cancellationToken"></param>

@@ -48,14 +48,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation
         {
             var inboxProcesses = byTypeIndex[_inboxRegistryDto.ProcessType];
 
-            // 1) data
+            // 1) Загружаем данные процесса.
             var inboxData = await _dbContext.Set<InboxProcessDataDbEntity<TId>>()
                 .Include(e => e.Queue)
                 .Include(e => e.AggregateId)
                 .ApplayFilterCondition(_id_RangeCondition, inboxProcesses)
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
-            // 2) messages batch.
+            // 2) Загружаем сообщения по процессам.
             var messages = await _dbContext.Set<InboxMessageDbEntity<TId>>()
                 .ApplayFilterCondition(
                     _selectForProcessingCondition, 
@@ -71,7 +71,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation
                 .GroupBy(e => e.ProcessId)
                 .ToDictionary(e => e.Key, e => e);
 
-            // 3) unprocesses messages count
+            // 3) Считаем количество непрочитанных сообщений по агрегатам.
             var activeMessagesCount = await _dbContext.Set<InboxMessageDbEntity<TId>>()
                 .ApplayFilterCondition(
                     _selectForProcessingCondition,

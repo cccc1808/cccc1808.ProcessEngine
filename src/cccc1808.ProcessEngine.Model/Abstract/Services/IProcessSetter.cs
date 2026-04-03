@@ -9,6 +9,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Services
             IProcessContainer<TId> process,
             ProcessStatusEnum status);
 
+        /// <summary>
+        /// Остановить обработку в текущей сессии.
+        /// </summary>
+        /// <typeparam name="TId"></typeparam>
+        /// <param name="process"></param>
+        /// <param name="value"></param>
         void StopAsyncProcessingSession<TId>(
             IProcessContainer<TId> process,
             bool value = true);
@@ -34,7 +40,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Services
             bool allowRetry);
 
         /// <summary>
-        /// Установить таймер асинъронной обработки.
+        /// Установить таймер асинхронной обработки.
         /// </summary>
         /// <typeparam name="TId"></typeparam>
         /// <param name="process"></param>

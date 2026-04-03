@@ -34,7 +34,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.Services.Runners
         /// Получить батчи задач из очереди.
         /// </summary>
         /// <param name="limit">Лимит размера батча.</param>
-        /// <param name="timeout">Лимит времени считывания батча. (Timeout считается с момента считывания первого  элемента)</param>
+        /// <param name="timeout">Лимит времени считывания батча. (Timeout считается с момента считывания первого элемента)</param>
         ValueTask<IReadOnlyList<ProcessInstanceInfoDto<TId>>> ConsumeBatch2Async(
             int limit,
             TimeSpan timeout,

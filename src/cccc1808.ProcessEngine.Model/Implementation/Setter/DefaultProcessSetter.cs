@@ -111,8 +111,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.Setter
         {
             process.Process.TimerDate = date;
 
+            // Если процесс поддерживает wakeup, то передаем значение таймера в него.
             if (process.TryGetComponent<IWakeUpComponent>(out var w))
             {
+                // Если таймер задается не их режима асинхронного выполнения.
                 if (!w.InAsyncExecuting)
                 {
                     w.TimerDate = date;

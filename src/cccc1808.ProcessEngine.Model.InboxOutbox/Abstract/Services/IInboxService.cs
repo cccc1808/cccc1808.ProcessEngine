@@ -2,7 +2,7 @@
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Services
 {
-    public interface IEFInboxService
+    public interface IInboxService
     {
         ValueTask ProcessBatchAsync(
             ICollection<MessageDto> batch, 
