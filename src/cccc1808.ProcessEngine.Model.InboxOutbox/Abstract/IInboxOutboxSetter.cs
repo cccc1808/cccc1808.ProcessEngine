@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox;
 

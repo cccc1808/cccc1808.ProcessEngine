@@ -6,19 +6,18 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components.Conditions;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Registry;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Groupping;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Parallel;
-using cccc1808.ProcessEngine.Model.Implementation.Runners;
-using cccc1808.ProcessEngine.Model.Implementation.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Groupping;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Parallel;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Test1.Model;
 using cccc1808.ProcessEngine.Test1.Model.Process1;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
@@ -137,7 +136,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                     s.GetRequiredService<IServiceProvider>(),
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeUpService<Guid>>(),
+                                    s.GetRequiredService<IWakeupService<Guid>>(),
                                     (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                         s.GetRequiredService<Handler1>()
                                         ),
@@ -269,7 +268,7 @@ namespace cccc1808.ProcessEngine.Test1.Test
                                                 s.GetRequiredService<IServiceProvider>(),
                                                 s.GetRequiredService<IIsolationService>(),
                                                 s.GetRequiredService<IProcessSetter>(),
-                                                s.GetRequiredService<IWakeUpService<Guid>>(),
+                                                s.GetRequiredService<IWakeupService<Guid>>(),
                                                 (s) => ValueTask.FromResult<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>(
                                                     s.GetRequiredService<Handler2>()
                                                     ),

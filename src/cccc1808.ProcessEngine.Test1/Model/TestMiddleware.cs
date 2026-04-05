@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Test1.Model
 {

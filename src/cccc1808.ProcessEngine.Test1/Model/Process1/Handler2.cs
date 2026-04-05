@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
@@ -20,11 +21,13 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
             AppDbContext dbContext,
             IIsolationService isolationService,
             Process1Repository repository,
+            ITriggerRepository<Guid> triggerRepository,
             IProcessSetter processSetter
             )
             : base(
                   isolationService,                  
                   repository,
+                  triggerRepository,
                   processSetter)
         {
         }

@@ -4,8 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.MessageStream.EntityFramewrokCore.Implementation.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 

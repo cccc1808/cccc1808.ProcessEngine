@@ -15,10 +15,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.EfCore", "cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj", "{4C24BC69-48E6-4920-75AE-E6DB588C1E76}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.MessageStream.EFCore", "cccc1808.ProcessEngine.Model.MessageStream.EFCore\cccc1808.ProcessEngine.Model.MessageStream.EFCore.csproj", "{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.InboxOutbox.Kafka", "cccc1808.ProcessEngine.Model.InboxOutbox.Kafka\cccc1808.ProcessEngine.Model.InboxOutbox.Kafka.csproj", "{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.InboxOutbox.EFCore", "cccc1808.ProcessEngine.Model.InboxOutbox.EFCore\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.csproj", "{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.InboxOutbox", "cccc1808.ProcessEngine.Model.InboxOutbox\cccc1808.ProcessEngine.Model.InboxOutbox.csproj", "{DD190B3F-0229-4F44-B66D-371BC7BAE493}"
@@ -26,6 +22,15 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "InboxOutbox", "InboxOutbox", "{34C0F5A9-73A5-4E36-A02D-F78A70155E38}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{44F60CCA-9BC8-49C9-A83D-0E4D704F8957}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.Kafka", "cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj", "{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BF7D7DAC-DF5C-4FA9-85CC-968A0B8CA339}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.EfCore.Postgres", "cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj", "{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,14 +50,6 @@ Global
 		{4C24BC69-48E6-4920-75AE-E6DB588C1E76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C24BC69-48E6-4920-75AE-E6DB588C1E76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4C24BC69-48E6-4920-75AE-E6DB588C1E76}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -61,6 +58,14 @@ Global
 		{DD190B3F-0229-4F44-B66D-371BC7BAE493}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DD190B3F-0229-4F44-B66D-371BC7BAE493}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DD190B3F-0229-4F44-B66D-371BC7BAE493}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -70,12 +75,12 @@ Global
 		{C3E60606-347A-4562-8DF0-09C86EAF41C9} = {6BDE1CCA-B170-4DEB-BC66-CA3416FB4CEE}
 		{5D2924C1-16F2-4F0B-A217-4D810995EB79} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 		{4C24BC69-48E6-4920-75AE-E6DB588C1E76} = {44F60CCA-9BC8-49C9-A83D-0E4D704F8957}
-		{9E766FD8-F9B0-A4ED-BE52-C9A6FF451CD5} = {C3E60606-347A-4562-8DF0-09C86EAF41C9}
-		{AAA63D84-1AE3-42FB-B5B3-1358F5E96C10} = {34C0F5A9-73A5-4E36-A02D-F78A70155E38}
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7} = {34C0F5A9-73A5-4E36-A02D-F78A70155E38}
 		{DD190B3F-0229-4F44-B66D-371BC7BAE493} = {34C0F5A9-73A5-4E36-A02D-F78A70155E38}
 		{34C0F5A9-73A5-4E36-A02D-F78A70155E38} = {C3E60606-347A-4562-8DF0-09C86EAF41C9}
 		{44F60CCA-9BC8-49C9-A83D-0E4D704F8957} = {6BDE1CCA-B170-4DEB-BC66-CA3416FB4CEE}
+		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07} = {44F60CCA-9BC8-49C9-A83D-0E4D704F8957}
+		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157} = {44F60CCA-9BC8-49C9-A83D-0E4D704F8957}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4E97EAC5-32FC-450A-92A8-B80C6A5EF637}

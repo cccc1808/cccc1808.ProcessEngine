@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Common.QueryHint;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Implementation.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
 {
@@ -20,12 +21,15 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
         public Process1Repository(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
+            IProcessRegistry processRegistry,
             IEnumerable<IProcessDbProvider<Guid>> processLoaders,
+
             IProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>> processDbEntityConditions,
             IProcessErrorDbEntityConditions<Guid> processErrorDbEntityConditions) 
             : base(                  
                   dbContext,                  
-                  lockQueryHintStore,                  
+                  lockQueryHintStore,      
+                  processRegistry,
                   processLoaders,                 
                   processDbEntityConditions,
                   processErrorDbEntityConditions
@@ -56,9 +60,9 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1.Storage
                     {
                         Id = id
                     },
-                    HaveErrorFlag = false,
-                    ReTryCount = null,
-                    SelectLock = DateTimeOffset.MinValue.UtcDateTime,
+                    StoppedByError = false,
+                    RetryCount = null,
+                    SelectLockTimeout = DateTimeOffset.MinValue.UtcDateTime,
                 }
             };
 

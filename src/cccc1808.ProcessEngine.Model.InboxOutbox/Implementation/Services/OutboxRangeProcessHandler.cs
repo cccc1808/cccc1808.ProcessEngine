@@ -4,17 +4,20 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Common;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 {
@@ -30,11 +33,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 
         public OutboxRangeProcessHandler(
             IProcessRepository<TId> repository,
+            ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
             IInboxOutboxSetter inboxOutboxSetter)
             : base(
                   repository,
+                  triggerRepository,
                   setter)
         {
             _queueProviderFactory = queueProviderFactory;
@@ -101,7 +106,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 
                     foreach (var elem2 in elem)
                     {
-                        _processSetter.SetError(elem2.Process, ex, allowRetry: true);
+                        var errorResult = _processSetter.SetError(elem2.Process, ex, allowRetry: true);
+                        
+                        if (errorResult.IsRetry)
+                        {
+                            // Retry trigger.
+                            await _triggerRepository.CreateTriggerAsync(
+                                key: Guid.NewGuid().ToString(),
+                                timerDate: errorResult.Timeout,
+                                processId: elem2.Process.Id,
+                                handlerKey: WakeupTriggerRangeHandler<TId>.Name,
+                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                priority: elem2.Process.Process.Info.Priority,
+                                isActivated: true,
+                                counter: null,                                
+                                cancellationToken);
+                        }
                     }
                 }
             }

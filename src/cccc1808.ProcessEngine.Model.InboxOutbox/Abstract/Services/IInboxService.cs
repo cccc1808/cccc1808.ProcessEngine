@@ -1,4 +1,4 @@
-﻿using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
+﻿using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Services
 {

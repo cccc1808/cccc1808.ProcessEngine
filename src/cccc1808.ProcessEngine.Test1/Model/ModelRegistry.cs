@@ -4,26 +4,28 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Services.Limiter;
-using cccc1808.ProcessEngine.Model.Abstract.Services.ProcessExecuteMiddlewares;
-using cccc1808.ProcessEngine.Model.Abstract.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.Storage.Query;
-using cccc1808.ProcessEngine.Model.Common.QueryHint;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
-using cccc1808.ProcessEngine.Model.EntityFrameworkCore.Implementation.Query;
-using cccc1808.ProcessEngine.Model.Implementation;
-using cccc1808.ProcessEngine.Model.Implementation.Compensate;
-using cccc1808.ProcessEngine.Model.Implementation.Limiter;
-using cccc1808.ProcessEngine.Model.Implementation.Runners;
-using cccc1808.ProcessEngine.Model.Implementation.Setter;
-using cccc1808.ProcessEngine.Model.Implementation.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Test1.Model.Process1;
 using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
@@ -48,7 +50,7 @@ namespace cccc1808.ProcessEngine.Test1.Model
         public static void Registry(
             IServiceCollection serviceCollection,
             ProcessRunner<Guid>.OptionsDto options,
-            Func<IServiceProvider, IProcessSelectQuery<Guid>> selectFactory,
+            Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<Guid>> selectFactory,
             Func<IServiceProvider, IProcessHandlerMiddleware<Guid>> rootMiddlewareFactory,
             int bufferLimit,
             int processCountLimiter,
@@ -105,9 +107,7 @@ namespace cccc1808.ProcessEngine.Test1.Model
                 .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
                 .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService>()
                 .AddScoped<IChangeTrackerSnapshotCompensateService, EFChangeTrackerSnapshotCompensateService>()
-                .AddScoped<IManualCompensateService, ManualCompensateService>()
-                
-                .AddScoped<IWakeUpService<Guid>, EFWakeUpService<Guid>>();
+                .AddScoped<IManualCompensateService, ManualCompensateService>();
 
             serviceCollection
                 .AddScoped<IProcessSetter>(
@@ -116,7 +116,7 @@ namespace cccc1808.ProcessEngine.Test1.Model
                 ;
         }
 
-        public static Func<IServiceProvider, IProcessSelectQuery<Guid>> Selector1(
+        public static Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<Guid>> Selector1(
             TimeSpan lockDelay)
         {
             return (s) => new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>(

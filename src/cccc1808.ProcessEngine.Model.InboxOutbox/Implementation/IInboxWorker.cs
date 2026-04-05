@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.QueueProvider;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Services;
 
 using Microsoft.Extensions.DependencyInjection;

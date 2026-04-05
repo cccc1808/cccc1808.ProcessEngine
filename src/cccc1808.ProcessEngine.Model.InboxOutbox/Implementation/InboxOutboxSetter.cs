@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox;
@@ -44,18 +44,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                             }
                             else
                             {
-                                // Активных сообщений нет - засыпаем.
-                                if (inbox.ActiveMessagesCount == 0)
-                                {
-                                    _processSetter.SetStatus(e, ProcessStatusEnum.WaitEvent);
-                                }
-                                // Активные сообщения есть, но ни одно не загружено - обработка не требуется.
-                                else
-                                {
-                                    // TODO: поместить в очередь
-                                    _processSetter.StopAsyncProcessingSession(e);
-                                }
-
+                                // Сообщений нет или не загружены.
+                                // Пытаемся уснуть.
+                                _processSetter.SetStatus(e, ProcessStatusEnum.WaitEvent);
                                 return false;
                             }
                         }
@@ -81,15 +72,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                 // Есть еще сообщение в батче.
                 inboxComponent.CurrentMessageIndex++;
             }
-            else if (inboxComponent.ActiveMessagesCount == inboxComponent.Messages.Count)
+            // Батч обработан - пытаемся устнуть.
+            else
             {
-                // Все сообщения обработаны - засыпаем.
+
+                // Батч обработан.
+                // Если в БД еще есть активные сообщения, то это обнаружит InboxMessageWakeupHandler.
                 _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
-            }
-            else 
-            {
-                // Есть необработанные сообщения, но загруженный батч обработан.
-                _processSetter.StopAsyncProcessingSession(process);
             }
         }
 
@@ -112,18 +101,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
                             }
                             else
                             {
-                                // Активных сообщений нет.
-                                if (outbox.ActiveMessagesCount == 0)
-                                {
-                                    // Пытаемся уснуть.
-                                    _processSetter.SetStatus(e, ProcessStatusEnum.WaitEvent);
-                                }
-                                // Активные сообщения есть, но ни одно не загружено в текущей сессии.
-                                else
-                                {                                    
-                                    _processSetter.StopAsyncProcessingSession(e);
-                                    // TODO: поместить в очередь
-                                }
+                                // Сообщений нет или не загружены.
+                                // Пытаемся уснуть.
+                                _processSetter.SetStatus(e, ProcessStatusEnum.WaitEvent);
 
                                 return false;
                             }
@@ -151,15 +131,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
             {
                 // Есть еще сообщение в батче.
             }
-            else if (outboxComponent.ActiveMessagesCount == outboxComponent.Messages.Count)
-            {
-                // Все сообщения обработаны - засыпаем.
-                _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
-            }
             else
             {
-                // Есть необработанные сообщения, но загруженный батч обработан.
-                _processSetter.StopAsyncProcessingSession(process);
+                // Батч обработан.
+                // Если в БД еще есть активные сообщения, то это обнаружит OutboxMessageWakeupHandler.
+                _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
         }        
     }

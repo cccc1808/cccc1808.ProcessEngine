@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.Common.QueryHint;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Storage;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Entities;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -29,7 +30,7 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
         {
             _serviceProvider = serviceProvider;
             _connectionString = connectionString;
-            _useLockQueryHintStore = useLockQueryHint;
+            _useLockQueryHintStore = useLockQueryHint;            
         }
 
         [Obsolete("Для MemoryJoin.")]
@@ -102,18 +103,6 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
                             .OnDelete(DeleteBehavior.Cascade);
                     });
 
-                modelBuilder.Entity<ProcessWakeUpDbEntity<Guid>>(
-                    b =>
-                    {
-                        b.HasKey(e => e.Id);
-                        b.Property(e => e.Id).ValueGeneratedNever();
-
-                        b.HasOne(e => e.Process)
-                            .WithOne(e => e.Wakeup)
-                            .HasForeignKey<ProcessWakeUpDbEntity<Guid>>(e => e.ProcessId)
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
-
                 modelBuilder.Entity<ProcessDbEntity<Guid>>(
                     b =>
                     {
@@ -122,12 +111,16 @@ namespace cccc1808.ProcessEngine.Test1.Model.Process1
 
                         // Для загрузки для обработчика.
                         b.HasIndex(e => e.Id)
-                            .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
+                            .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
 
                         // Для выборки в очередь.
-                        b.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.TimerDate, e.SelectLock })
+                        b.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.SelectLockTimeout })
                             .IncludeProperties(e => e.Id)
-                            .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute} and have_error_flag is false");
+                            .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
+
+                        // Для работы страхующего триггера
+                        b.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion, e.Status, e.SelectLockTimeout })
+                            .HasFilter($"status = {(int)ProcessStatusEnum.WaitEvent} and have_error_flag is false and re_try_count is null");
                     });
             }
 

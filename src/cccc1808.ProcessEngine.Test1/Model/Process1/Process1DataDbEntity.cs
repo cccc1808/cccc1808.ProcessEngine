@@ -4,14 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Common.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Test1.Model.Process1
 {
     public class Process1DataDbEntity
         : IId<Guid>,
-        IProcessLinkedDbEntity<Guid>
+        IProcessLinked<Guid>
     {
         public Guid Id { get; set; }
 

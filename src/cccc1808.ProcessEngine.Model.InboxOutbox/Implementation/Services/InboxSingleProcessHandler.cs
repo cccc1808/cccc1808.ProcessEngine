@@ -5,11 +5,12 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.Dto.Components;
-using cccc1808.ProcessEngine.Model.Abstract.Services;
-using cccc1808.ProcessEngine.Model.Abstract.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
@@ -29,12 +30,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
         public InboxSingleProcessHandler(
             IIsolationService isolationService,
             IProcessRepository<TId> repository,
+            ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             OptionsDto options,
             IInboxOutboxSetter inboxOutboxSetter)
             : base(
                   isolationService,
                   repository,
+                  triggerRepository,
                   setter)
         {
             _options = options;

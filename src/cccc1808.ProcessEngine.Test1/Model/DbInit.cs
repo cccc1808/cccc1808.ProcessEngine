@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Common.QueryHint;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.Entitites;
-using cccc1808.ProcessEngine.Model.Implementation.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Test1.Model.Process1;
 
 using Microsoft.EntityFrameworkCore;
@@ -73,7 +73,7 @@ namespace cccc1808.ProcessEngine.Test1.Model
             {
                 buider.AppendLine(@$"
     ALTER TABLE {name} SET (
-        fillfactor = 30,
+        fillfactor = 50,
         autovacuum_vacuum_cost_delay=5, 
         autovacuum_vacuum_cost_limit=500,
         autovacuum_vacuum_scale_factor=0.0001
@@ -82,7 +82,7 @@ namespace cccc1808.ProcessEngine.Test1.Model
             static void Index(StringBuilder buider, string name)
             {
                 buider.AppendLine(@$"
-    ALTER INDEX {name} SET (fillfactor=30);
+    ALTER INDEX {name} SET (fillfactor=50);
     REINDEX INDEX {name};");
             }
             static void ProcessTable(

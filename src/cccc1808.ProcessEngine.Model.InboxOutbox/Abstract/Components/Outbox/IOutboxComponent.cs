@@ -23,11 +23,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox
         /// </summary>
         IList<IOutboxMessageComponent<TId>> Messages { get; }
 
-        /// <summary>
-        /// Количество ожидающих обработки сообщений в БД.
-        /// </summary>
-        long ActiveMessagesCount { get; }
-
         int ProcessedCount { get; set; }
     }
 }

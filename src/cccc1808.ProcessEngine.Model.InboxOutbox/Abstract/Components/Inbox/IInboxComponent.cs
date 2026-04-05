@@ -19,11 +19,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox
         /// </summary>
         int CurrentMessageIndex { get; set; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        long ActiveMessagesCount { get; }
-
         #endregion
     }
 }
