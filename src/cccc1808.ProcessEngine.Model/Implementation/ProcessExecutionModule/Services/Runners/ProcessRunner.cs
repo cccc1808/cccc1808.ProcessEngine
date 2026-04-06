@@ -53,7 +53,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         public async ValueTask DisposeAsync()
         {
-            await Task.WhenAll(RunningTasks);
+            await WaitRunningTasksAsync(default);
             RunningTasks.Clear();
         }
 
@@ -66,7 +66,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
         }
 
-        public async Task RunAsync(CancellationToken cancellationToken)
+        public async Task RunAsync(
+            bool oneCycle,
+            CancellationToken cancellationToken)
         {
             {
                 var selectTask = Task.Run(
@@ -126,6 +128,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
                                 }
 
+#if DEBUG
+                                if (oneCycle)
+                                {
+                                    break;
+                                }
+#endif
+
                                 await TimeoutHelper.ExecuteWithTimeoutAsync(
                                     wakeUpTask,
                                     _options.selectEmptyTimeout,
@@ -172,10 +181,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         }
                     }
                     );
-                RunningTasks.Add(task);                
+                RunningTasks.Add(task);   
+                
+                if (oneCycle)
+                {
+                    break;
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        public async Task WaitRunningTasksAsync(CancellationToken cancellationToken)
+        {
+            await Task.WhenAll(RunningTasks);
         }
 
 

@@ -12,5 +12,9 @@
         ValueTask<IQueueConsumer> GetConsumerAsync(
             string name,
             CancellationToken cancellationToken);
+
+        ValueTask<bool> DisconnectConsumerAsync(
+            string name,
+            CancellationToken cancellationToken);
     }
 }

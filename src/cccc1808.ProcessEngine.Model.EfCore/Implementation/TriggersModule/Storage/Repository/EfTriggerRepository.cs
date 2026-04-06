@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -18,9 +19,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository
 {
-    internal class EfTriggerRepository<TId> : ITriggerRepository<TId>
+    public class EfTriggerRepository<TId> : ITriggerRepository<TId>
     {
         private readonly IEFDbContext _efDbContext;
+        private readonly IIdGenerator<TId> _idGenerator;
         private readonly ILockQueryHintStore _lockQueryHintStore;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
@@ -29,11 +31,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         public EfTriggerRepository(
             IEFDbContext efDbContext,
+            IIdGenerator<TId> idGenerator,
             ILockQueryHintStore lockQueryHintStore,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
         {
             _efDbContext = efDbContext;
+            _idGenerator = idGenerator;
             _lockQueryHintStore = lockQueryHintStore;
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
@@ -108,7 +112,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             }
         }
 
-        public Task CreateTriggerAsync(
+        public async Task CreateTriggerAsync(
             string key,
             DateTimeOffset timerDate,
             TId processId,
@@ -123,11 +127,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             {
                 throw new ArgumentException(nameof(key));
             }
+            if (handlerKey.Length > 255)
+            {
+                throw new ArgumentException(nameof(handlerKey));
+            }
 
             var entity = new TriggerDbEntity<TId>(
-                id: default,
+                id: await _idGenerator.NextAsync(cancellationToken),
                 key: key,
-                selectTimer: DateTimeOffset.MinValue,
+                selectLockTimeout: DateTimeOffset.MinValue,
                 timerDate: timerDate,
                 handlerKey: handlerKey,
                 kind: kind,
@@ -139,7 +147,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 );
 
             Set.Add(entity);
-            return Task.CompletedTask;
         }
 
         public async Task SaveAsync(ICollection<ITriggerComponent<TId>> triggers, CancellationToken cancellationToken)

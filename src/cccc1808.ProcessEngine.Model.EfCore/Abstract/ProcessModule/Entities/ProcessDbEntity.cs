@@ -37,5 +37,27 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public ProcessErrorDbEntity<TId> Error { get; set; } = default!;
 
         #endregion
+
+        public ProcessDbEntity() { }
+
+        public ProcessDbEntity(
+            TId id, 
+            long processTypeId, 
+            int processVersion, 
+            short priority, 
+            DateTimeOffset selectLockTimeout, 
+            bool stoppedByError, 
+            ProcessStatusEnum status, 
+            short? retryCount)
+        {
+            Id = id;
+            ProcessTypeId = processTypeId;
+            ProcessVersion = processVersion;
+            Priority = priority;
+            SelectLockTimeout = selectLockTimeout;
+            StoppedByError = stoppedByError;
+            Status = status;
+            RetryCount = retryCount;
+        }
     }
 }

@@ -9,7 +9,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute
 {
@@ -47,7 +48,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
-            var data = await _repository.GetRangeForAsyncProcessingAsync(
+            var data = await _repository.GetForAsyncProcessingRangeAsync(
                 ids.Select(e => e.Id).ToArray(),
                 cancellationToken);
 
@@ -66,16 +67,33 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 if (errorResult.IsRetry)
                 {
                     // Retry trigger.
-                    await _triggerRepository.CreateTriggerAsync(
-                        key: Guid.NewGuid().ToString(),
-                        timerDate: errorResult.Timeout,
-                        processId: elem.Id,
-                        handlerKey: WakeupTriggerRangeHandler<TId>.Name,
-                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                        priority: elem.Process.Info.Priority,
-                        isActivated: true,
-                        counter: null,
-                        cancellationToken);
+
+                    if (elem.TryGetComponent<IWakeUpComponent>(out _))
+                    {
+                        await _triggerRepository.CreateTriggerAsync(
+                            key: Guid.NewGuid().ToString(),
+                            timerDate: errorResult.Timeout,
+                            processId: elem.Id,
+                            handlerKey: WakeupTriggerRangeHandler<TId>.Name,
+                            kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                            priority: elem.Process.Info.Priority,
+                            isActivated: true,
+                            counter: null,
+                            cancellationToken);
+                    }
+                    else 
+                    {
+                        await _triggerRepository.CreateTriggerAsync(
+                            key: Guid.NewGuid().ToString(),
+                            timerDate: errorResult.Timeout,
+                            processId: elem.Id,
+                            handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
+                            kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                            priority: elem.Process.Info.Priority,
+                            isActivated: true,
+                            counter: null,
+                            cancellationToken);                        
+                    }                        
                 }
             }
         }

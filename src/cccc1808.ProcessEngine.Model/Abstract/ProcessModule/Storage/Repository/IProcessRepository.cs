@@ -10,10 +10,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
 {
     public interface IProcessRepository<TId>
     {
-        Task<ICollection<IProcessContainer<TId>>> GetRange(
-            ICollection<TId> ids,
-            bool withLock,
-            CancellationToken cancellationToken);
+        //Task<ICollection<IProcessContainer<TId>>> GetRange(
+        //    ICollection<TId> ids,
+        //    bool withLock,
+        //    CancellationToken cancellationToken);
 
         /// <summary>
         /// For update skip locked, where <see cref="IProcessEntity_AsyncExecute_Condition"/>
@@ -21,8 +21,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
         /// <param name="ids"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task<ICollection<IProcessContainer<TId>>> GetRangeForAsyncProcessingAsync(
+        Task<ICollection<IProcessContainer<TId>>> GetForAsyncProcessingRangeAsync(
             ICollection<TId> ids,
+            CancellationToken cancellationToken);
+
+        Task<ICollection<IProcessContainer<TId>>> GetWaitingRangeAsync(
+            ICollection<TId> ids,
+            bool updateLock,
             CancellationToken cancellationToken);
 
         /// <summary>

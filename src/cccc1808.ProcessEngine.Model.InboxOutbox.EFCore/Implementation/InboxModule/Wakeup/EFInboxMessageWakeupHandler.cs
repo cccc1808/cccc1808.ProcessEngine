@@ -46,7 +46,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     )
                 .ApplayQueryCondition(_messageStreamConditions.IsActiveMessages.Query)
                 .GroupBy(e => e.ProcessId)
-                .ToDictionaryAsync(e => e.Key, e => e.Any(), cancellationToken);
+                .Select(e => new { e.Key, Any = e.Any() })
+                .ToDictionaryAsync(e => e.Key, e => e.Any, cancellationToken);
 
             foreach (var elem in processes)
             {

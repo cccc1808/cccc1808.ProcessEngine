@@ -15,7 +15,7 @@ using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox;
 

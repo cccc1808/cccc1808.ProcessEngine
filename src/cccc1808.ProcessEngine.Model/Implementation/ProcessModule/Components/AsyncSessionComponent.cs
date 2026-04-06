@@ -15,7 +15,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public bool IsSessionFirstStep { get; set; }
 
-        public bool HaveError { get; set; }
+        public bool CurrentSessionHaveError { get; set; }
 
         public short RetryLimit { get; set; }
 

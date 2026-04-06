@@ -35,6 +35,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public ITriggerComponent<TId>.TriggerKind Kind => _entity.Kind;
 
-        public DateTimeOffset SelectTimer { get => _entity.SelectTimer; set => _entity.SelectTimer = value; }
+        public DateTimeOffset SelectLockTimeout { get => _entity.SelectLockTimeout; set => _entity.SelectLockTimeout = value; }
     }
 }

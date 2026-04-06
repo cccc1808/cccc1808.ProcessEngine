@@ -14,6 +14,8 @@ using cccc1808.ProcessEngine.Test1.Model.Process1.Storage;
 
 using Docker.DotNet.Models;
 
+using DotNet.Testcontainers.Configurations;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,9 +55,8 @@ namespace cccc1808.ProcessEngine.Test1.Test
                    .AddScoped<ITransactionManager, EFTransactionManager>()
                    .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
                    .AddScoped<Process1Repository>();
-
                 serviceProvider = services.BuildServiceProvider();
-            }
+            }            
 
             try 
             {

@@ -8,17 +8,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
 {
     public interface IWakeUpComponent
     {
-        #region persist        
-
-        DateTimeOffset Timestamp { get; set; }
-
+        #region persist
+        
         bool IsAsyncExecuting { get; set; }        
 
         #endregion
 
         #region inmemory
-
-        DateTimeOffset SessionStartTimeStamp { get; }
 
         /// <summary>
         /// Внутренний костыль.

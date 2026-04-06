@@ -40,7 +40,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _dbContext = dbContext;
             _transactionManager = transactionManager;
             _lockQueryHintStore = lockQueryHintStore;
-            _processDbEntityConditions = processDbEntityConditions;        }
+            _processDbEntityConditions = processDbEntityConditions;        
+        }
 
         private static Queue<ProcessInstanceInfoDto<TId>> EmptyQueue { get; }
             = new Queue<ProcessInstanceInfoDto<TId>>(1);

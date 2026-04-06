@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public string Key { get; set; }
 
-        public DateTimeOffset SelectTimer { get; set; }
+        public DateTimeOffset SelectLockTimeout { get; set; }
 
         public DateTimeOffset TimerDate { get; set; }
 
@@ -40,7 +40,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         public TriggerDbEntity(
             TId id, 
             string key, 
-            DateTimeOffset selectTimer, 
+            DateTimeOffset selectLockTimeout, 
             DateTimeOffset timerDate,
             string handlerKey,
             ITriggerComponent<TId>.TriggerKind kind,
@@ -52,7 +52,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         {
             Id = id;
             Key = key;
-            SelectTimer = selectTimer;
+            SelectLockTimeout = selectLockTimeout;
             TimerDate = timerDate;
             HandlerKey = handlerKey;
             Kind = kind;

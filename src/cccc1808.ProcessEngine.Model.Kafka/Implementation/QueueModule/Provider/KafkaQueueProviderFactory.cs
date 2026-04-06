@@ -100,6 +100,25 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             }                   
         }
 
+        public async ValueTask<bool> DisconnectConsumerAsync(string name, CancellationToken cancellationToken)
+        {
+            if (_consumers.TryRemove(name, out var consumer))
+            {
+                await consumer.Write(
+                    consumer, 
+                    async static (p, consumer, t) => 
+                    {
+                        await consumer.DisposeAsync();
+                        return consumer;
+                    },
+                    cancellationToken);
+
+                return true;
+            }
+
+            return false;
+        }
+
         public async ValueTask DisposeAsync()
         {
             await _producer.Write(
@@ -114,7 +133,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                         }
                         catch (Exception ex)
                         {
-
+                            // TODO: log.
                         }                        
                     }
 
@@ -140,7 +159,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                                 }
                                 catch (Exception ex)
                                 {
-
+                                    // TODO: log.
                                 }
                             }
 
@@ -152,7 +171,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                         );
                 }
             }
-        }
+        }        
 
         public class OptionsDto 
         {

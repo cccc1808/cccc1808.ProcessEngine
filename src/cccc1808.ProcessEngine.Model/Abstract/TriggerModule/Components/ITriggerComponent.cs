@@ -55,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// </summary>
         string HandlerKey { get; }
 
-        DateTimeOffset SelectTimer { get; set; }
+        DateTimeOffset SelectLockTimeout { get; set; }
 
         public enum TriggerKind 
         {

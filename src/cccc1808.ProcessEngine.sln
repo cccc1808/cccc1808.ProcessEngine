@@ -32,6 +32,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.EfCore.Postgres", "cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj", "{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Test2", "cccc1808.ProcessEngine.Test2\cccc1808.ProcessEngine.Test2.csproj", "{99FA16F8-B089-4480-A942-85A9D94D75F1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,6 +68,10 @@ Global
 		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99FA16F8-B089-4480-A942-85A9D94D75F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99FA16F8-B089-4480-A942-85A9D94D75F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99FA16F8-B089-4480-A942-85A9D94D75F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99FA16F8-B089-4480-A942-85A9D94D75F1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -81,6 +87,7 @@ Global
 		{44F60CCA-9BC8-49C9-A83D-0E4D704F8957} = {6BDE1CCA-B170-4DEB-BC66-CA3416FB4CEE}
 		{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07} = {44F60CCA-9BC8-49C9-A83D-0E4D704F8957}
 		{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157} = {44F60CCA-9BC8-49C9-A83D-0E4D704F8957}
+		{99FA16F8-B089-4480-A942-85A9D94D75F1} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4E97EAC5-32FC-450A-92A8-B80C6A5EF637}

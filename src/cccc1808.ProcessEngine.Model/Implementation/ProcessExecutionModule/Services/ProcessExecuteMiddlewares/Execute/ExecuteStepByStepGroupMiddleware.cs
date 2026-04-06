@@ -64,6 +64,31 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IReadOnlyList<IReadOnlyList<ProcessInstanceInfoDto<TId>>> ids,
             CancellationToken cancellationToken)
         {
+            static bool StopCheck(
+                ExecuteStepByStepGroupMiddleware<TId> This,
+                IProcessContainer<TId> elem
+                ) 
+            {
+                // 3.1) Условие асинхронной обработки процесса.
+                var stopInCurrentSession = elem.CurrentSession.StopAsyncProcessingSession
+                    || !This._processContainerConditions.AsyncExecute.Memory.Check(elem);
+
+                if (stopInCurrentSession)
+                {
+                    ////  Обработка завершена
+
+                    if (!elem.CurrentSession.CurrentSessionHaveError)
+                    {
+                        // В сессии нет ошибок, тогда отчищаем ошибку.
+                        This._processSetter.ClearError(elem);
+                    }
+                    
+                    return true;
+                }
+
+                return false;
+            }
+
             //// 1) 
             if (ids.Count != 1)
             {
@@ -150,44 +175,36 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             cancellationToken);
 
                         // 3) Проверка завершенных процессов
+                        var forStop = new List<TId>();
                         {
                             // Условие остановки процесса.
                             foreach (var elem in p.executionGroup.Data.Value.Group.Values)
                             {
                                 // 3.1) Условие асинхронной обработки процесса.
-                                var stopInCurrentSession = elem.CurrentSession.StopAsyncProcessingSession
-                                    || !p.This._processContainerConditions.AsyncExecute.Memory.Check(elem);
-                                
-                                if (stopInCurrentSession)
+                                if (StopCheck(p.This, elem))
                                 {
-                                    ////  Обработка завершена
-
-                                    if (!elem.CurrentSession.HaveError)
+                                    forStop.Add(elem.Id);                                    
+                                }
+                                else
+                                {
+                                    // 3.2) Защита от зацикливания.
                                     {
-                                        // В сессии нет ошибок, тогда отчищаем ошибку.
-                                        p.This._processSetter.ClearError(elem);
+                                        var stepCount = elem.GetComponent<StepByStepCycleDetectComponent>();
+                                        stepCount.StepCount++;
+
+                                        if (stepCount.StepCount > p.options.CycleLimit)
+                                        {
+                                            p.This._processSetter.SetError(
+                                                elem,
+                                                new Exception("Ошибка зацикливания процесса."),
+                                                allowRetry: false);
+                                        }
                                     }
 
-                                    p.executingProcesses.Data.Remove(elem.Process.Info.Id);
-                                }
-
-                                // 3.2) Защита от зацикливания.
-                                {
-                                    var stepCount = elem.GetComponent<StepByStepCycleDetectComponent>();
-                                    stepCount.StepCount++;
-
-                                    if (stepCount.StepCount > p.options.CycleLimit)
+                                    // 3.3) Сброс признака первого шага.
                                     {
-                                        p.This._processSetter.SetError(
-                                            elem,
-                                            new Exception("Ошибка зацикливания процесса."),
-                                            allowRetry: false);
+                                        elem.CurrentSession.IsSessionFirstStep = false;
                                     }
-                                }
-
-                                // 3.3) Сброс признака первого шага.
-                                {
-                                    elem.CurrentSession.IsSessionFirstStep = false;
                                 }
                             }
                         }
@@ -198,6 +215,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             await p.handler.SaveRangeAsync(
                                 p.executionGroup.Data.Value,
                                 cancellationToken);
+                        }
+
+                        foreach (var elem in forStop)
+                        {
+                            p.executingProcesses.Data.Remove(elem);
                         }
                     },
                     static async (p, ex, cancellationToken) =>
@@ -230,11 +252,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             ex,
                             cancellationToken);
 
+                        // Условие остановки процесса.
+                        var forStop = new List<TId>();
+                        foreach (var elem in p.executionGroup.Data.Value.Group.Values)
+                        {
+                            if (StopCheck(p.This, elem))
+                            {
+                                forStop.Add(elem.Id);
+                            }
+                        }
+
                         if (p.options.UseAfterStepSave)
                         {
                             await p.handler.SaveRangeAsync(
                                 p.executionGroup.Data.Value,
                                 cancellationToken);
+                        }
+
+                        foreach (var elem in forStop)
+                        {
+                            p.executingProcesses.Data.Remove(elem);
                         }
                     },
                     static async (p, ex, cancellationToken) => 
@@ -258,13 +295,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         }
 
                         // Хендлер критической ошибки.
+                        var forStop = new List<TId>();
                         foreach (var elem in p.executionGroup.Data.Value.Group.Values)
                         {
                             p.This._processSetter.SetError(elem, ex, allowRetry: false);
+
+                            // На критической ошибки останавливаем без условия.
+                            // if (StopCheck(p.This, elem))
+                            {
+                                forStop.Add(elem.Id);
+                            }
                         }
+
                         await p.handler.SaveRangeAsync(
                             p.executionGroup.Data.Value,
                             cancellationToken);
+
+                        foreach (var elem in forStop)
+                        {
+                            p.executingProcesses.Data.Remove(elem);
+                        }
                     },
                     cancellationToken
                     );

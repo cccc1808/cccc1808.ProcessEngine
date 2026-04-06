@@ -58,9 +58,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
         void ProcessCounter(ITriggerComponent<TId> trigger, int eventCount);
 
-        bool IsCounter(ITriggerComponent<TId> trigger);
+        bool IsCounterActivated(ITriggerComponent<TId> trigger);
 
-        void SetActive(ITriggerComponent<TId> trigger, bool value);
+        void SetActivated(ITriggerComponent<TId> trigger, bool value);
 
         void SetCompleted(ITriggerComponent<TId> trigger, bool value);
 

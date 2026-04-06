@@ -60,7 +60,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
             IInboxComponent<TId> inboxComponent,
             IInboxMessageComponent<TId> message)
         {
-            if (process.CurrentSession.HaveError)
+            if (process.CurrentSession.CurrentSessionHaveError)
             {
                 return;
             }
@@ -118,7 +118,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
             IOutboxComponent<TId> outboxComponent, 
             IOutboxMessageComponent<TId> message)
         {
-            if (process.CurrentSession.HaveError)
+            if (process.CurrentSession.CurrentSessionHaveError)
             {
                 return;
             }

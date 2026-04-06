@@ -11,6 +11,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.
     {
         Task BuildHandler();
 
-        Task RunAsync(CancellationToken cancellationToken);
+        Task RunAsync(
+            bool oneCycle, 
+            CancellationToken cancellationToken);
+
+        Task WaitRunningTasksAsync(
+            CancellationToken cancellationToken
+            );
     }
 }

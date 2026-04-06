@@ -31,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// <summary>
         /// Наличие ошибки процесса в текущей сессии асинхронной обработки.
         /// </summary>
-        bool HaveError { get; set; }
+        bool CurrentSessionHaveError { get; set; }
 
         /// <summary>
         /// Наличие ошибки в начале сессии.

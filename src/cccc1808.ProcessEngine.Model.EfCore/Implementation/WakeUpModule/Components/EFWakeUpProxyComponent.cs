@@ -14,14 +14,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
     {
         private readonly ProcessWakeUpDbEntity<TId> _dbEntity;
 
-        public DateTimeOffset SessionStartTimeStamp { get; }
-
-        public DateTimeOffset Timestamp 
-        {
-            get => _dbEntity.TimeStamp;
-            set => _dbEntity.TimeStamp = value;
-        }
-
         public bool IsAsyncExecuting
         {
             get => _dbEntity.IsAsyncExecuting;
@@ -39,7 +31,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
             bool inAsyncExecuting)
         {
             _dbEntity = dbEntity;
-            SessionStartTimeStamp = dbEntity.TimeStamp;
             InAsyncExecuting = inAsyncExecuting;
         }
     }

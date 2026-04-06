@@ -22,7 +22,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         : ILocalProcessBufferService<TId>
     {
         private readonly Channel<ProcessInstanceInfoDto<TId>> _channel;
-        private readonly int _sizeLimit;
+        private readonly Options _options;
+
         private int _size;
 
         private readonly ConcurrentDictionary<Guid, Action<ILocalProcessBufferService<TId>>> _emptyHandler
@@ -31,9 +32,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         public int FreeSpace 
             => GetFreeSpace(_size);
 
-        public LocalProcessBufferService(int sizeLimit) 
+        public LocalProcessBufferService(Options options) 
         {
-            _sizeLimit = sizeLimit;
+            _options = options;
             _channel = Channel.CreateUnboundedPrioritized(
                 new UnboundedPrioritizedChannelOptions<ProcessInstanceInfoDto<TId>>() 
                 {
@@ -158,7 +159,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         }
 
         private int GetFreeSpace(int size)
-            => Math.Max(_sizeLimit - size, 0);
+            => Math.Max(_options.SizeLimit - size, 0);
 
         public IDisposable AddEmptyHandler(
             Action<ILocalProcessBufferService<TId>> handler)
@@ -183,6 +184,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             {
                 _action();
             }
+        }
+
+        public class Options 
+        {
+            public int SizeLimit { get; set; }
         }
     }
 }

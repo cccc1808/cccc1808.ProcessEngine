@@ -18,7 +18,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 
 using Microsoft.EntityFrameworkCore;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.DbProvider
+namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage
 {
     public class EFWakeupDbProvider<TId>
         : IProcessDbProvider<TId>

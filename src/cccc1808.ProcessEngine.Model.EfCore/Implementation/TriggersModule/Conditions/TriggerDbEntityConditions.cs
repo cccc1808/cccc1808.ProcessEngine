@@ -64,7 +64,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                     e.IsActivated
                                     && !e.IsCompleted
                                     && e.TimerDate < p.NowDate
-                                    && e.SelectTimer < p.NowDate)
+                                    && e.SelectLockTimeout < p.NowDate)
                             .OrderByDescending(e => e.Priority);
 
                         return s;

@@ -19,13 +19,22 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities
         public ProcessDbEntity<TId> Process { get; set; } = default!;
 
         /// <summary>
-        /// Дата обновления.
-        /// </summary>
-        public DateTimeOffset TimeStamp { get; set; }
-
-        /// <summary>
         /// Отображает, что процесс находится в состоянии асинхронной обработки.
         /// </summary>
         public bool IsAsyncExecuting { get; set; }
+
+        public ProcessWakeUpDbEntity() 
+        {
+        }
+
+        public ProcessWakeUpDbEntity(
+            TId id,
+            TId processId,
+            bool isAsyncExecuting)
+        {
+            Id = id;
+            ProcessId = processId;
+            IsAsyncExecuting = isAsyncExecuting;
+        }
     }
 }

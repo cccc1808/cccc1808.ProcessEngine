@@ -91,7 +91,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             }
             catch(Exception ex)
             {
-
+                // TODO: log
             }
             finally 
             {

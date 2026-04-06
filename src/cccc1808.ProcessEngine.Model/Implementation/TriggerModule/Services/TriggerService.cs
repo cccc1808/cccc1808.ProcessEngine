@@ -20,7 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
-    internal class TriggerService<TId> : ITriggerService
+    public class TriggerService<TId> : ITriggerService
     {
         private readonly IServiceProvider _serviceProvider;
 
@@ -60,6 +60,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             .Select(e => serializer.Deserialize(e.Body))
                             .ToArray();
 
+                        // (Info: точка агрегации).
+                        // N событий триггера сжимаются в одном действия (1 update).
                         var triggersGroups = events
                             .GroupBy(e => e.TriggerKey)
                             .ToDictionary(e => e.Key, e => e.Select(e => e));
@@ -87,7 +89,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     }
 
                                     // Перед этим его мог пытаться взять в обработку DbWorker, сбрасываем, чтобы убрать не нужную задержку.
-                                    trigger.SelectTimer = DateTimeOffset.MinValue;
+                                    trigger.SelectLockTimeout = DateTimeOffset.MinValue;
 
                                     // Такого быть не может - фильтрует запрос.
                                     //if (trigger.IsCompleted)
@@ -113,12 +115,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         counterHandler: (counter) =>
                                         {
                                             triggerSetter.ProcessCounter(trigger, eventsCount);
-                                            if (triggerSetter.IsCounter(trigger))
+                                            if (triggerSetter.IsCounterActivated(trigger))
                                             {
-                                                triggerSetter.SetActive(trigger, true);
+                                                triggerSetter.SetActivated(trigger, true);
                                             }
                                         },
-                                        timerHandler: () => triggerSetter.SetActive(trigger, true)
+                                        timerHandler: () => triggerSetter.SetActivated(trigger, true)
                                         );
                                 }
 
@@ -179,7 +181,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
 
-                    var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(group.Key);
+                    var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, group.Key);
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
@@ -216,7 +218,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
 
-                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(triggerInfo.HandlerKey);
+                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(serviceProvider, triggerInfo.HandlerKey);
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
@@ -239,11 +241,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
 
                 var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
+                // Группировка по ключу (Info: точка агрегации):
+                // Если триггер групповой, то обработку будет одним батчем (одной транзакцией).
                 var groupByHandler = selectData.GroupBy(e => e.HandlerKey);
 
                 foreach (var group in groupByHandler)
                 {
-                    var handler = factory.GetHandler(group.Key);
+                    var handler = factory.GetHandler(serviceProvider, group.Key);
 
                     if (handler is ITriggerRangeHandler<TId> rangeHandler)
                     {
@@ -369,33 +373,42 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             if (result.NeedRepeat)
             {
                 setter.SetTimer(trigger, result.ExecuteDelay);
-                setter.SetActive(trigger, result.IsActivated);
+                setter.SetActivated(trigger, result.IsActivated);
                 setter.SetCompleted(trigger, false);
             }
             else
             {
-                setter.SetActive(trigger, false);
+                setter.SetActivated(trigger, false);
                 setter.SetCompleted(trigger, true);
             }
-            trigger.SelectTimer = DateTimeOffset.MinValue;
+            // TODO: setter
+            trigger.SelectLockTimeout = DateTimeOffset.MinValue;
         }
-    }
 
-    public class Options 
-    {
-        public int QueueConsumeBatchLimit { get; set; }
-            = 200;
 
-        public TimeSpan QueueConsumeBatchTimeout { get; set; }
-            = TimeSpan.FromSeconds(1);
+        public class Options
+        {
+            public int QueueConsumeBatchLimit { get; set; }
+                = 200;
 
-        public int DbExecuteParallelismLimit { get; set; } 
-            = 10;
+            public TimeSpan QueueConsumeBatchTimeout { get; set; }
+                = TimeSpan.FromSeconds(1);
 
-        public TimeSpan DbExecuteSelectLockTimeout { get; set; }
-            = TimeSpan.FromSeconds(30);
+            public int DbExecuteParallelismLimit { get; set; }
+                = 10;
 
-        public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
-            = TimeSpan.FromSeconds(5);
-    }
+            /// <summary>
+            /// Select блокировка.
+            /// </summary>
+            public TimeSpan DbExecuteSelectLockTimeout { get; set; }
+                = TimeSpan.FromSeconds(30);
+
+            /// <summary>
+            /// Время ожидания попытки получить блокировку на триггер.
+            /// (Конкурецнтя с consumer).
+            /// </summary>
+            public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
+                = TimeSpan.FromSeconds(5);
+        }
+    }    
 }

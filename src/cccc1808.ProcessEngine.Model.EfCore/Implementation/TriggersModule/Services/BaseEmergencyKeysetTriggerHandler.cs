@@ -34,8 +34,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         public async ValueTask<ITriggerHandler.Result> HandleAsync(
             ITriggerComponent<TId> trigger, CancellationToken cancellationToken)
         {
-            // todo:
-            // soft timeout
             // Отбираем батч спящих процессов, у которых есть непрочитанные сообщения.
             // При этом их тригер давно не выполнялся.
             // Пропускаем заблокированные.

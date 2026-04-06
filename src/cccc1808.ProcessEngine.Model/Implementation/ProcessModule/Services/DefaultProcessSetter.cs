@@ -57,8 +57,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 if (!w.InAsyncExecuting)
                 {
                     w.IsAsyncExecuting = status == ProcessStatusEnum.AsyncExecute;
-                    w.Timestamp = DateTimeOffset.UtcNow;
-
                     w.NeedUpdate = true;
                 }
             }
@@ -66,14 +64,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
 
         public void ClearError<TId>(IProcessContainer<TId> process)
         {
+            process.CurrentSession.NeedUpdateErrorData = 
+                process.CurrentSession.HaveErrorOnStart
+                || process.CurrentSession.CurrentSessionHaveError;
+
+            process.CurrentSession.CurrentSessionHaveError = false;
             process.Process.RetryCount = null;
             process.Process.StoppedByError = false;
             process.Process.Error = null;
-
-            process.CurrentSession.HaveError = false;
-            process.CurrentSession.NeedUpdateErrorData = 
-                process.CurrentSession.HaveErrorOnStart
-                || process.CurrentSession.HaveError;
         }
 
         public (bool IsRetry, DateTimeOffset Timeout) SetError<TId>(
@@ -84,7 +82,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             (bool IsRetry, DateTimeOffset Timeout) result;
             if (
                 allowRetry
-                && (process.Process.RetryCount ?? 0) <= process.CurrentSession.RetryLimit
+                && (process.Process.RetryCount ?? 0) < process.CurrentSession.RetryLimit
                 && !process.Process.StoppedByError
                 )
             {
@@ -94,17 +92,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
 
                 // Ждем retry триггер.
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
-
                 result = (true, _retryDelayFunc(process.Process.RetryCount.Value, ex));
             }
             else
             {
                 process.Process.StoppedByError = true;
 
+                // Останавливаем выполнение
+                SetStatus(process, ProcessStatusEnum.WaitEvent);
                 result = (false, DateTimeOffset.MinValue);
             }
 
-            process.CurrentSession.HaveError = true;
+            process.CurrentSession.CurrentSessionHaveError = true;
             process.CurrentSession.NeedUpdateErrorData = true;
 
             process.Process.Error = new IProcessComponent<TId>.ErrorDto(

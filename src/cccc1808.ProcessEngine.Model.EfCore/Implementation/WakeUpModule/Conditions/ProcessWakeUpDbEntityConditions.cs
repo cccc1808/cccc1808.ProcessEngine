@@ -28,12 +28,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Condit
             ) IsAsyncExecuting
         { get; }
 
-        public (
-            IInMemoryCondition<ProcessWakeUpDbEntity<TId>, DateTimeOffset> Memory,
-            IQueryableCondition<ProcessWakeUpDbEntity<TId>, (IEFDbContext dbContext, (TId processId, DateTimeOffset Date)[] Ids)> QueryRange
-            ) IsAsyncExecuting_TimerDate 
-        { get; }
-
         public ProcessWakeUpDbEntityConditions()
         {
             ProcessLinkedDbEntity = (

@@ -22,6 +22,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             DbProcessingForSelectorIndex(builder);
             DbProcessingForSelectorHandlerIndex(builder);
             AsyncExecuteIndex(builder);
+            WaitEventIndex(builder);
             MaybeStoppedByTriggerEventLoosedIndex(builder);
         }
 
@@ -32,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         protected virtual IndexBuilder<TProcess> DbProcessingForSelectorIndex(EntityTypeBuilder<TProcess> builder)
         {
             return builder.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.SelectLockTimeout })
-                .HasFilter($"Status is {(int)ProcessStatusEnum.AsyncExecute}");
+                .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
         }
 
         /// <summary>
@@ -42,7 +43,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         protected virtual IndexBuilder<TProcess> DbProcessingForSelectorHandlerIndex(EntityTypeBuilder<TProcess> builder)
         {
             return builder.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion, e.Id })
-                .HasFilter($"Status is {(int)ProcessStatusEnum.AsyncExecute}");
+                .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
         }
 
         /// <summary>
@@ -51,7 +52,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         protected virtual IndexBuilder<TProcess> AsyncExecuteIndex(EntityTypeBuilder<TProcess> builder) 
         {
             return builder.HasIndex(e => new { e.Id })
-                .HasFilter($"Status is {(int)ProcessStatusEnum.AsyncExecute}");
+                .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
+        }
+
+        /// <summary>
+        /// <see cref="IProcessDbEntityConditions{TId, TEntity}.WaitEvent"/>
+        /// </summary>
+        protected virtual IndexBuilder<TProcess> WaitEventIndex(EntityTypeBuilder<TProcess> builder)
+        {
+            return builder.HasIndex(e => new { e.Id })
+                .HasFilter($"status = {(int)ProcessStatusEnum.WaitEvent}");
         }
 
         /// <summary>
@@ -61,9 +71,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         {
             return builder.HasIndex(e => new { e.Id, e.SelectLockTimeout })
                 .HasFilter(@$"
-Status is {(int)ProcessStatusEnum.WaitEvent}
-and StoppedByError is false
-and RetryCount is null");
+status = {(int)ProcessStatusEnum.WaitEvent}
+and stopped_by_error is false
+and retry_count is null");
         }
     }
 }

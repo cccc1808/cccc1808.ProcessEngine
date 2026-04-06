@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -17,6 +18,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository
 {
@@ -27,7 +29,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         protected readonly IEFDbContext _dbContext;
         protected readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IProcessRegistry _processRegistry;
-        private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
+        private readonly IIdGenerator<TId> _idGenerator;
+        private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;        
 
         private readonly IProcessDbEntityConditions<TId, TDbEntity> _processDbEntityConditions;
         private readonly IProcessErrorDbEntityConditions<TId> _processErrorDbEntityConditions;
@@ -35,6 +38,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         public EFChangeTrackerProcessRepository(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
+            IIdGenerator<TId> idGenerator,
             IProcessRegistry processRegistry,
             IEnumerable<IProcessDbProvider<TId>> processLoaders,
 
@@ -44,6 +48,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _processRegistry = processRegistry;
+            _idGenerator = idGenerator;
             _processLoaders = processLoaders;
 
             _processDbEntityConditions = processDbEntityConditions;
@@ -75,7 +80,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             retryLimit: 3, 
                             haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
                         {
-                            HaveError = false,
+                            CurrentSessionHaveError = false,
                             IsSessionFirstStep = true,
                             SessionId = Guid.Empty,
                             StopAsyncProcessingSession = false,
@@ -100,7 +105,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             return containers.Values;
         }
 
-        public virtual async Task<ICollection<IProcessContainer<TId>>> GetRangeForAsyncProcessingAsync(
+        public virtual async Task<ICollection<IProcessContainer<TId>>> GetForAsyncProcessingRangeAsync(
             ICollection<TId> ids,
             CancellationToken cancellationToken)
         {
@@ -131,12 +136,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             return (IProcessContainer<TId>)new ProcessContainer<TId>(
                                 new EFProcessProxyComponent<TId>(e),
                                 new AsyncSessionComponent(
-                                    retryLimit: 3,
+                                    retryLimit: 2,
                                     haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
                                 {
-                                    HaveError = false,
+                                    CurrentSessionHaveError = false,
                                     IsSessionFirstStep = true,
-                                    RetryLimit = 3,
+                                    RetryLimit = 2,
                                     SessionId = Guid.Empty
                                 });
                         }
@@ -160,6 +165,57 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             return containers.Values;
         }
 
+        public async Task<ICollection<IProcessContainer<TId>>> GetWaitingRangeAsync(
+            ICollection<TId> ids,
+            bool updateLock, 
+            CancellationToken cancellationToken)
+        {
+            Dictionary<TId, IProcessContainer<TId>> containers;
+            using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+            {
+                var data = await _dbContext.Set<TDbEntity>()
+                    .ApplayQueryCondition(
+                    _processDbEntityConditions.WaitEvent.QueryIds,
+                        ids)
+                    .ToArrayAsync(cancellationToken);
+
+                containers = data
+                    .Select(
+                        e =>
+                        {
+                            return (IProcessContainer<TId>)new ProcessContainer<TId>(
+                                new EFProcessProxyComponent<TId>(e),
+                                new AsyncSessionComponent(
+                                    retryLimit: 3,
+                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
+                                {
+                                    CurrentSessionHaveError = false,
+                                    IsSessionFirstStep = true,
+                                    RetryLimit = 3,
+                                    SessionId = Guid.Empty
+                                });
+                        }
+                        )
+                    .ToDictionary(e => e.Id, e => e);
+            }
+
+            var byTypeIndex = containers.Values
+                .GroupBy(e => e.Process.Info.ProcessType)
+                .ToDictionary(
+                    e => e.Key,
+                    e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
+            foreach (var elem in _processLoaders)
+            {
+                await elem.LoadRangeAsync(
+                    containers,
+                    byTypeIndex,
+                    withLock: false,
+                    cancellationToken);
+            }
+
+            return containers.Values;
+        }
+
         public virtual async Task UpdateAsync(
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
@@ -170,6 +226,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     e => e.Key,
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
 
+            // 1) Вызываем логику хендлеров для сохранения дополнительного состояния.
             foreach (var elem in _processLoaders)
             {
                 await elem.UpdateAsync(
@@ -178,43 +235,71 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     cancellationToken);
             }
 
-            IProcessContainer<TId>[] errorStateChanged;
+            // 2) Реализация, чтобы загружать данные об ошибке, только по необходимости, а не на каждый запрос.            
             {
-                // Реализация, чтобы не загружать блоки ошибок.
-                errorStateChanged = processes
+                var errorSet = _dbContext.Set<ProcessErrorDbEntity<TId>>();
+
+                var errorStateChanged = processes
                     .Where(e => e.CurrentSession.NeedUpdateErrorData)
                     .ToArray();
+                var errorEntries = new List<EntityEntry<ProcessErrorDbEntity<TId>>>(errorStateChanged.Length);
 
-                var errorDbEntities = await _dbContext.Set<ProcessErrorDbEntity<TId>>()
-                    .ApplayQueryCondition(
-                        _processErrorDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
-                        errorStateChanged.Select(e => e.Id).ToArray())
-                    .ToDictionaryAsync(e => e.ProcessId, e => e.Id, cancellationToken);
+                try
+                {
+                    if (errorStateChanged.Any())
+                    {
+                        var errorDbEntities = await errorSet
+                            .ApplayQueryCondition(
+                                _processErrorDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
+                                errorStateChanged.Select(e => e.Id).ToArray())
+                            .Select(e => new { e.ProcessId, e.Id }) // Без проекции создает Entity и подсоединяет ее в ChangeTracker (можно AsNoTracking, но создание сущности все равно не нужно).
+                            .ToDictionaryAsync(e => e.ProcessId, e => e.Id, cancellationToken);
+
+                        foreach (var elem in errorStateChanged)
+                        {
+                            if (errorDbEntities.TryGetValue(elem.Id, out var errorEntityId))
+                            {
+                                var updateEntity = new ProcessErrorDbEntity<TId>(
+                                    errorEntityId,
+                                    elem.Process.Info.Id,
+                                    elem.Process.Error?.ErrorJson,
+                                    elem.Process.Error?.Date,
+                                    elem.Process.Error?.SessionId);
+
+                                var entry = errorSet.Attach(updateEntity);
+                                entry.State = EntityState.Modified;
+                                errorEntries.Add(entry);
+                            }
+                            else
+                            {
+                                var createEntity = new ProcessErrorDbEntity<TId>(
+                                    await _idGenerator.NextAsync(cancellationToken),
+                                    elem.Process.Info.Id,
+                                    elem.Process.Error?.ErrorJson,
+                                    elem.Process.Error?.Date,
+                                    elem.Process.Error?.SessionId);
+
+                                var entry = errorSet.Attach(createEntity);
+                                entry.State = EntityState.Added;
+                                errorEntries.Add(entry);
+                            }
+                        }
+                    }
+
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                finally
+                {
+                    foreach (var elem in errorEntries)
+                    {
+                        elem.State = EntityState.Detached;
+                    }
+                }
 
                 foreach (var elem in errorStateChanged)
                 {
-                    var errorEntityId = errorDbEntities[elem.Id];
-
-                    var updateEntity = new ProcessErrorDbEntity<TId>() 
-                    {
-                        Id = errorEntityId,
-                        Error = elem.Process.Error?.ErrorJson,
-                        ErrorDate = elem.Process.Error?.Date,
-                        ErrorSessionId = elem.Process.Error?.SessionId,
-                        ProcessId = elem.Process.Info.Id,
-                    };
-
-                    _dbContext.Set<ProcessErrorDbEntity<TId>>()
-                        .Attach(updateEntity)
-                        .State = EntityState.Modified;
+                    elem.CurrentSession.NeedUpdateErrorData = false;
                 }
-            }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            foreach (var elem in errorStateChanged)
-            {
-                elem.CurrentSession.NeedUpdateErrorData = false;
             }
         }
 

@@ -10,6 +10,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
     public interface ITriggerHandlerFactory<TId>
     {
-        ITriggerHandler GetHandler(string key);
+        ITriggerHandler GetHandler(
+            IServiceProvider serviceProvider,
+            string key);
     }
 }

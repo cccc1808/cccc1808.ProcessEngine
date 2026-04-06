@@ -22,6 +22,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .Property(e => e.Key)
                 .HasMaxLength(255);
 
+            builder
+                .Property(e => e.HandlerKey)
+                .HasMaxLength(255);
+
             KeyIndex(builder);
             KeyNotCompleteIndex(builder);
             DbProcessingForSelectorIndex(builder);
@@ -48,7 +52,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         {
             return builder
                 .HasIndex(e => e.Key)
-                .HasFilter("IsCompleted is false");
+                .HasFilter("is_completed is false");
         }
 
         /// <summary>
@@ -58,10 +62,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
         {
             // Для выборки DbWorker. selector
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectTimer })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout })
                 .HasFilter(@"
-    IsActivated is true 
-    and IsCompleted is false");
+    is_activated is true 
+    and is_completed is false");
         }
 
         /// <summary>
@@ -73,8 +77,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             // Для выборки DbWorker. handler executor.
             return builder.HasIndex(e => new { e.TimerDate, e.Id })
                 .HasFilter(@"
-    IsActivated is true 
-    and IsCompleted is false");
+    is_activated is true
+    and is_completed is false");
         }
 
         protected virtual IndexBuilder<TriggerDbEntity<TId>> ProcessIdIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 

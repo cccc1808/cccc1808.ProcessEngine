@@ -70,7 +70,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         ids
                         )
                     )
-                .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectTimer, DateTimeOffset.UtcNow + timeout), cancellationToken);
+                .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.UtcNow + timeout), cancellationToken);
 
             return result;
         }

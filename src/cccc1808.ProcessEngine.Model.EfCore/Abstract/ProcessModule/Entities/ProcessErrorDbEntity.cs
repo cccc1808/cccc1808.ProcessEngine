@@ -29,5 +29,22 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
 
         public Guid? ErrorSessionId { get; set; }
 
+        public ProcessErrorDbEntity() 
+        { 
+        }
+
+        public ProcessErrorDbEntity(
+            TId id, 
+            TId processId,
+            JsonElement? error = null,
+            DateTimeOffset? errorDate = null,
+            Guid? errorSessionId = null)
+        {
+            Id = id;
+            ProcessId = processId;
+            Error = error;
+            ErrorDate = errorDate;
+            ErrorSessionId = errorSessionId;
+        }
     }
 }

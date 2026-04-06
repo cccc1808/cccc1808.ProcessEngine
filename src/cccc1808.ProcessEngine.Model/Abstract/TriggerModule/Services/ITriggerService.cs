@@ -1,6 +1,6 @@
 ﻿namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
-    internal interface ITriggerService
+    public interface ITriggerService
     {
         Task ConsumerWorkAsync(CancellationToken cancellationToken);
 

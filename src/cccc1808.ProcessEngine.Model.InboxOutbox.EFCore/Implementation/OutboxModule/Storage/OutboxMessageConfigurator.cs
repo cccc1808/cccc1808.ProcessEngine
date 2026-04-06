@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         protected virtual void IsActiveIndex(EntityTypeBuilder<OutboxMessageDbEntity<TId>> builder)
         {
             builder.HasIndex(e => new { e.ProcessId, e.Priority, e.OrderId })
-                .HasFilter("IsActive is true");
+                .HasFilter("is_active is true");
         }
     }
 }

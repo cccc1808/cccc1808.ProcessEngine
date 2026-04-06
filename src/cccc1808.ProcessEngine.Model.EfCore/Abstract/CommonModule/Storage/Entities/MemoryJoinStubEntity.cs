@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
+namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.Entities
 {
     [Obsolete("Для MemoryJoin.")]
     [Table("__stub_query_data", Schema = "__stub")]

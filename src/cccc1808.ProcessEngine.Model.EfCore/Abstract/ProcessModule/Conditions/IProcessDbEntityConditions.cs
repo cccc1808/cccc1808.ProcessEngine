@@ -44,6 +44,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
         { get; }
 
         /// <summary>
+        /// Условие ожидания.
+        /// </summary>
+        (
+            IInMemoryCondition<TEntity> Memory,
+            IQueryableCondition<TEntity> Query,
+            IQueryableCondition<TEntity, ICollection<TId>> QueryIds
+            ) WaitEvent
+        { get; }
+
+        /// <summary>
         /// Процесс возможно завис из-за потери TriggerEvent.
         /// Используется для страхующего воркера перепроверяющего необходимость пробуждения процесса.
         /// </summary>

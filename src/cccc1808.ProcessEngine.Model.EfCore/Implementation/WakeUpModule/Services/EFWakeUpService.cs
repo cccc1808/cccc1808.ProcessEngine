@@ -25,7 +25,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Services
 {
-    public class EFWakeUpService<TId> 
+    public class EFWakeupService<TId> 
         : IWakeupService<TId>
     {
         private readonly IServiceProvider _serviceProvider;
@@ -40,7 +40,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
         private readonly OptionsDto _optionsDto;
 
-        public EFWakeUpService(
+        public EFWakeupService(
             IServiceProvider serviceProvider,
             IEFDbContext dbContext,
             IProcessSetter processSetter,
@@ -74,7 +74,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             CancellationToken cancellationToken)
         {
             static Dictionary<TId, ExecuteContextItemDto> BuildContext(
-                EFWakeUpService<TId> This,
+                EFWakeupService<TId> This,
                 ICollection<IProcessContainer<TId>> processes)
             {
                 var context = new Dictionary<TId, ExecuteContextItemDto>(processes.Count);
@@ -127,11 +127,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             /// (ждем завершения блокировок всех сигналов).
             /// </summary>
             static async Task LockWakeupStateAndCheckCondition(
-                EFWakeUpService<TId> This, 
+                EFWakeupService<TId> This, 
                 Dictionary<TId, ExecuteContextItemDto> context, 
                 CancellationToken cancellationToken) 
             {               
-                // 1) Получаем процессы с блокировкой.
+                // 1) Получаем wakeup с блокировкой.
                 using (var hint = This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
                     var wakeUps = await This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
@@ -165,7 +165,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             /// Обработка результатов, выставления статуса пробуждения.
             /// </summary>
             static void ExecuteWakeup(
-                EFWakeUpService<TId> This,
+                EFWakeupService<TId> This,
                 Dictionary<TId, ExecuteContextItemDto> context) 
             {
                 foreach (var elem in context.Values)
@@ -287,7 +287,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             {
                 foreach (var elem in updateBuffer.Values)
                 {
-                    elem.TimeStamp = DateTimeOffset.UtcNow;
                     elem.IsAsyncExecuting = true;
                 }
 
@@ -304,10 +303,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                 {
                     if (elem.StoppedByError || elem.RetryCount.HasValue) // TODO: condition
                     {
-                        // Если стрим упал в ошибку, то не трогаем его.
+                        // Если процесс в ошибке, то не трогаем его.
                         continue;
                     }
-
                     elem.Status = ProcessStatusEnum.AsyncExecute;
                 }
             }
@@ -332,27 +330,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
         /// 
         /// </summary>
         /// <param name="WakeupEndUpdLockTimeout">Timeout попытки получения updlock на wakeup.</param>
-        /// <param name="SessionEndUpdLockTimeout">В конце сессии timeout ожидания updlock на wakeup сущность.</param>
-        /// <param name="WakeupUpdLockRetryLimit">Кол-во попыток получить блокировку для обновления даты wakeup.</param>
-        /// <param name="ProcessCannotLockWakeupTimeout">Процесс хотел заснуть, но не смог получить updlock над wakeup сущности. Задержка перед следующей попыткой.</param>
         public record OptionsDto(
-            TimeSpan WakeupEndUpdLockTimeout,
-            TimeSpan SessionEndUpdLockTimeout,
-            int WakeupUpdLockRetryLimit,
-            TimeSpan ProcessCannotLockWakeupTimeout 
+            TimeSpan WakeupEndUpdLockTimeout
             )
         {
             public OptionsDto(
-                TimeSpan? WakeupEndUpdLockTimeout = null,
-                TimeSpan? SessionEndUpdLockTimeout = null,
-                int? WakeupUpdLockRetryLimit = null,
-                TimeSpan? ProcessCannotLockWakeupTimeout = null
+                TimeSpan? WakeupEndUpdLockTimeout = null
                 ) 
                 : this(
-                      WakeupEndUpdLockTimeout ?? TimeSpan.FromSeconds(2),
-                      SessionEndUpdLockTimeout ?? TimeSpan.FromSeconds(2),
-                      WakeupUpdLockRetryLimit ?? 2,
-                      ProcessCannotLockWakeupTimeout ?? TimeSpan.FromSeconds(10)
+                      WakeupEndUpdLockTimeout ?? TimeSpan.FromSeconds(2)
                       )
             {
             }

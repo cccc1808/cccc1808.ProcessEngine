@@ -32,7 +32,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
             IQueryableCondition<TEntity> Query,
             IQueryableCondition<TEntity, ICollection<TId>> QueryIds
             ) AsyncExecute
-        { get; }        
+        { get; }
+        
+        public (
+            IInMemoryCondition<TEntity> Memory, 
+            IQueryableCondition<TEntity> Query, 
+            IQueryableCondition<TEntity, ICollection<TId>> QueryIds
+            ) 
+            WaitEvent
+        { get; }
+
 
         public (
             object? _no, 
@@ -98,6 +107,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 new DelegateIQueryableCondition<TEntity, ICollection<TId>>(
                     (s, ids) => s.Where(e => 
                         e.Status == ProcessStatusEnum.AsyncExecute
+                        && ids.Contains(e.Id))
+                    )
+                );
+
+            WaitEvent = (
+                new DelegateInMemoryCondition<TEntity>(
+                    (s) => s.Status == ProcessStatusEnum.WaitEvent
+                    ),
+                new DelegateIQueryableCondition<TEntity>(
+                    (s) => s.Where(e => e.Status == ProcessStatusEnum.WaitEvent)
+                    ),
+                new DelegateIQueryableCondition<TEntity, ICollection<TId>>(
+                    (s, ids) => s.Where(e =>
+                        e.Status == ProcessStatusEnum.WaitEvent
                         && ids.Contains(e.Id))
                     )
                 );
