@@ -82,7 +82,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                 foreach (var elem in processes)
                 {
                     // Игнорируем процессы с ошибкой.
-                    if (!This._processContainerConditions.HaveError.Check(elem))
+                    if (This._processContainerConditions.HaveError.Check(elem))
                     {
                         continue;
                     }
@@ -98,24 +98,24 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     {
                         throw new InvalidOperationException("[Bug] Состояние.");
                     }
-                    component.InAsyncExecuting = false;
 
                     // Обрабатываем только указанные статусы.
-                    if (elem.Process.Status is ProcessStatusEnum.WaitEvent)
+                    if (elem.Process.Status is not ProcessStatusEnum.WaitEvent)
                     {
                         // Info:
-                        // * AsyncExecuting - ничего обновлять и проверять не нужно,
-                        // * Complete - необрабатывается.
-
-                        context.Add(
-                            elem.Id,
-                            new ExecuteContextItemDto()
-                            {
-                                Process = elem,
-                                WakeUpComponent = component,
-                                WakeupWithLock = null
-                            });
+                        // * AsyncExecuting - ничего обновлять и проверять не нужно (AsyncExecuting -> AsycnExecuting),
+                        // * Complete - необрабатывается
+                        continue;
                     }
+                    
+                    context.Add(
+                        elem.Id,
+                        new ExecuteContextItemDto()
+                        {
+                            Process = elem,
+                            WakeUpComponent = component,
+                            WakeupWithLock = null
+                        });
                 }
 
                 return context;
@@ -170,27 +170,32 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             {
                 foreach (var elem in context.Values)
                 {
-                    elem.WakeUpComponent.NeedUpdate = true;
-
                     if (elem.WakeUpComponent.HandlerResult)
                     {
-                        This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
+                        var needUpdate = 
+                            !elem.WakeUpComponent.IsAsyncExecuting 
+                            || elem.Process.Process.Status != ProcessStatusEnum.AsyncExecute;
+
+                        if (needUpdate)
+                        {                            
+                            elem.WakeUpComponent.NeedUpdate = true;
+                            elem.WakeUpComponent.IsAsyncExecuting = true;
+                            This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
+                        }                        
                     }
                     else
                     {
-                        This._processSetter.SetStatus(elem.Process, elem.Process.Process.Status);
-                    }
+                        var needUpdate =
+                            elem.WakeUpComponent.IsAsyncExecuting
+                            || elem.Process.Process.Status != ProcessStatusEnum.WaitEvent;
 
-                    //if (elem.WakeUpComponent.SessionStartTimeStamp == elem.WakeupWithLock.TimeStamp)
-                    //{
-                    // Если дата не менялась с начала обработки, значит новых внешних сигналов пробуждения не было.
-                    // Оставляем также как сейчас, записывая данные в WakeUp component.
-                    //}
-                    //else
-                    //{
-                    // Поступал новый внешний сигнал пробуждения, берем минимальную задержку таймера.
-                    // Не засыпаем.
-                    //}
+                        if (needUpdate)
+                        {
+                            elem.WakeUpComponent.NeedUpdate = true;
+                            elem.WakeUpComponent.IsAsyncExecuting = false;
+                            This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.WaitEvent);
+                        }
+                    }
                 }
             }
 
@@ -258,7 +263,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                                 .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
                                 .ToArrayAsync(t);
 
-                            // У нас монопольная блокировка через updlock.
+                            // У нас монопольная блокировка wakeup через updlock.
                             foreach (var elem in wakeupsWithLock)
                             {
                                 if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
@@ -306,6 +311,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                         // Если процесс в ошибке, то не трогаем его.
                         continue;
                     }
+
+                    if (elem.Status == ProcessStatusEnum.Complete) // TODO: condition
+                    {
+                        // Если процес завершился, то не трогам.
+                        continue;
+                    }
+
                     elem.Status = ProcessStatusEnum.AsyncExecute;
                 }
             }

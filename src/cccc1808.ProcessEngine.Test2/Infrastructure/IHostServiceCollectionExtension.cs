@@ -14,7 +14,9 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
@@ -44,8 +46,12 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,25 +60,46 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
-        public static IServiceCollection AddDbServices(this IServiceCollection services)
+        public static IServiceCollection AddDbServices(
+            this IServiceCollection services,
+            params Type[] dbProviders)
         {
             services
                 .AddScoped<ITransactionManager, EFTransactionManager>()
                 .AddScoped<ILockQueryHintStore, LockQueryHintStore>()
                 .AddScoped<IEFDbContext, EFDbContext>()
                 .AddSingleton<IIdGenerator<Guid>, GuidIdGenerator>();
+
+            foreach (var elem in dbProviders)
+            {
+                services.AddScoped(elem);
+                services.AddScoped<IProcessDbProvider<Guid>>(s => (IProcessDbProvider<Guid>)s.GetRequiredService(elem));
+            }
+
             return services;
         }
 
         public static IServiceCollection AddDbServices<TDbContext>(
             this IServiceCollection services,
-            Func<IServiceProvider, TDbContext> dbContextFactory)
+            Func<IServiceProvider, TDbContext> dbContextFactory,
+            params Type[] dbProviders)
             where TDbContext : DbContext
         {
             services
                 .AddScoped(dbContextFactory)
                 .AddScoped<DbContext>(s => s.GetRequiredService<TDbContext>())
-                .AddDbServices();
+                .AddDbServices(dbProviders);            
+
+            return services;
+        }
+
+        public static IServiceCollection AddKafkaServices(
+            this IServiceCollection services, 
+            KafkaQueueProviderFactory.OptionsDto options) 
+        {
+            services
+                .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
+                .AddSingleton(options);
 
             return services;
         }
@@ -106,6 +133,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             foreach (var elem in registrations)
             {
                 services.AddSingleton(elem);
+                services.AddScoped(elem.CheckWakeupHandlerType);
             }
 
             return services;
@@ -178,13 +206,19 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
-            TriggerService<Guid>.Options triggerServiceOptions)
+            TriggerService<Guid>.Options triggerServiceOptions,
+            TriggerOptions triggerOptions)
         {
             services
                 .AddScoped<ITriggerService, TriggerService<Guid>>()
                 .AddSingleton(triggerServiceOptions)
 
                 .AddSingleton<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
+
+                .AddScoped<ITriggerEventRaiser, TriggerEventRaiser>()
+                .Decorate<ITriggerEventRaiser, TriggerEventRaiserAfterTransactionCompleteDecorator>()
+                .AddSingleton(triggerOptions)
+                .AddScoped<IEventJsonSerializer, EventJsonSerializer>()
                 ;
 
             return services;

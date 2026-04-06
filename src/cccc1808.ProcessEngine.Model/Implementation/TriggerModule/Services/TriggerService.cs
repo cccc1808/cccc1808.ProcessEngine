@@ -30,7 +30,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             _serviceProvider = serviceProvider;
         }
 
-        public async Task ConsumerWorkAsync(CancellationToken cancellationToken)
+        public async Task ConsumerWorkAsync(
+            bool executeOne,
+            CancellationToken cancellationToken)
         {
             await using (var scope = _serviceProvider.CreateAsyncScope())
             {
@@ -53,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         if (!batch.Any())
                         {
-                            return;
+                            break;
                         }
 
                         var events = batch
@@ -129,6 +131,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             }
 
                             await consumer.CommitAsync(cancellationToken);
+                        }
+
+                        if (executeOne)
+                        {
+                            break;
                         }
                     }
                 }

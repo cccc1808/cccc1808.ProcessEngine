@@ -23,6 +23,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
 
         /// <summary>
         /// Есть обновления для записи в БД.
+        /// Особенность: взводиться, но не сбрасывается (предпологается конец транзакции).
         /// </summary>
         bool NeedUpdate { get; set; }
 

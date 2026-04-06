@@ -14,6 +14,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.C
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
 
 using LinqToDB;
 
@@ -100,6 +101,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     });
 
                 modelBuilder.Entity<MemoryJoinStubEntity>();
+
+                // ----------
+
+                modelBuilder.Entity<ChildProcessDbEntity>(
+                    b => 
+                    {
+                        new ChildProcessDbEntityConfiguration().Configure(b);
+                    });
             }
         }
 

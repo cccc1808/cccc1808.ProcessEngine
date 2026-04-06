@@ -2,7 +2,9 @@
 {
     public interface ITriggerService
     {
-        Task ConsumerWorkAsync(CancellationToken cancellationToken);
+        Task ConsumerWorkAsync(
+            bool executeOne,
+            CancellationToken cancellationToken);
 
         Task DbWorkAsync(
             bool executeOne,

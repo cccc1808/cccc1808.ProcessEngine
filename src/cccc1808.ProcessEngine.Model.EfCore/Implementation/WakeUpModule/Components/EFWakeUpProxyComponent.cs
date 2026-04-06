@@ -12,12 +12,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
     public class EFWakeUpProxyComponent<TId>
         : IWakeUpComponent
     {
-        private readonly ProcessWakeUpDbEntity<TId> _dbEntity;
+        public ProcessWakeUpDbEntity<TId> DbEntity { get; }
 
         public bool IsAsyncExecuting
         {
-            get => _dbEntity.IsAsyncExecuting;
-            set => _dbEntity.IsAsyncExecuting = value;
+            get => DbEntity.IsAsyncExecuting;
+            set => DbEntity.IsAsyncExecuting = value;
         }
 
         public bool NeedUpdate { get; set; }
@@ -30,7 +30,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
             ProcessWakeUpDbEntity<TId> dbEntity,
             bool inAsyncExecuting)
         {
-            _dbEntity = dbEntity;
+            DbEntity = dbEntity;
             InAsyncExecuting = inAsyncExecuting;
         }
     }

@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
@@ -48,6 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
             // Не блокируем т.к. система отдельно управляет блокировками.
             var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+                .AsNoTracking() // [Hack]: Не отслеживаем, смотри IProcessRepository<TId>.UpdateWakeupAsync
                 .ApplayQueryCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, ids)
                 .ToArrayAsync(cancellationToken);
 
@@ -55,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             {
                 var process = processes[elem.ProcessId];
 
-                process.AddComponent(
+                process.AddComponent<IWakeUpComponent>(
                     new EFWakeUpProxyComponent<TId>(
                         elem, 
                         inAsyncExecuting: true));
@@ -79,8 +79,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
                 process.AddComponent<IWakeUpComponent>(
                     new EFWakeUpProxyComponent<TId>(
-                        elem, 
-                        inAsyncExecuting: false));
+                        elem,
+                        inAsyncExecuting: true));
             }
         }
 
@@ -89,11 +89,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            // EF change tracker.
-            foreach (var elem in processes)
-            {
-                elem.GetComponent<IWakeUpComponent>().NeedUpdate = false;
-            }
+            // [Hack]:
+            // Если мы в асинхронном выполнении, то будет использоваться IProcessRepository<TId>.UpdateWakeupAsync
+            // Инаече запись есть ChangeTracker и ничего дополнительно не требуется.
 
             return Task.CompletedTask;
         }

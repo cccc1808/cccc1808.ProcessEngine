@@ -43,10 +43,10 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             CancellationToken cancellationToken)
         {
             await Task.Yield();
-
-            var stopwatch = new Stopwatch();
+            
             var consumeBuffer = new List<MessageDto>(limit);
             ConsumeResult<string, JsonElement>? lastResult = null;
+            var stopwatch = Stopwatch.StartNew();
 
             while (consumeBuffer.Count < limit && stopwatch.Elapsed < timeout)
             {

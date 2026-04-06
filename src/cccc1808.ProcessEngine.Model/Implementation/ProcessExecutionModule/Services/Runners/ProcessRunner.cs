@@ -128,12 +128,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
                                 }
 
-#if DEBUG
                                 if (oneCycle)
                                 {
                                     break;
                                 }
-#endif
 
                                 await TimeoutHelper.ExecuteWithTimeoutAsync(
                                     wakeUpTask,

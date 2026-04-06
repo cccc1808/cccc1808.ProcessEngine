@@ -9,10 +9,13 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
@@ -307,6 +310,26 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
+            // [Hack]: Немного костыль, но вот так (чтобы запись не обновлялась при промежуточных сохранениях, не ставился lock):
+            foreach (var elem in processes)
+            {
+                if (elem.TryGetComponent<IWakeUpComponent>(out var component))
+                {
+                    if (component is not EFWakeUpProxyComponent<TId> proxy)
+                    {
+                        throw new Exception("[Bug]");
+                    }
+
+                    var entry = _dbContext.DbContext.Set<ProcessWakeUpDbEntity<TId>>().Attach(proxy.DbEntity);
+                    entry.State = component.NeedUpdate 
+                        ? EntityState.Modified
+                        : EntityState.Unchanged;
+                }
+            }
+
+            // Код вызывается после финального сохрания
+            // (иначе нельзя было бы гарантировать актуальность проверки IWakeupCheckHandler).
+            // Поэтому сохраняем еще раз.
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }

@@ -43,7 +43,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         }
 
         [Fact]
-        public async Task Q1()
+        public async Task Test1()
         {
             var idGenerator = _fixture.ServiceProvider.GetRequiredService<IIdGenerator<Guid>>();
             var processId = await idGenerator.NextAsync(default);

@@ -6,53 +6,33 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Services;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
-using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
 
 using Confluent.Kafka;
 
 using DotNet.Testcontainers.Configurations;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
-using NSubstitute;
 
 using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
@@ -97,18 +77,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
                 }
-
-                ServiceProvider = ConfigureServices();
-
-                // wait for TCP Port 5432 with a timeout of 10s
-                // WaitForPort.Ports.WaitForTcpPort(15433, (int)TimeSpan.FromSeconds(5).TotalMilliseconds);
-
+                
                 var startTasks = new Task[] 
                 {
                     PostgreSqlContainer.StartAsync(),
                     KafkaContainer.StartAsync()
                 };
                 await Task.WhenAll(startTasks);
+
+                ServiceProvider = ConfigureServices();
 
                 try
                 {
@@ -133,28 +110,50 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddDbServices(
                         (s) => new TestDbContext(
                         s,
-                        $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"))
+                        $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"),
+                        typeof(EFWakeupDbProvider<Guid>),
+                        typeof(ChildProcessDbProvider)
+                        )
+                    .AddKafkaServices(
+                        new KafkaQueueProviderFactory.OptionsDto(
+                            $"localhost:{KafkaContainer.GetMappedPublicPort()}",
+                            10,
+                            (_) => "test",
+                            (_) => 1
+                            )
+                    )
                     .AddIsolationServices()
                     .AddProcessExecutionServices(
                         new LocalProcessBufferService<Guid>.Options() { SizeLimit = 1 },
                         processCountLimiter: 1
                     )
-                    .AddWakeupServices()
+                    .AddWakeupServices(
+                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), typeof(ParentCheckWakeupHandler))
+                    )
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>))
+                        new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
                     .AddTriggerEngineServices(
-                        new Model.Implementation.TriggerModule.Services.TriggerService<Guid>.Options() 
+                        new TriggerService<Guid>.Options() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
+                            QueueConsumeBatchLimit = 10,
+                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                        },
+                        new TriggerOptions() 
+                        {
+                            TriggerEventQueueName = "trigger_events",
                         }
                         )
                     .AddProcessServices(
                         new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1)
+                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1)
                     );
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
