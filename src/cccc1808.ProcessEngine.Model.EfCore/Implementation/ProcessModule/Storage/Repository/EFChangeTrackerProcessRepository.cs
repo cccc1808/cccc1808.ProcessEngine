@@ -8,6 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -33,10 +34,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         protected readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IProcessRegistry _processRegistry;
         private readonly IIdGenerator<TId> _idGenerator;
-        private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;        
+        private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
+        private readonly Options _options;
 
         private readonly IProcessDbEntityConditions<TId, TDbEntity> _processDbEntityConditions;
-        private readonly IProcessErrorDbEntityConditions<TId> _processErrorDbEntityConditions;
+        private readonly IProcessErrorDbEntityConditions<TId> _processErrorDbEntityConditions;        
 
         public EFChangeTrackerProcessRepository(
             IEFDbContext dbContext,
@@ -44,6 +46,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             IIdGenerator<TId> idGenerator,
             IProcessRegistry processRegistry,
             IEnumerable<IProcessDbProvider<TId>> processLoaders,
+            Options options,
 
             IProcessDbEntityConditions<TId, TDbEntity> processDbEntityConditions,
             IProcessErrorDbEntityConditions<TId> processErrorDbEntityConditions)
@@ -53,119 +56,146 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _processRegistry = processRegistry;
             _idGenerator = idGenerator;
             _processLoaders = processLoaders;
+            _options = options;
 
             _processDbEntityConditions = processDbEntityConditions;
             _processErrorDbEntityConditions = processErrorDbEntityConditions;
         }
 
-        public virtual async Task<ICollection<IProcessContainer<TId>>> GetRange(
-            ICollection<TId> ids,
-            bool withLock,
-            CancellationToken cancellationToken)
-        {
-            TDbEntity[] data;
-            using (var hint = _lockQueryHintStore.StartScope(withLock ? LockHintEnum.ForNoKeyUpdateAndSkipLocked : LockHintEnum.No))
-            {
-                data = await _dbContext.Set<TDbEntity>()
-                    //.Include(e => e.Error)
-                    .ApplayQueryCondition(
-                        _processDbEntityConditions.Id.QueryRange,
-                        ids.Select(e => e).ToArray())
-                    .ToArrayAsync(cancellationToken);
-            }
+        //public virtual async Task<ICollection<IProcessContainer<TId>>> GetRange(
+        //    ICollection<TId> ids,
+        //    bool withLock,
+        //    CancellationToken cancellationToken)
+        //{
+        //    TDbEntity[] data;
+        //    using (var hint = _lockQueryHintStore.StartScope(withLock ? LockHintEnum.ForNoKeyUpdateAndSkipLocked : LockHintEnum.No))
+        //    {
+        //        data = await _dbContext.Set<TDbEntity>()
+        //            //.Include(e => e.Error)
+        //            .ApplayQueryCondition(
+        //                _processDbEntityConditions.Id.QueryRange,
+        //                ids.Select(e => e).ToArray())
+        //            .ToArrayAsync(cancellationToken);
+        //    }
 
-            var containers = data.Select(
-                e =>
-                {
-                    return new ProcessContainer<TId>(
-                        new EFProcessProxyComponent<TId>(e),
-                        new AsyncSessionComponent(
-                            retryLimit: 3, 
-                            haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
-                        {
-                            CurrentSessionHaveError = false,
-                            IsSessionFirstStep = true,
-                            SessionId = Guid.Empty,
-                            StopAsyncProcessingSession = false,
-                        });
-                })
-                .ToDictionary(e => e.Process.Info.Id, e => (IProcessContainer<TId>)e);
+        //    var containers = data.Select(
+        //        e =>
+        //        {
+        //            return ProcessContainer < TId >.
+        //            new ProcessContainer<TId>(
+        //                new EFProcessProxyComponent<TId>(e),
+        //                new AsyncSessionComponent(
+        //                    sessionId: Guid.Empty,
+        //                    isSessionFirstStep: true,
+        //                    currentSessionHaveError: false,
+        //                    retryLimit: RetryParameter,
+        //                    stopAsyncProcessingSession: false,
+        //                    needUpdateErrorData: false,
+        //                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue // TODO: condition                            
+        //                    ));
+        //        })
+        //        .ToDictionary(e => e.Process.Info.Id, e => (IProcessContainer<TId>)e);
 
-            var byTypeIndex = containers.Values
-                .GroupBy(e => e.Process.Info.ProcessType)
-                .ToDictionary(
-                    e => e.Key, 
-                    e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
-            foreach (var elem in _processLoaders)
-            {
-                await elem.LoadRangeAsync(
-                    containers,
-                    byTypeIndex,
-                    withLock,
-                    cancellationToken);
-            }
+        //    var byTypeIndex = containers.Values
+        //        .GroupBy(e => e.Process.Info.ProcessType)
+        //        .ToDictionary(
+        //            e => e.Key, 
+        //            e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
+        //    foreach (var elem in _processLoaders)
+        //    {
+        //        await elem.LoadRangeAsync(
+        //            containers,
+        //            byTypeIndex,
+        //            withLock,
+        //            cancellationToken);
+        //    }
 
-            return containers.Values;
-        }
+        //    return containers.Values;
+        //}
 
         public virtual async Task<ICollection<IProcessContainer<TId>>> GetForAsyncProcessingRangeAsync(
-            ICollection<TId> ids,
+            ICollection<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
-            var now = DateTimeOffset.UtcNow;
-            Dictionary<TId, IProcessContainer<TId>> containers;
-            using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
-            {
-                var data = await _dbContext.Set<TDbEntity>()
-                    .ApplayQueryCondition(
-                    _processDbEntityConditions.DbProcessingForHandler.Query,
-                    new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForSelectorHandlerParameters(
-                        now,
-                        _dbContext,
-                        _processRegistry.All(),
-                        ids))
-                    //.Include(e => e.Error)
-                    .ToArrayAsync(cancellationToken);
-
-                containers = data
-                    .Select(
-                        e =>
-                        {
-                            // Так как мы уже считали с блокировкой,
-                            // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
-                            // Не сбрасываем на min, потому что значение используется.
-                            e.SelectLockTimeout = DateTimeOffset.UtcNow;
-
-                            return (IProcessContainer<TId>)new ProcessContainer<TId>(
-                                new EFProcessProxyComponent<TId>(e),
-                                new AsyncSessionComponent(
-                                    retryLimit: 2,
-                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
-                                {
-                                    CurrentSessionHaveError = false,
-                                    IsSessionFirstStep = true,
-                                    RetryLimit = 2,
-                                    SessionId = Guid.Empty
-                                });
-                        }
-                        )
-                    .ToDictionary(e => e.Id, e => e);
-            }
-
-            var byTypeIndex = containers.Values
-                .GroupBy(e => e.Process.Info.ProcessType)
+            var byTypeIndex = ids
+                .GroupBy(e => e.ProcessType)
                 .ToDictionary(
                     e => e.Key,
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
+            var loadBuffer = new Dictionary<TId, IProcessContainer<TId>>(ids.Count);
+            var notLoadedProcesses = ids.ToDictionary(e => e.Id, e => e);
+
+            var softTimeout = _options.SoftTimeout.HasValue
+                ? DateTimeOffset.Now + _options.SoftTimeout.Value
+                : (DateTimeOffset?)null;
+
+            // Кастомные загрузчики процессов.
+            // Используется процессами стримами (с сообщениями), чтобы загружать батчи сообщений и не блокировать процессы, в батч сообщения не поместились.
             foreach (var elem in _processLoaders)
             {
-                await elem.LoadForAsyncProcessingAsync(
-                    containers,
+                await elem.LoadProcessForAsyncProcessingAsync(                    
+                    notLoadedProcesses,
+                    loadBuffer,
                     byTypeIndex,
                     cancellationToken);
             }
 
-            return containers.Values;
+            // Логика загрузки по умолчанию.
+            if (notLoadedProcesses.Any())
+            {
+                using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                {
+                    var data = await _dbContext.Set<TDbEntity>()
+                        .ApplayQueryCondition(
+                            _processDbEntityConditions.DbProcessingForHandler.Query,
+                            new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForSelectorHandlerParameters(
+                                _dbContext,
+                                _processRegistry.All(),
+                                notLoadedProcesses.Keys))
+                        .ToArrayAsync(cancellationToken);
+                   
+                    foreach (var elem in data)
+                    {
+                        // Так как мы уже считали с блокировкой,
+                        // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
+                        // Не сбрасываем на min, потому что значение используется.
+                        elem.SelectLockTimeout = DateTimeOffset.UtcNow;
+
+                        var container = new ProcessContainer<TId>(
+                            new EFProcessProxyComponent<TId>(elem),
+                            new AsyncSessionComponent(
+                                sessionId: Guid.Empty,
+                                isSessionFirstStep: true,
+                                currentSessionHaveError: false,
+                                retryLimit: _options.RetryLimit,
+                                stopAsyncProcessingSession: false,
+                                needUpdateErrorData: false,
+                                haveErrorOnStart: elem.StoppedByError || elem.RetryCount.HasValue // TODO: condition                                                                                                   
+                                )
+                               );
+
+                        if (softTimeout.HasValue)
+                        {
+                            container.AddComponent<ISoftTimeoutComponent>(
+                                new SoftTimeoutComponent(softTimeout));
+                        }
+
+                        loadBuffer.Add(elem.Id, container);
+                    }
+                    notLoadedProcesses.Clear();
+                }
+            }
+            
+            // Загрузка связанных данныъ процесса.
+            foreach (var elem in _processLoaders)
+            {
+                await elem.LoadProcessDataAsync(
+                    loadBuffer,
+                    byTypeIndex,
+                    cancellationToken);
+            }
+
+            return loadBuffer.Values;
         }
 
         public async Task<ICollection<IProcessContainer<TId>>> GetWaitingRangeAsync(
@@ -189,14 +219,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             return (IProcessContainer<TId>)new ProcessContainer<TId>(
                                 new EFProcessProxyComponent<TId>(e),
                                 new AsyncSessionComponent(
-                                    retryLimit: 3,
-                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue)
-                                {
-                                    CurrentSessionHaveError = false,
-                                    IsSessionFirstStep = true,
-                                    RetryLimit = 3,
-                                    SessionId = Guid.Empty
-                                });
+                                    sessionId: Guid.Empty,
+                                    isSessionFirstStep: true,
+                                    currentSessionHaveError: false,
+                                    retryLimit: _options.RetryLimit,
+                                    stopAsyncProcessingSession: false,
+                                    needUpdateErrorData: false,
+                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue // TODO: condition                                                                                                   
+                                    )
+                                );
                         }
                         )
                     .ToDictionary(e => e.Id, e => e);
@@ -243,7 +274,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 var errorSet = _dbContext.Set<ProcessErrorDbEntity<TId>>();
 
                 var errorStateChanged = processes
-                    .Where(e => e.CurrentSession.NeedUpdateErrorData)
+                    .Where(e => e.CurrentSession?.NeedUpdateErrorData ?? true)
                     .ToArray();
                 var errorEntries = new List<EntityEntry<ProcessErrorDbEntity<TId>>>(errorStateChanged.Length);
 
@@ -299,9 +330,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     }
                 }
 
+
                 foreach (var elem in errorStateChanged)
                 {
-                    elem.CurrentSession.NeedUpdateErrorData = false;
+                    if (elem.CurrentSession != null)
+                    {
+                        elem.CurrentSession.NeedUpdateErrorData = false;
+                    }                    
                 }
             }
         }
@@ -331,6 +366,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             // (иначе нельзя было бы гарантировать актуальность проверки IWakeupCheckHandler).
             // Поэтому сохраняем еще раз.
             await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+
+        public class Options
+        {
+            public short RetryLimit { get; set; } 
+                = 2;
+
+            public TimeSpan? SoftTimeout { get; set; }
+                = TimeSpan.FromMinutes(1);
         }
     }
 }

@@ -19,9 +19,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
             IProcessComponent<TId> process, 
             IAsyncSessionComponent currentSession)
         {
-            Process = process;            
-            CurrentSession = currentSession;
+            Process = process;
             AddComponent(process);
+
+            CurrentSession = currentSession;
             AddComponent(currentSession);
         }
 

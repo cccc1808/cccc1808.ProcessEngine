@@ -18,13 +18,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Condi
         /// Отбор сообщений для обработки на основании идентификаторов стримов.
         /// </summary>
         (
-            object? _, 
-            IQueryableCondition<TEntity, ForProcessingParamDto> Query
+            object? _,
+            IQueryableCondition<TEntity, ForProcessingParamDto1> Query,
+            IQueryableCondition<TEntity, ForProcessingParamDto2> QueryIds
             )
             ForProcessing
         {  get; }
 
-        public readonly record struct ForProcessingParamDto(
+        public readonly record struct ForProcessingParamDto1(
+            bool WithPriorityOrdering
+            );
+
+        public readonly record struct ForProcessingParamDto2(
             ICollection<TId> ProcessIds,
             bool WithPriorityOrdering
             );

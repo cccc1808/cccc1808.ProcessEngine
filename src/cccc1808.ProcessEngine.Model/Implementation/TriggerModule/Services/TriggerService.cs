@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -43,30 +44,60 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 try
                 {
-                    var consumer = await queueProvider.GetConsumerAsync(triggerOptions.TriggerEventQueueName, cancellationToken);                    
+                    var consumer = await queueProvider.GetConsumerAsync(triggerOptions.TriggerEventQueueName, cancellationToken);
+
+                    var receivedMessages = new LinkContainer<int>(0);
+                    var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
 
                     while (true)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var batch = await consumer.ConsumeBatchAsync(
-                            options.QueueConsumeBatchLimit,
+                            options.QueueConsumePackSize,
                             options.QueueConsumeBatchTimeout,
-                            cancellationToken);                        
+                            cancellationToken);
 
-                        if (!batch.Any())
+                        receivedMessages.Data = 0;
+                        groupByTrigger.Clear();
+
+                        await consumer.ConsumeBatchAsync(
+                            (options, serializer, receivedMessages, groupByTrigger), 
+                            options.QueueConsumePackTimeout,
+                            options.QueueConsumePackSize,
+                            options.QueueConsumeBatchTimeout,
+                            static (p, e) => 
+                            {
+                                if (!e.Any())
+                                {
+                                    return true;
+                                }
+
+                                // (Info: точка агрегации).
+                                // N событий триггера сжимаются в одном действия (1 db update).
+                                foreach (var elem in e)
+                                {
+                                    var triggerEvent = p.serializer.Deserialize(elem.Body);
+
+                                    if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
+                                    {
+                                        triggerEvents = new List<ITriggerEvent>(e.Count);
+                                        p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
+                                    }
+                                    triggerEvents.Add(triggerEvent);
+                                }
+                                p.receivedMessages.Data += e.Count;
+
+                                var stop = 
+                                    p.receivedMessages.Data > p.options.QueueConsumeMessagesLimit 
+                                    || p.groupByTrigger.Count > p.options.QueueConsumeTriggersCountLimit;
+                                return !stop;
+                            },
+                            cancellationToken);
+
+                        if (receivedMessages.Data == 0)
                         {
                             break;
                         }
-
-                        var events = batch
-                            .Select(e => serializer.Deserialize(e.Body))
-                            .ToArray();
-
-                        // (Info: точка агрегации).
-                        // N событий триггера сжимаются в одном действия (1 update).
-                        var triggersGroups = events
-                            .GroupBy(e => e.TriggerKey)
-                            .ToDictionary(e => e.Key, e => e.Select(e => e));
 
                         await using (var scope2 = scope.ServiceProvider.CreateAsyncScope())
                         {
@@ -78,10 +109,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке, иначе тут будет подвисать consumer.
                                 var triggers = await repository.LoadTriggerForQueueConsumerAsync(
-                                    triggersGroups.Select(e => e.Key).ToArray(),
+                                    groupByTrigger.Select(e => e.Key).ToArray(),
                                     cancellationToken);
 
-                                foreach (var elem in triggersGroups)
+                                foreach (var elem in groupByTrigger)
                                 {
                                     if (!triggers.TryGetValue(elem.Key, out var trigger))
                                     {
@@ -395,8 +426,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class Options
         {
-            public int QueueConsumeBatchLimit { get; set; }
+            public int QueueConsumePackSize { get; set; }
                 = 200;
+
+            /// <summary>
+            /// Ограничение количества сообщений, закомиченных за один такт.
+            /// </summary>
+            public int QueueConsumeMessagesLimit { get; set; }
+                = 1000;
+
+            /// <summary>
+            /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
+            /// </summary>
+            public int QueueConsumeTriggersCountLimit { get; set; }
+                = 200;
+
+            public TimeSpan QueueConsumePackTimeout { get; set; }
+                = TimeSpan.FromMilliseconds(200);
 
             public TimeSpan QueueConsumeBatchTimeout { get; set; }
                 = TimeSpan.FromSeconds(1);

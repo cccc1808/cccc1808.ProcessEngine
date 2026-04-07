@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -13,13 +14,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
 {
     public class EFProcessProxyComponent<TId> : IProcessComponent<TId>
     {
-        public ProcessDbEntity<TId> ProcessDbEntity { get; }
-
-        public EFProcessProxyComponent(
-            ProcessDbEntity<TId> processDbEntity)
-        {
-            ProcessDbEntity = processDbEntity;
-        }
+        public ProcessDbEntity<TId> ProcessDbEntity { get; }        
 
         public ProcessInstanceInfoDto<TId> Info 
         { 
@@ -37,28 +32,41 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
                 ProcessDbEntity.Priority = value.Priority;
             }
         }
+
         public bool StoppedByError 
         { 
             get => ProcessDbEntity.StoppedByError; 
             set => ProcessDbEntity.StoppedByError = value; 
         }
+
         public ProcessStatusEnum Status
         {
             get => ProcessDbEntity.Status;
             set => ProcessDbEntity.Status = value;
         }
+
         public short? RetryCount
         {
             get => ProcessDbEntity.RetryCount;
             set => ProcessDbEntity.RetryCount = value;
-        }
-        
-        public IProcessComponent<TId>.ErrorDto? Error { get; set; }
+        }       
 
         public DateTimeOffset SelectLockTimeout 
         {
             get => ProcessDbEntity.SelectLockTimeout;
             set => ProcessDbEntity.SelectLockTimeout = value;
+        }
+
+        /// <summary>
+        /// TODO: такая реализация при использовании изоляции <see cref="IChangeTrackerCompensateService"/> не откатывается.
+        /// Критично ли это?.
+        /// </summary>
+        public IProcessComponent<TId>.ErrorDto? Error { get; set; }
+
+        public EFProcessProxyComponent(
+            ProcessDbEntity<TId> processDbEntity)
+        {
+            ProcessDbEntity = processDbEntity;
         }
     }
 }

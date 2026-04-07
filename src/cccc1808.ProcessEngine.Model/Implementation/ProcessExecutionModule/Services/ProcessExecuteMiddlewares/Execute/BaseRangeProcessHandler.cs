@@ -45,11 +45,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         }
 
         public virtual async ValueTask<ICollection<IProcessContainer<TId>>> LoadProcessesWithLockSkipLockedRangeAsync(
-            IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
+            ICollection<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
             var data = await _repository.GetForAsyncProcessingRangeAsync(
-                ids.Select(e => e.Id).ToArray(),
+                ids,
                 cancellationToken);
 
             return data;

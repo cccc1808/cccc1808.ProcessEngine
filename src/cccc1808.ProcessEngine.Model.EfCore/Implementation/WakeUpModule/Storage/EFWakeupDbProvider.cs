@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage
 {
+    /// <typeparam name="TId"></typeparam>
     public class EFWakeupDbProvider<TId>
         : IProcessDbProvider<TId>
     {
@@ -35,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
         }
 
-        public async Task LoadForAsyncProcessingAsync(
+        public async Task LoadProcessDataAsync(
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
@@ -51,6 +52,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                 .ApplayQueryCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, ids)
                 .ToArrayAsync(cancellationToken);
 
+            // TODO: подумать: в текущей реализации как будто вообще нет смысла предзагружать wakeup компонент.
+            // * В change tracker его нет (он не откатиться в случае использования ChangeTrackerIsolation)
+            // * Он не изменяется в асинхронной обработке до этапа пробуждения.
+            // Только если добавить процессу возможность вручную подавить wakeup check в текущей сессии, но это вроде не особо нужно.
+            // * Его можно загружать уже в самом waleup компоненте.
             foreach (var elem in data)
             {
                 var process = processes[elem.ProcessId];
@@ -60,6 +66,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                         elem, 
                         inAsyncExecuting: true));
             }
+        }
+
+        public Task LoadProcessForAsyncProcessingAsync(
+            IDictionary<TId, ProcessInstanceInfoDto<TId>> notLoadedProcesses, 
+            IDictionary<TId, IProcessContainer<TId>> loadBuffer, 
+            IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            CancellationToken cancellationToken)
+        {
+            // Без кастомного загрузчика.
+            return Task.CompletedTask;
         }
 
         public async Task LoadRangeAsync(

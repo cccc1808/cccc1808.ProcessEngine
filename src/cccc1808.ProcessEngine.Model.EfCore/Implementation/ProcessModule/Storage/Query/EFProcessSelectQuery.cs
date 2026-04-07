@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
@@ -98,7 +99,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .ApplayQueryCondition(
                         _processDbEntityConditions.DbProcessingForHandler.Query,
                         new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorHandlerParameters(
-                            now,
                             _dbContext,
                             registrations,
                             result.Select(e => e.Id).ToArray()
@@ -123,6 +123,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 .ApplayQueryCondition(
                     _processDbEntityConditions.Id.QueryRange, 
                     ids.Select(e => e.Id).ToArray()
+                    )
+                // Для оптимизации - использование фильтрующего индекса.
+                .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
+                .ExecuteUpdateAsync(
+                    e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.MinValue.UtcDateTime),
+                    cancellationToken);
+        }
+
+        public async Task UnlockSelectAsync(
+            ICollection<TId> ids, 
+            CancellationToken cancellationToken)
+        {
+            // Снимаем блокировку выборки.
+            await _dbContext.Set<TEntity>()
+                .ApplayQueryCondition(
+                    _processDbEntityConditions.Id.QueryRange,
+                    ids
                     )
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)

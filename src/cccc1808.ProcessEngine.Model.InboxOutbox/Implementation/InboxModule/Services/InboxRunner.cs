@@ -7,11 +7,11 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services
 {
     /// <summary>
     /// Воркер чтения очередей.
@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     /// <typeparam name="TDbContext"></typeparam>
-    public class IInboxWorker<TId>
+    public class InboxRunner<TId>
         : IAsyncDisposable
     {
         private readonly IServiceProvider _serviceProvider;
@@ -27,7 +27,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
 
         private WorkersState? State { get; set; }
 
-        public IInboxWorker(
+        public InboxRunner(
             IServiceProvider serviceProvider,
             IQueueProviderFactory _,
             OptionsDto options)
@@ -106,7 +106,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation
 
                 await using (var scope = serviceProvider.CreateAsyncScope())
                 {
-                    var handler = scope.ServiceProvider.GetRequiredService<IInboxService>();
+                    var handler = scope.ServiceProvider.GetRequiredService<IInboxConsumerService>();
                     await handler.ProcessBatchAsync(batch, cancelationToken);
                 }
 

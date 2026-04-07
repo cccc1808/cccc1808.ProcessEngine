@@ -25,9 +25,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Загрузить данные процесса для асинхронной обработки.
+        /// Необязательный функционал для асинхронной обработки,
+        /// позволяющий использовать свой запрос для загрузки процессов (а не только данных процесса).
+        /// * В реплизации необходимо добавить значения в loadBuffer и удалить значения из notLoadedProcesses.
+        /// * В реализации не забывать сбросить SelectLockTimeout.
+        /// * Ориентировано на процессы стримы (с сообщениями)
+        /// <see cref="cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Entities.IMessageDbEntity<TId>"/>.
         /// </summary>
-        Task LoadForAsyncProcessingAsync(            
+        /// <param name="notLoadedProcesses"></param>
+        /// <param name="loadBuffer"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        Task LoadProcessForAsyncProcessingAsync(
+            IDictionary<TId, ProcessInstanceInfoDto<TId>> notLoadedProcesses,            
+            IDictionary<TId, IProcessContainer<TId>> loadBuffer,
+            IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Загрузить данные процесса.
+        /// </summary>
+        Task LoadProcessDataAsync(            
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken  cancellationToken);
@@ -41,4 +59,5 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
             CancellationToken cancellationToken
             );
     }
+
 }

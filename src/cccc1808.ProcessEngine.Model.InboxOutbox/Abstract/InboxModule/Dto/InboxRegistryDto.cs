@@ -6,10 +6,14 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto
 {
+    /// <summary>
+    /// TODO: версии.
+    /// </summary>
+    /// <param name="Registry"></param>
     public record InboxRegistryDto(
-        ProcessTypeDto ProcessType)
+        ProcessRegistryDto Registry)
     {
     }
 }

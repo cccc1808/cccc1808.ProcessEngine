@@ -14,8 +14,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Conditions;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Entities;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
@@ -137,8 +137,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                             },
                             StoppedByError = false,
                             Priority = 0,
-                            ProcessTypeId = _inboxRegistryDto.ProcessType.ProcessType,
-                            ProcessVersion = _inboxRegistryDto.ProcessType.ProcessVersion,
+                            ProcessTypeId = _inboxRegistryDto.Registry.ProcessType.ProcessType,
+                            ProcessVersion = _inboxRegistryDto.Registry.ProcessType.ProcessVersion,
                             RetryCount = null,
                             SelectLockTimeout = DateTimeOffset.MinValue.UtcDateTime,
                             Status = ProcessStatusEnum.WaitEvent,

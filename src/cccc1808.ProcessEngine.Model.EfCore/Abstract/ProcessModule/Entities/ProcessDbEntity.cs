@@ -17,6 +17,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public int ProcessVersion { get; set; }
         public short Priority { get; set; }
 
+        /// <summary>
+        /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
+        /// Дополняет updatelock.
+        /// </summary>
         public DateTimeOffset SelectLockTimeout { get; set; }
 
         #region Status

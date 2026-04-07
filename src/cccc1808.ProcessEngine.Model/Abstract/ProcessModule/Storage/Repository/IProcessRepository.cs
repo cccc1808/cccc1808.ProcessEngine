@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
 {
@@ -22,7 +23,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task<ICollection<IProcessContainer<TId>>> GetForAsyncProcessingRangeAsync(
-            ICollection<TId> ids,
+            ICollection<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken);
 
         Task<ICollection<IProcessContainer<TId>>> GetWaitingRangeAsync(

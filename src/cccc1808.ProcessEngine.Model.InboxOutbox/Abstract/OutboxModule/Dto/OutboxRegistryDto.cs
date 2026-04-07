@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Dto.Registry
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto
 {
     public record OutboxRegistryDto(
-        ProcessTypeDto ProcessType)
+        ProcessRegistryDto Registry)
     {
     }
 }

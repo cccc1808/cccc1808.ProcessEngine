@@ -409,7 +409,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             CancellationToken cancellationToken)
         {
             var processes = await handler.LoadProcessesWithLockSkipLockedRangeAsync(
-                ids,
+                ids.ToArray(), // TODO:
                 cancellationToken);
 
             return processes.ToDictionary(
@@ -433,7 +433,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             /// Загрузгка процессов.
             /// </summary>
             ValueTask<ICollection<IProcessContainer<TId>>> LoadProcessesWithLockSkipLockedRangeAsync(
-                IReadOnlyList<ProcessInstanceInfoDto<TId>> ids,
+                ICollection<ProcessInstanceInfoDto<TId>> ids,
                 CancellationToken cancellationToken);
 
             /// <summary>

@@ -16,10 +16,10 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services
 {
     /// <summary>
     /// Outbox process -> queue.
@@ -29,21 +29,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
         : BaseRangeProcessHandler<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
-        private readonly IInboxOutboxSetter _inboxOutboxSetter;
+        private readonly IOutboxSetter _outboxSetter;
 
         public OutboxRangeProcessHandler(
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
-            IInboxOutboxSetter inboxOutboxSetter)
+            IOutboxSetter outboxSetter)
             : base(
                   repository,
                   triggerRepository,
                   setter)
         {
             _queueProviderFactory = queueProviderFactory;
-            _inboxOutboxSetter = inboxOutboxSetter;
+            _outboxSetter = outboxSetter;
         }
 
         public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options => throw new NotImplementedException();
@@ -51,13 +51,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
         public override async ValueTask StepRangeAsync(
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group,
             CancellationToken cancellationToken)
-        {
-            group = _inboxOutboxSetter.PrepareOutboxGroup(group);
-
+        {            
+            var softTimeoutDate = DateTimeOffset.MaxValue;
             var context = group.Group
-                .Select(e => (
-                    Process: e.Value, 
-                    Outbox: e.Value.GetComponent<IOutboxComponent<TId>>())
+                .Select(e => 
+                    {
+                        softTimeoutDate = DateTimeOffsetHelper.Min(
+                            softTimeoutDate,
+                            e.Value.TryGetComponent<ISoftTimeoutComponent>(out var component) 
+                                ? component.StopDate ?? DateTimeOffset.MaxValue
+                                : DateTimeOffset.MaxValue);
+
+                        return (
+                            Process: e.Value,
+                            Outbox: e.Value.GetComponent<IOutboxComponent<TId>>());
+                            }
                     )
                 .ToDictionary(
                     e => e.Process.Id,
@@ -70,9 +78,20 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
             
             foreach (var elem in groupByQueue)
             {
+                // Soft timeout
+                if (softTimeoutDate < DateTimeOffset.UtcNow)
+                {
+                    foreach (var elem2 in group.Group.Values)
+                    {
+                        _processSetter.StopAsyncProcessingSession(elem2, true);
+                    }
+
+                    break;
+                }
+
                 var queueBatch = elem
                     .SelectMany(e1 => e1.Outbox.Messages
-                        .Select(e2 => (Process: e1.Process, Outbox: e1.Outbox, Message: e2))
+                        .Select(e2 => (e1.Process, e1.Outbox, Message: e2))
                         )
                     .OrderByDescending(e => e.Message.Priority)
                     .ThenBy(e => e.Message.OrderId)
@@ -82,6 +101,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                         ))
                     .ToArray();
 
+                // TODO: Для надежности можно добавить другую обработку CanclationToken.
+                // Чтобы в случае gracefull остановки, доработать процессы по которым выполнена отправка (не было дублирующей отправки).
                 var producer = await _queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
                 try
                 {
@@ -91,7 +112,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
 
                     foreach (var elem2 in queueBatch)
                     {
-                        _inboxOutboxSetter.OutboxMessageProcessed(
+                        _outboxSetter.OutboxMessageProcessed(
                             elem2.Message.Process,
                             elem2.Message.Outbox,
                             elem2.Message.Message);
@@ -104,9 +125,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                         throw;
                     }
 
-                    foreach (var elem2 in elem)
+                    foreach (var elem2 in elem.Select(e => e.Process).Distinct())
                     {
-                        var errorResult = _processSetter.SetError(elem2.Process, ex, allowRetry: true);
+                        var errorResult = _processSetter.SetError(elem2, ex, allowRetry: true);
                         
                         if (errorResult.IsRetry)
                         {
@@ -114,12 +135,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                             await _triggerRepository.CreateTriggerAsync(
                                 key: Guid.NewGuid().ToString(),
                                 timerDate: errorResult.Timeout,
-                                processId: elem2.Process.Id,
+                                processId: elem2.Id,
                                 handlerKey: WakeupTriggerRangeHandler<TId>.Name,
                                 kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                                priority: elem2.Process.Process.Info.Priority,
+                                priority: elem2.Process.Info.Priority,
                                 isActivated: true,
-                                counter: null,                                
+                                counter: null,
                                 cancellationToken);
                         }
                     }

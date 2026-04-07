@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Outbox
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components
 {
     /// <summary>
     /// Компонент процесса для TransactionOutbox.

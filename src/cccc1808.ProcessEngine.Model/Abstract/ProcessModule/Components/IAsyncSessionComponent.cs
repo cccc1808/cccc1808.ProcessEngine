@@ -34,7 +34,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         bool CurrentSessionHaveError { get; set; }
 
         /// <summary>
-        /// Наличие ошибки в начале сессии.
+        /// Наличие флагов ошибки (прошлых) в начале текущей сессии обработки.
         /// </summary>
         bool HaveErrorOnStart { get; }
 

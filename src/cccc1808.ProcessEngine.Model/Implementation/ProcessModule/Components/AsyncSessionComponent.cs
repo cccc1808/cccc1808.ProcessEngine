@@ -25,11 +25,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public bool HaveErrorOnStart { get; }
 
+
         public AsyncSessionComponent(
-            short retryLimit,
-            bool haveErrorOnStart) 
+            Guid sessionId, 
+            bool isSessionFirstStep,
+            bool currentSessionHaveError, 
+            short retryLimit, 
+            bool stopAsyncProcessingSession,
+            bool needUpdateErrorData,
+            bool haveErrorOnStart)
         {
+            SessionId = sessionId;
+            IsSessionFirstStep = isSessionFirstStep;
+            CurrentSessionHaveError = currentSessionHaveError;
             RetryLimit = retryLimit;
+            StopAsyncProcessingSession = stopAsyncProcessingSession;
+            NeedUpdateErrorData = needUpdateErrorData;
             HaveErrorOnStart = haveErrorOnStart;
         }
     }

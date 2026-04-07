@@ -18,6 +18,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners
 {
+    /// <summary>
+    /// TODO: кривая реализация буфер выполняющихся задач.
+    /// TODO: подумать нужна ли InMemory queue или может синхронно вычитывать и запускать 
+    /// (если лимит, то сбрасываем select lock и спим пока не снимется лимит)
+    /// (по хорошему нужно мерить производительность разных реализаций, но пока не буду).
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
     public class ProcessRunner<TId>
         : IProcessRunner
     {

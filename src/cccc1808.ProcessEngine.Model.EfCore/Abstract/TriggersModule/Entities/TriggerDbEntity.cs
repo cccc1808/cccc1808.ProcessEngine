@@ -19,10 +19,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public string Key { get; set; }
 
+        /// <summary>
+        /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
+        /// Дополняет updatelock.
+        /// </summary>
         public DateTimeOffset SelectLockTimeout { get; set; }
 
         public DateTimeOffset TimerDate { get; set; }
 
+        /// <summary>
+        /// TODO: можно переделать на число для экономии.
+        /// </summary>
         public string HandlerKey { get; set; }
 
         public ITriggerComponent<TId>.TriggerKind Kind { get; set; }

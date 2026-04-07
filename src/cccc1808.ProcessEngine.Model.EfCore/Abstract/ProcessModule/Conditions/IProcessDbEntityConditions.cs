@@ -70,7 +70,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
             ICollection<ProcessRegistryDto> registrations);
 
         public readonly record struct DbProcessingForSelectorHandlerParameters(
-            DateTimeOffset now,
             IEFDbContext dbContext,
             ICollection<ProcessRegistryDto> registrations,
             ICollection<TId> ids);

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Components
 {
     public interface IMessageComponent<TId>
     {

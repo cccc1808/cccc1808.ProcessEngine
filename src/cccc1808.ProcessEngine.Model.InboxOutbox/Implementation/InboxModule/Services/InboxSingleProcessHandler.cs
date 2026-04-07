@@ -11,11 +11,11 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services
 {
     /// <summary>
     /// Inbox process -> inbox handler.
@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
         : BaseSingleProcessHandler<TId>
     {
         private readonly OptionsDto _options;
-        protected readonly IInboxOutboxSetter _inboxOutboxSetter;
+        protected readonly IInboxSetter _inboxSetter;
 
         public InboxSingleProcessHandler(
             IIsolationService isolationService,
@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             OptionsDto options,
-            IInboxOutboxSetter inboxOutboxSetter)
+            IInboxSetter inboxSetter)
             : base(
                   isolationService,
                   repository,
@@ -41,19 +41,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                   setter)
         {
             _options = options;
-            _inboxOutboxSetter = inboxOutboxSetter;
+            _inboxSetter = inboxSetter;
         }
 
         protected override OptionsDto SingleOptions 
             => _options;
-
-        public override async ValueTask StepRangeAsync(
-            ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group, 
-            CancellationToken cancellationToken)
-        {
-            group = _inboxOutboxSetter.PrepareInboxGroup(group);
-            await base.StepRangeAsync(group, cancellationToken);
-        }
 
         protected override async ValueTask StepAsync(
             IProcessContainer<TId> process,
@@ -68,7 +60,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.Services
                 cancellationToken
                 );
 
-            _inboxOutboxSetter.InboxMessageProcessed(
+            _inboxSetter.InboxMessageProcessed(
                 process,
                 component,
                 message

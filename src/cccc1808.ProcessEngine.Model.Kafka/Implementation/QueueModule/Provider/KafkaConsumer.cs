@@ -1,16 +1,18 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 using Confluent.Kafka;
 
 namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
 {
-    public class KafkaConsumer : 
-        IQueueConsumer, 
+    public class KafkaConsumer :
+        IQueueConsumer,
         IAsyncDisposable
     {
         private readonly string _topic;
@@ -69,7 +71,38 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                     _lastMessage = lastResult;
                 }
             }
+
+            stopwatch.Stop();
             return consumeBuffer;
+        }
+
+        public async ValueTask ConsumeBatchAsync<TParameter>(
+            TParameter parameter,
+            TimeSpan packTimeout, 
+            int packLimit,
+            TimeSpan batchTimeout, 
+            Func<TParameter, ICollection<MessageDto>, bool> condition, 
+            CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+
+            var stopwatch = Stopwatch.StartNew();
+
+            while (stopwatch.Elapsed < batchTimeout)
+            {
+                var pack = await ConsumeBatchAsync(
+                    packLimit, 
+                    TimespanHelper.Min(packTimeout, batchTimeout - stopwatch.Elapsed), 
+                    cancellationToken);
+
+                var needContinue = condition(parameter, pack);
+                if (!needContinue)
+                {
+                    break;
+                }
+            }
+
+            stopwatch.Stop();
         }
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -77,7 +110,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             var lastMessage = _lastMessage;
             if (lastMessage == null)
             {
-                throw new InvalidOperationException();
+                throw new InvalidOperationException("Не обнаружено считанное сообщение для коммита.");
             }
             _consumer.Commit(lastMessage);
             return ValueTask.CompletedTask;

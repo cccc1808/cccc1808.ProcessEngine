@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
+namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
 {
     /// <summary>
     /// Компонент определяющий задержку мягкой остановки.

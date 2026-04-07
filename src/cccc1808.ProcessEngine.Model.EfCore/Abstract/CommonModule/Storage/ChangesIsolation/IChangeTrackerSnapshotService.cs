@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation
 {
     /// <summary>
@@ -11,12 +13,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.Chan
     ///  Небольшие снимки памяти производительнее чем savepoint.
     /// </summary>
     public interface IChangeTrackerSnapshotService
-    {
-        /// <summary>
-        /// Создать снимок восстановления для текущего состояния
-        /// </summary>
+    {        
         ISubscribe CaptureState();
-
 
         #region Types
 

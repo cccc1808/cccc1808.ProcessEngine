@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.Components.Inbox
+namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components
 {
     public interface IInboxComponent<TId>
     {

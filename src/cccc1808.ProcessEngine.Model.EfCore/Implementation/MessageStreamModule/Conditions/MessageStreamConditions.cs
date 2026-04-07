@@ -26,7 +26,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule
 
         public (
             object? _, 
-            IQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto> Query
+            IQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto1> Query,
+            IQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto2> QueryIds
             ) 
             ForProcessing
         { get; }
@@ -45,7 +46,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule
 
             ForProcessing = (
                 null,
-                new DelegateIQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto>(
+                new DelegateIQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto1>(
+                    (s, p) =>
+                    {
+                        s = s
+                            .ApplayQueryCondition(IsActiveMessages.Query);
+
+                        if (p.WithPriorityOrdering)
+                        {
+                            s = s
+                                .OrderByDescending(e => e.Priority)
+                                .ThenBy(e => e.OrderId);
+                        }
+
+                        return s;
+                    }
+                    ),
+                    new DelegateIQueryableCondition<TEntity, IMessageStreamConditions<TId, TEntity>.ForProcessingParamDto2>(
                     (s, p) =>
                     {
                         s = s

@@ -27,5 +27,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query
         Task UnlockSelectAsync(
             Queue<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancelation);
+
+        Task UnlockSelectAsync(
+            ICollection<TId> ids,
+            CancellationToken cancelation);
     }
 }
