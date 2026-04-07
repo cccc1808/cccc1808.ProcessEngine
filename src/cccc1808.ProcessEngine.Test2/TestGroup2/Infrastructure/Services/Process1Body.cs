@@ -15,12 +15,11 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
+namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
 {
     internal class Process1Body : BaseRangeProcessHandler<Guid>
     {

@@ -22,7 +22,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,8 +73,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         null
                         )
                     );
-                dbContext.Set<ProcessWakeUpDbEntity<Guid>>().Add(
-                    new ProcessWakeUpDbEntity<Guid>(
+                dbContext.Set<ProcessWakeupDbEntity<Guid>>().Add(
+                    new ProcessWakeupDbEntity<Guid>(
                         await idGenerator.NextAsync(default),
                         processId,
                         isAsyncExecuting: true));

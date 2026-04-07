@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.C
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
 using LinqToDB;
 
@@ -87,7 +87,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                     }
                     );
 
-                modelBuilder.Entity<ProcessWakeUpDbEntity<Guid>>(
+                modelBuilder.Entity<ProcessWakeupDbEntity<Guid>>(
                     b => 
                     {
                         new ProcessWakeUpDbEntityConfiguration<Guid>().Configure(b);
@@ -146,7 +146,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
             var builder = new StringBuilder();
 
             ProcessTable(builder, Model.FindEntityType(typeof(ProcessDbEntity<Guid>)));
-            ProcessTable(builder, Model.FindEntityType(typeof(ProcessWakeUpDbEntity<Guid>)));
+            ProcessTable(builder, Model.FindEntityType(typeof(ProcessWakeupDbEntity<Guid>)));
             ProcessTable(builder, Model.FindEntityType(typeof(TriggerDbEntity<Guid>)));
             ProcessTable(builder, Model.FindEntityType(typeof(ChildProcessDbEntity)));
 

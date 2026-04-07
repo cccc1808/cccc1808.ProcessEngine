@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess
+namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
 {
     internal class ParentProcessEmegencyTriggerHandler
         : BaseEmergencyKeysetTriggerHandler<Guid, ParentProcessDataDbEntity>

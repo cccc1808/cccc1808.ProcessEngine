@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.C
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -84,7 +84,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     }
                     );
 
-                modelBuilder.Entity<ProcessWakeUpDbEntity<Guid>>(
+                modelBuilder.Entity<ProcessWakeupDbEntity<Guid>>(
                     b => 
                     {
                         new ProcessWakeUpDbEntityConfiguration<Guid>().Configure(b);
