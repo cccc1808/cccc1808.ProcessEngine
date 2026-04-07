@@ -39,12 +39,13 @@ using Testcontainers.PostgreSql;
 
 using Xunit.Sdk;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
+namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
 {
     [CollectionDefinition(Name)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
-        public const string Name = "FixtureCollection 2";
+        public const string Name = "FixtureCollection 3";
+        public const int RangeConst = 1000;
 
         // This class has no code, and is never created. Its purpose is simply
         // to be the place to apply [CollectionDefinition] and all the
@@ -93,7 +94,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
                         await dbContext.Database.EnsureCreatedAsync();
+
+                        await dbContext.OptimizeConfigurationAsync();
                     }
+
+                    await PostgreSqlContainer.StopAsync();
+                    await PostgreSqlContainer.StartAsync();
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                 }
                 catch
                 {
@@ -117,14 +124,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddKafkaServices(
                         new KafkaQueueProviderFactory.OptionsDto(
                             $"localhost:{KafkaContainer.GetMappedPublicPort()}",
-                            10,
+                            producerBatchSize: 250,
                             (_) => "test",
                             (_) => 1
                             )
                     )
                     .AddIsolationServices()
                     .AddProcessExecutionServices(
-                        new LocalProcessBufferService<Guid>.Options() { SizeLimit = 1 },
+                        new LocalProcessBufferService<Guid>.Options() { SizeLimit = RangeConst },
                         processCountLimiter: 1
                     )
                     .AddWakeupServices(
@@ -141,8 +148,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            QueueConsumePackSize = 10,
-                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                            QueueConsumePackSize = FixtureCollection.RangeConst,
+                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(3),
                         },
                         new TriggerOptions() 
                         {
@@ -161,10 +168,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     s => new ProcessRunner<Guid>(
                         s,
                         new ProcessRunner<Guid>.OptionsDto(
-                            SelectBatchLimit: 1,
+                            SelectBatchLimit: FixtureCollection.RangeConst,
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
-                            BatchLimit: 1,
-                            BatchTimeout: TimeSpan.FromSeconds(1)),                    
+                            BatchLimit: FixtureCollection.RangeConst,
+                            BatchTimeout: TimeSpan.FromSeconds(2)),                    
                         s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
                         s.GetRequiredService<IExecuteLimiterInvoker>(),
                         s.GetRequiredService<ProcessCountLimiter>(),

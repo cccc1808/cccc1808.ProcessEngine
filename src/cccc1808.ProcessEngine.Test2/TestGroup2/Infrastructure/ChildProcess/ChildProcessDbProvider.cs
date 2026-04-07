@@ -24,7 +24,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess
             _efDbContext = efDbContext;
         }
 
-        public async Task LoadForAsyncProcessingAsync(
+        public async Task LoadProcessDataAsync(
             IDictionary<Guid, IProcessContainer<Guid>> processes, 
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,
             CancellationToken cancellationToken)
@@ -43,6 +43,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess
             {
                 elem.AddComponent(data[elem.Id]);
             }
+        }
+
+        public Task LoadProcessForAsyncProcessingAsync(
+            IDictionary<Guid, ProcessInstanceInfoDto<Guid>> notLoadedProcesses, 
+            IDictionary<Guid, IProcessContainer<Guid>> loadBuffer,
+            IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex, 
+            CancellationToken cancellationToken)
+        {
+            // Без кастомного загрузчика.
+            return Task.CompletedTask;
         }
 
         public async Task LoadRangeAsync(

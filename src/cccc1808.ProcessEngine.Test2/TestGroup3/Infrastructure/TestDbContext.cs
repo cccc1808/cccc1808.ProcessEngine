@@ -16,11 +16,14 @@ using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.ChildProcess;
 
+using LinqToDB;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
+namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
 {
     public class TestDbContext : DbContext
     {
@@ -110,6 +113,52 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
             }
         }
 
+        public async Task OptimizeConfigurationAsync() 
+        {
+            static void Table(StringBuilder buider, string name)
+            {
+                buider.AppendLine(@$"
+    ALTER TABLE {name} SET (
+        fillfactor = 50,
+        autovacuum_vacuum_cost_delay=5, 
+        autovacuum_vacuum_cost_limit=500,
+        autovacuum_vacuum_scale_factor=0.0001
+    );");
+            }
+            static void Index(StringBuilder buider, string name)
+            {
+                buider.AppendLine(@$"
+    ALTER INDEX {name} SET (fillfactor=50);
+    REINDEX INDEX {name};");
+            }
+            static void ProcessTable(
+                StringBuilder builder,
+                IEntityType entityType)
+            {
+                Table(builder, entityType.GetTableName());
+                foreach (var elem in entityType.GetIndexes())
+                {
+                    Index(builder, elem.GetDatabaseName());
+                }
+                Index(builder, $"pk_{entityType.GetTableName()}");
+            }
+
+            var builder = new StringBuilder();
+
+            ProcessTable(builder, Model.FindEntityType(typeof(ProcessDbEntity<Guid>)));
+            ProcessTable(builder, Model.FindEntityType(typeof(ProcessWakeUpDbEntity<Guid>)));
+            ProcessTable(builder, Model.FindEntityType(typeof(TriggerDbEntity<Guid>)));
+            ProcessTable(builder, Model.FindEntityType(typeof(ChildProcessDbEntity)));
+
+            //await Database.ExecuteSqlRawAsync(@"
+            //    ALTER SYSTEM SET wal_buffers = '32MB';
+            //    ALTER SYSTEM SET shared_buffers = '256MB';
+            //    ALTER SYSTEM SET work_mem = '24MB';
+            //    ALTER SYSTEM SET wal_buffers = '16MB';
+            //    ALTER SYSTEM SET random_page_cost = 1.1;
+            //    ALTER SYSTEM SET effective_io_concurrency = 16;                
+            //    ");
+        }
 
         public async Task TruncateAllAsync() 
         {
