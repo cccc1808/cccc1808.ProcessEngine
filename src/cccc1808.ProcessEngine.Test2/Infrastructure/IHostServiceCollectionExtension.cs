@@ -141,11 +141,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddProcessServices(
             this IServiceCollection services,
+            EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options repositoryOptions,
             params ProcessRegistryDto[] registrations)
         {
             services
 
-                .AddScoped<IProcessRepository<Guid>, EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>>()                           
+                .AddScoped<IProcessRepository<Guid>, EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>>()
+                .AddSingleton(repositoryOptions)
 
                 .AddScoped<IProcessSetter>(s => new DefaultProcessSetter((_, _) => DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5)))
                 .AddSingleton<IProcessRegistry, ProcessRegistry>()
@@ -206,14 +208,14 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
-            TriggerService<Guid>.Options triggerServiceOptions,
+            TriggerRunner<Guid>.Options triggerServiceOptions,
             TriggerOptions triggerOptions)
         {
             services
-                .AddScoped<ITriggerService, TriggerService<Guid>>()
+                .AddScoped<ITriggerRunner, TriggerRunner<Guid>>()
                 .AddSingleton(triggerServiceOptions)
 
-                .AddSingleton<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
+                .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
 
                 .AddScoped<ITriggerEventRaiser, TriggerEventRaiser>()
                 .Decorate<ITriggerEventRaiser, TriggerEventRaiserAfterTransactionCompleteDecorator>()

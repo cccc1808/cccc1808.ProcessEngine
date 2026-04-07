@@ -186,7 +186,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 }
             }
             
-            // Загрузка связанных данныъ процесса.
+            // Загрузка связанных данных процесса.
             foreach (var elem in _processLoaders)
             {
                 await elem.LoadProcessDataAsync(

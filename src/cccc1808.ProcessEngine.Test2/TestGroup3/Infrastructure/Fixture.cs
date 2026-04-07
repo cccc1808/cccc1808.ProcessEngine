@@ -16,6 +16,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
@@ -68,10 +69,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                 TestcontainersSettings.WaitStrategyTimeout = TimeSpan.FromSeconds(4);
 
                 {
-                    var postgresBuilder = new PostgreSqlBuilder(
-                        "postgres:18"
-                        //"allansimon/docker-postgres-for-testing:patch-1"
-                        )
+                    var postgresBuilder = new PostgreSqlBuilder("postgres:18")
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
                     PostgreSqlContainer = postgresBuilder.Build();
 
@@ -143,7 +141,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
                     .AddTriggerEngineServices(
-                        new TriggerService<Guid>.Options() 
+                        new TriggerRunner<Guid>.Options() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -157,6 +155,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         }
                         )
                     .AddProcessServices(
+                        new EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options()
+                        {
+                            RetryLimit = 2,
+                            SoftTimeout = null,
+                        },
                         new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),

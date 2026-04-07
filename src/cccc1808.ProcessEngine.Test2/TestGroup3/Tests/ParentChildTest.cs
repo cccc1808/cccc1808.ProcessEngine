@@ -152,7 +152,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerService>();
+                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
@@ -170,7 +170,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerService>();
+                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
                 await triggerService.DbWorkAsync(true, default);
 

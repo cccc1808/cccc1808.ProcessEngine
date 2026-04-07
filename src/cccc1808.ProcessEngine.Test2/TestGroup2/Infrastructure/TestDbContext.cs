@@ -107,6 +107,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         new ChildProcessDbEntityConfiguration().Configure(b);
                     });
+
+                modelBuilder.Entity<ParentProcessDataDbEntity>(
+                    b => 
+                    {
+                        new ParentProcessDataDbEntityConfiguration().Configure(b);
+                    });
             }
         }
 
@@ -115,6 +121,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
         {
             await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""trigger_db_entity_guid"" CASCADE", []);
             await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""process_db_entity_guid"" CASCADE", []);
+            await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""child_process_db_entity"" CASCADE", []);
+            await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""parent_process_data_db_entity"" CASCADE", []);
         }
     }
 }

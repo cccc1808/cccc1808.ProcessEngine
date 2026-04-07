@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="TestGroup1\Fixture.cs" />
+    <Compile Remove="TestGroup1\Test1.cs" />
+    <Compile Remove="TestGroup1\Test2.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
@@ -34,6 +40,11 @@
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="TestGroup1\" />
+    <Folder Include="TestGroup4\" />
   </ItemGroup>
 
 	<!--Constructor init as error-->

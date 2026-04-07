@@ -20,10 +20,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             IServiceProvider serviceProvider,
             IEnumerable<TriggerRegistryDto> registrations)
         {
-            foreach (var elem in registrations)
+            // Проверяем регистрации.
+            using (var scope = serviceProvider.CreateScope())
             {
-                var handler = (ITriggerHandler)serviceProvider
-                    .GetRequiredService(elem.ImplementationType);
+                foreach (var elem in registrations)
+                {
+                    var handler = (ITriggerHandler)scope.ServiceProvider
+                        .GetRequiredService(elem.ImplementationType);
+                }
             }
 
             _registrations = registrations.ToDictionary(

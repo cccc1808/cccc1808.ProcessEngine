@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public void SetCompleted(ITriggerComponent<TId> trigger, bool value)
         {
-            trigger.IsCompleted = true;
+            trigger.IsCompleted = value;
         }
 
         public void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value)

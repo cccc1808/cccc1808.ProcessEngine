@@ -21,11 +21,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
-    public class TriggerService<TId> : ITriggerService
+    public class TriggerRunner<TId> : ITriggerRunner
     {
         private readonly IServiceProvider _serviceProvider;
 
-        public TriggerService(
+        public TriggerRunner(
             IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -52,13 +52,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     while (true)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var batch = await consumer.ConsumeBatchAsync(
-                            options.QueueConsumePackSize,
-                            options.QueueConsumeBatchTimeout,
-                            cancellationToken);
 
                         receivedMessages.Data = 0;
-                        groupByTrigger.Clear();
+                        groupByTrigger.Clear();                        
 
                         await consumer.ConsumeBatchAsync(
                             (options, serializer, receivedMessages, groupByTrigger), 

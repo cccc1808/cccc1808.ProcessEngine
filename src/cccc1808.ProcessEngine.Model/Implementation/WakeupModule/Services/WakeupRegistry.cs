@@ -22,10 +22,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             IEnumerable<WakeupRegistryDto> registries)
         {
             // Проверяем, что на каждый зарегистрированный тип процесса зарегистрирован хендлер.
-            foreach (var elem in registries)
+            using (var scope = serviceProvider.CreateScope())
             {
-                var typedHandler = (IWakeupCheckHandler<TId>)serviceProvider.GetRequiredService(elem.CheckWakeupHandlerType);
-            }
+                foreach (var elem in registries)
+                {
+                    var typedHandler = (IWakeupCheckHandler<TId>)scope.ServiceProvider.GetRequiredService(elem.CheckWakeupHandlerType);
+                }
+            }            
 
             _checkHandlers = registries.ToDictionary(
                 e => e.ProcessRegistry.ProcessType, 

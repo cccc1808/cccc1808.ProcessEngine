@@ -16,6 +16,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
@@ -67,10 +68,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                 TestcontainersSettings.WaitStrategyTimeout = TimeSpan.FromSeconds(4);
 
                 {
-                    var postgresBuilder = new PostgreSqlBuilder(
-                        "postgres:18"
-                        //"allansimon/docker-postgres-for-testing:patch-1"
-                        )
+                    var postgresBuilder = new PostgreSqlBuilder("postgres:18")
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
                     PostgreSqlContainer = postgresBuilder.Build();
 
@@ -107,6 +105,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                 var services = new ServiceCollection();
 
                 services
+
                     .AddDbServices(
                         (s) => new TestDbContext(
                         s,
@@ -114,6 +113,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         typeof(EFWakeupDbProvider<Guid>),
                         typeof(ChildProcessDbProvider)
                         )
+
                     .AddKafkaServices(
                         new KafkaQueueProviderFactory.OptionsDto(
                             $"localhost:{KafkaContainer.GetMappedPublicPort()}",
@@ -123,20 +123,34 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             )
                     )
                     .AddIsolationServices()
+
                     .AddProcessExecutionServices(
                         new LocalProcessBufferService<Guid>.Options() { SizeLimit = 1 },
                         processCountLimiter: 1
                     )
+
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), typeof(ParentCheckWakeupHandler))
+                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), typeof(ParentCheckWakeupHandler))
                     )
+
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
+                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler)),
+                        new TriggerRegistryDto(ParentProcessEmegencyTriggerHandler.Name, typeof(ParentProcessEmegencyTriggerHandler))
                     )
+                    .AddSingleton(
+                        new ParentProcessEmegencyTriggerHandler.Options() 
+                        {
+                            BatchSize = 1,
+                            EmptyTimeout = TimeSpan.FromHours(1),
+                            SoftTimeout = TimeSpan.FromMinutes(1),
+                            TimeoutCondition = TimeSpan.Zero,
+                        }
+                        )
+
                     .AddTriggerEngineServices(
-                        new TriggerService<Guid>.Options() 
+                        new TriggerRunner<Guid>.Options() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -149,7 +163,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             TriggerEventQueueName = "trigger_events",
                         }
                         )
+
                     .AddProcessServices(
+                        new EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options() 
+                        {
+                            RetryLimit = 2,
+                            SoftTimeout = null,
+                        },
                         new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
@@ -184,9 +204,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
                 );
                 services
-                    .AddScoped<Process1Body>();                
+                    .AddScoped<Process1Body>()
+                    .AddSingleton<Process1Body.TestState>();                
 
-                return services.BuildServiceProvider();
+                return services.BuildServiceProvider(
+                    new ServiceProviderOptions()
+                    { 
+                        ValidateOnBuild = true,
+                        ValidateScopes = true
+                    });
             }
 
             public async Task CleanEnvironmentAsync() 
@@ -197,10 +223,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
                         await dbContext.TruncateAllAsync();
-
-                        // TODO: заменить на truncate table.
-                        //await dbContext.Database.EnsureDeletedAsync();
-                        //await dbContext.Database.EnsureCreatedAsync();
                     }                   
 
                     // Kafka

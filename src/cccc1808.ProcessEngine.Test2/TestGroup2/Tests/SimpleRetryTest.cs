@@ -7,11 +7,12 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -49,6 +50,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                var testState = scope.ServiceProvider.GetRequiredService<Process1Body.TestState>();
                 var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
 
                 await runner.BuildHandler();
@@ -61,13 +63,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         1,
                         DateTimeOffset.MinValue,
                         false,
-                        Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute,
+                        ProcessStatusEnum.AsyncExecute,
                         null
                         )
                     );
                 //dbContext.Set<ProcessWakeUpDbEntity<Guid>>().Add(
                 //    new ProcessWakeUpDbEntity<Guid>());
                 await dbContext.SaveChangesAsync(default);
+
+                testState.StepRange = Handler;
             }
 
             //// 1)
@@ -111,7 +115,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerService>();
+                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
                 await triggerService.DbWorkAsync(true, default);
 
@@ -188,7 +192,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerService>();
+                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
                 await triggerService.DbWorkAsync(true, default);
 
@@ -248,6 +252,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                 triggers.ShouldBeEmpty();
             }
+        }
+
+
+        private ValueTask Handler(
+            IServiceProvider serviceProvider,
+            ExecuteStepByStepGroupMiddleware<Guid>.ExecuteGroup group)
+        {
+            throw new Exception("Test exception");
         }
     }
 }

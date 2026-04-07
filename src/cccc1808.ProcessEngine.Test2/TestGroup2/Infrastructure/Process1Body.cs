@@ -25,18 +25,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
     internal class Process1Body : BaseRangeProcessHandler<Guid>
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly TestState _testState;
 
         public Process1Body(
             IServiceProvider serviceProvider,
-            IProcessRepository<Guid> repository, 
+            IProcessRepository<Guid> repository,
             ITriggerRepository<Guid> triggerRepository,
             IProcessSetter processSetter
-            ) : base(
+,
+            TestState testState) : base(
                 repository,
                 triggerRepository,
                 processSetter)
         {
             _serviceProvider = serviceProvider;
+            _testState = testState;
         }
 
         public override ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto Options 
@@ -50,115 +53,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
         public override async ValueTask StepRangeAsync(
             ExecuteStepByStepGroupMiddleware<Guid>.ExecuteGroup group, CancellationToken cancellationToken)
         {
-            var process = group.Group.Values.Single();
+            await _testState.StepRange(
+                _serviceProvider, 
+                group);
+        }
 
-            switch (process.Process.Info.ProcessType.ProcessType)
-            {
-                case 1:
-                    {
-                        var setter = _serviceProvider.GetRequiredService<IProcessSetter>();
-                        setter.SetStatus(
-                            process,
-                            ProcessStatusEnum.Complete);
 
-                        break;
-                    }
-
-                case 2:
-                    {
-                        throw new Exception("Test exception");
-
-                        break;
-                    }
-
-                case 3: 
-                    {
-                        var idGenerator = _serviceProvider.GetRequiredService < IIdGenerator < Guid>> ();
-                        var dbcontext = _serviceProvider.GetRequiredService<IEFDbContext>();
-                        var setter = _serviceProvider.GetRequiredService<IProcessSetter>();
-
-                        var childProcessesCreated = await dbcontext
-                            .Set<ChildProcessDbEntity>()
-                            .Where(e => e.ParentProcessId == process.Id)
-                            .AnyAsync(cancellationToken);
-
-                        if (!childProcessesCreated)
-                        {
-                            var childCount = 1;
-                            var triggerKey = Guid.NewGuid().ToString();
-                            dbcontext.Set<TriggerDbEntity<Guid>>().Add(new TriggerDbEntity<Guid>(
-                                await idGenerator.NextAsync(cancellationToken),
-                                triggerKey,
-                                DateTimeOffset.MinValue,
-                                DateTimeOffset.MinValue,
-                                ParentProcessTriggerHandler.Name,
-                                Model.Abstract.TriggerModule.Components.ITriggerComponent<Guid>.TriggerKind.Counter,
-                                1,
-                                false,
-                                false,
-                                process.Id,
-                                childCount));
-
-                            for (int i = 0; i < childCount; i++)
-                            {
-                                var processId = await idGenerator.NextAsync(cancellationToken);
-                                dbcontext.Set<ProcessDbEntity<Guid>>().Add(
-                                    new ProcessDbEntity<Guid>(
-                                        processId,
-                                        4,
-                                        1,
-                                        1,
-                                        DateTimeOffset.MinValue,
-                                        false,
-                                        ProcessStatusEnum.AsyncExecute,
-                                        null
-                                        ));
-                                dbcontext.Set<ChildProcessDbEntity>().Add(
-                                    new ChildProcessDbEntity(
-                                        processId,
-                                        process.Id,
-                                        process.Id,
-                                        triggerKey));
-
-                                setter.SetStatus(
-                                    process,
-                                    ProcessStatusEnum.WaitEvent);
-                            }
-                        }
-                        else 
-                        {
-                            setter.SetStatus(
-                                process,
-                                ProcessStatusEnum.Complete);
-                        }
-                        
-                        break;
-                    }
-
-                case 4: 
-                    {
-                        var setter = _serviceProvider.GetRequiredService<IProcessSetter>();                        
-                        var triggerEventRaiser = _serviceProvider.GetRequiredService<ITriggerEventRaiser>();
-
-                        var component = process.GetComponent<ChildProcessDbEntity>();
-
-                        // Оповещаем родительский процесс о завершении дочернего процесса.
-                        await triggerEventRaiser.RaiseAsync(
-                            [new TriggerEvent(component.ParentTriggerKey, ignoreDelay: false)], 
-                            cancellationToken);
-
-                        setter.SetStatus(
-                            process,
-                            ProcessStatusEnum.Complete);
-
-                        // Убираем блокирующий ключ, чтобы условие выполнялось.
-                        component.ActiveParentProcessId = null;
-
-                        break;
-                    }
-
-                default: throw new NotImplementedException();
-            }
+        public class TestState 
+        {
+            public Func<IServiceProvider, ExecuteStepByStepGroupMiddleware<Guid>.ExecuteGroup, ValueTask> StepRange { get; set; }
+                = null;
         }
     }
 }
