@@ -121,6 +121,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             short priority,
             bool isActivated,
             int? counter,
+            ITriggerRepository<TId>.StreamDto? stream,
             CancellationToken cancellationToken)
         {
             if (key.Length > 255)
@@ -143,8 +144,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 isActivated: isActivated,
                 isCompleted: false,
                 processId: processId,
-                counter: counter
-                );
+                counter: counter,
+                stream: stream != null 
+                    ? new TriggerDbEntity<TId>.StreamDto() 
+                    {
+                        StreamProcessTimestamps = stream.StreamProcessTimestamps,
+                        StreamsProcessIsWaiting = stream.StreamsProcessIsWaiting,
+                        StreamsTimeStamp = stream.StreamsTimeStamp,
+                    }
+                    : null);
 
             Set.Add(entity);
         }

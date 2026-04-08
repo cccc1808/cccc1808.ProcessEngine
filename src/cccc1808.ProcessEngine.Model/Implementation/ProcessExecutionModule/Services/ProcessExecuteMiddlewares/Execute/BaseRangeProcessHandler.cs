@@ -79,6 +79,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             priority: elem.Process.Info.Priority,
                             isActivated: true,
                             counter: null,
+                            stream: null,
                             cancellationToken);
                     }
                     else 
@@ -92,6 +93,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             priority: elem.Process.Info.Priority,
                             isActivated: true,
                             counter: null,
+                            stream: null,
                             cancellationToken);                        
                     }                        
                 }

@@ -35,12 +35,21 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             short priority,
             bool isActivated,
             int? counter,
+            StreamDto? stream,
             CancellationToken cancellationToken);
 
         Task SaveAsync(
             ICollection<ITriggerComponent<TId>> triggers, 
             CancellationToken cancellationToken);
 
-        
+
+        public class StreamDto
+        {
+            public bool StreamsProcessIsWaiting { get; set; }
+
+            public Dictionary<string, long> StreamsTimeStamp { get; set; } = default!;
+
+            public Dictionary<string, long> StreamProcessTimestamps { get; set; } = default!;
+        }
     }
 }

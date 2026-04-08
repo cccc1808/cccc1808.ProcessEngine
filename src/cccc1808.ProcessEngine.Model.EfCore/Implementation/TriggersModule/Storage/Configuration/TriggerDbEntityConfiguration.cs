@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
@@ -24,13 +25,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
             builder
                 .Property(e => e.HandlerKey)
-                .HasMaxLength(255);
+                .HasMaxLength(255);            
 
             KeyIndex(builder);
             KeyNotCompleteIndex(builder);
             DbProcessingForSelectorIndex(builder);
             DbProcessingForHandlerParameters(builder);
-            ProcessIdIndex(builder);            
+            ProcessIdIndex(builder);
+            StreamDataProperty(builder);
         }
 
         /// <summary>
@@ -85,6 +87,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         {
             // Вроде не используется, но пусть будет (может понадобится).
             return builder.HasIndex(e => e.ProcessId);
+        }
+
+        protected virtual PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
+        {
+            builder.Ignore(e => e.StreamsProcessIsWaiting);
+            builder.Ignore(e => e.StreamsTimeStamp);
+            builder.Ignore(e => e.StreamProcessTimestamps);
+
+            return builder.Property(e => e.StreamData);
         }
     }
 }

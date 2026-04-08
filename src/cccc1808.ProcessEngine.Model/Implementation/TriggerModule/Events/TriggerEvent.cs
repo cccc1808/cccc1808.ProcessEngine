@@ -14,6 +14,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 
         public bool IgnoreDelay { get; set; }
 
+        public ITriggerEvent.KindEnum Kind { get; set; }
+
         [Obsolete("Сериализатор.")]
         public TriggerEvent() 
         {
@@ -23,10 +25,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 
         public TriggerEvent(
             string triggerKey,
-            bool ignoreDelay)
+            bool ignoreDelay) 
+            : this(
+                  triggerKey,
+                  ignoreDelay,
+                  ITriggerEvent.KindEnum.WakeupSignalEvent)
+        {}
+
+        protected TriggerEvent(
+            string triggerKey,
+            bool ignoreDelay,
+            ITriggerEvent.KindEnum kind)
         {
             TriggerKey = triggerKey;
             IgnoreDelay = ignoreDelay;
+            Kind = kind;
         }
     }
 }

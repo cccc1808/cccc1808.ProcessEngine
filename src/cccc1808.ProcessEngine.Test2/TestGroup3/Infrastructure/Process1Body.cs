@@ -97,7 +97,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                     false,
                                     false,
                                     process.Id,
-                                    childCount));
+                                    childCount,
+                                    stream: null));
 
                                 for (int i = 0; i < childCount; i++)
                                 {

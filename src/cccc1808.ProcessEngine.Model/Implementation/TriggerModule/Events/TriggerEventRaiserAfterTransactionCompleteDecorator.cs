@@ -15,7 +15,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         private readonly ITriggerEventRaiser _source;
         private readonly ITransactionManager _transactionManager;
 
-        private readonly Dictionary<Guid, ITriggerEvent[]> _sendBuffer;
+        private readonly Dictionary<Guid, ICollection<ITriggerEvent>> _sendBuffer;
 
         public TriggerEventRaiserAfterTransactionCompleteDecorator(
             ITriggerEventRaiser source,
@@ -23,11 +23,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         {
             _source = source;
             _transactionManager = transactionManager;
-            _sendBuffer = new Dictionary<Guid, ITriggerEvent[]>();
+            _sendBuffer = new Dictionary<Guid, ICollection<ITriggerEvent>>();
         }
 
         public ValueTask RaiseAsync(
-            ITriggerEvent[] events,
+            ICollection<ITriggerEvent> events,
             CancellationToken cancellationToken)
         {
             if (!_transactionManager.TryGetCurrentTransaction(out var transaction))

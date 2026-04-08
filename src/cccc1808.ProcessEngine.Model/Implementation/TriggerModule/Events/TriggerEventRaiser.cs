@@ -27,7 +27,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         }
 
         public async ValueTask RaiseAsync(
-            ITriggerEvent[] events, 
+            ICollection<ITriggerEvent> events, 
             CancellationToken cancellationToken)
         {
             var producer = await _queueProviderFactory.GetProducerAsync(_triggerOptions.TriggerEventQueueName, cancellationToken);

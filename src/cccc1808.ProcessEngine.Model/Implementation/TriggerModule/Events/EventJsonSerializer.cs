@@ -14,12 +14,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
     {
         public ITriggerEvent Deserialize(JsonElement jsonElement)
         {
-            return JsonSerializer.Deserialize<TriggerEvent>(jsonElement);
+            var commonEvent = JsonSerializer.Deserialize<TriggerEvent>(jsonElement);
+
+            return commonEvent.Kind switch
+            {
+                ITriggerEvent.KindEnum.WakeupSignalEvent => commonEvent,
+                ITriggerEvent.KindEnum.Stream_SignalEvent => JsonSerializer.Deserialize<SignalStreamTriggerEvent>(jsonElement),
+                ITriggerEvent.KindEnum.Stream_ProcessGoWaitEvent => JsonSerializer.Deserialize<ProcessGoWaitEvent>(jsonElement),
+
+                _ => throw new Exception($"[Bug] неподдерживаемое событие триггера {commonEvent.Kind}.")
+            };
         }
 
         public JsonElement Serialize(ITriggerEvent triggerEvent)
         {
-            using var doc = JsonSerializer.SerializeToDocument(triggerEvent);
+            using var doc = JsonSerializer.SerializeToDocument(
+                triggerEvent, 
+                triggerEvent.GetType()
+                );
             return doc.RootElement.Clone();
         }
     }

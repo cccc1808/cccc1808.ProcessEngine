@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
@@ -73,6 +74,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                     var registry = scope.ServiceProvider.GetRequiredService<InboxRegistryDto>();
                     var aggregateClassifierDbEntityCondition = scope.ServiceProvider.GetRequiredService<IAggregateClassifierDbEntityCondition<TId>>();
+                    var streamWakeupRegistries = scope.ServiceProvider.GetServices<StreamWakeupRegistryDto>().ToHashSet();
 
                     var foundedQueue = new Dictionary<string, TId>(notFound.Count);
                     var foundedAggreaget = new Dictionary<AggregateDto, TId>(notFound.Count);
@@ -247,6 +249,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         processId: elem.Value.Entity.ProcessId,
                                         isAsyncExecuting: false));
 
+                                var usingStreamTrigger = streamWakeupRegistries.Contains(new StreamWakeupRegistryDto(registry.Registry));
+
                                 dbContext.Set<TriggerDbEntity<TId>>().Add(
                                     new TriggerDbEntity<TId>(
                                         id: await idGenerator.NextAsync(cancellationToken),
@@ -259,6 +263,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         isActivated: false,
                                         isCompleted: false,
                                         processId: elem.Value.Entity.ProcessId,
+                                        stream: !usingStreamTrigger 
+                                            ? null : 
+                                            new TriggerDbEntity<TId>.StreamDto(
+                                                streamsProcessIsWaiting: true,
+                                                new Dictionary<string, long>(0),
+                                                new Dictionary<string, long>(0)),
                                         counter: 0));
                             }
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -36,5 +37,53 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
         public ITriggerComponent<TId>.TriggerKind Kind => _entity.Kind;
 
         public DateTimeOffset SelectLockTimeout { get => _entity.SelectLockTimeout; set => _entity.SelectLockTimeout = value; }
+
+        public JsonElement? StreamData 
+        { 
+            get 
+            {
+                if (Kind == ITriggerComponent<TId>.TriggerKind.StreamsTrigger)
+                {
+                    using (var document = JsonSerializer.SerializeToDocument(
+                        new StreamJsonDto()
+                        {
+                            StreamsTimeStamp = StreamsTimeStamp,
+                            StreamProcessTimestamps = StreamProcessTimestamps,
+                            StreamsProcessIsWaiting = StreamsProcessIsWaiting.Value
+                        }))
+                    {
+                        return document.RootElement.Clone();
+                    }
+                }
+
+                return null;                
+            }
+            set 
+            {
+                if (value.HasValue)
+                {
+                    var state = JsonSerializer.Deserialize<StreamJsonDto>(value.Value);
+                    StreamsProcessIsWaiting = state.StreamsProcessIsWaiting;
+                    StreamsTimeStamp = state.StreamsTimeStamp;
+                    StreamProcessTimestamps = state.StreamProcessTimestamps;
+                }
+            }
+        }
+
+        public bool? StreamsProcessIsWaiting { get; set; }
+
+        public Dictionary<string, long>? StreamsTimeStamp { get; set; }
+
+        public Dictionary<string, long>? StreamProcessTimestamps { get; set; }
+
+
+        public class StreamJsonDto 
+        {
+            public bool StreamsProcessIsWaiting { get; set; }
+
+            public Dictionary<string, long> StreamsTimeStamp { get; set; } = default!;
+
+            public Dictionary<string, long> StreamProcessTimestamps { get; set; } = default!;
+        }
     }
 }

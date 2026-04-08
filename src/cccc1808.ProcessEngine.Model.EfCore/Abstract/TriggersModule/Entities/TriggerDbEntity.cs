@@ -44,6 +44,44 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public int? Counter { get; set; }
 
+        public JsonElement? StreamData
+        {
+            get
+            {
+                if (Kind == ITriggerComponent<TId>.TriggerKind.StreamsTrigger)
+                {
+                    using (var document = JsonSerializer.SerializeToDocument(
+                        new StreamDto()
+                        {
+                            StreamsTimeStamp = StreamsTimeStamp,
+                            StreamProcessTimestamps = StreamProcessTimestamps,
+                            StreamsProcessIsWaiting = StreamsProcessIsWaiting.Value
+                        }))
+                    {
+                        return document.RootElement.Clone();
+                    }
+                }
+
+                return null;
+            }
+            set
+            {
+                if (value.HasValue)
+                {
+                    var state = JsonSerializer.Deserialize<StreamDto>(value.Value);
+                    StreamsProcessIsWaiting = state.StreamsProcessIsWaiting;
+                    StreamsTimeStamp = state.StreamsTimeStamp;
+                    StreamProcessTimestamps = state.StreamProcessTimestamps;
+                }
+            }
+        }
+
+        public bool? StreamsProcessIsWaiting { get; set; }
+
+        public Dictionary<string, long>? StreamsTimeStamp { get; set; }
+
+        public Dictionary<string, long>? StreamProcessTimestamps { get; set; }        
+
         public TriggerDbEntity(
             TId id, 
             string key, 
@@ -55,7 +93,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             bool isActivated, 
             bool isCompleted,
             TId processId, 
-            int? counter)
+            int? counter,
+            StreamDto? stream)
         {
             Id = id;
             Key = key;
@@ -68,6 +107,28 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsCompleted = isCompleted;
             ProcessId = processId;
             Counter = counter;
+            StreamsProcessIsWaiting = stream?.StreamsProcessIsWaiting;
+            StreamsTimeStamp = stream?.StreamsTimeStamp;
+            StreamProcessTimestamps = stream?.StreamProcessTimestamps;
+        }
+
+        public class StreamDto
+        {
+            public bool StreamsProcessIsWaiting { get; set; }
+
+            public Dictionary<string, long> StreamsTimeStamp { get; set; } = default!;
+
+            public Dictionary<string, long> StreamProcessTimestamps { get; set; } = default!;
+
+            public StreamDto(
+                bool streamsProcessIsWaiting,
+                Dictionary<string, long> streamsTimeStamp, 
+                Dictionary<string, long> streamProcessTimestamps)
+            {
+                StreamsProcessIsWaiting = streamsProcessIsWaiting;
+                StreamsTimeStamp = streamsTimeStamp;
+                StreamProcessTimestamps = streamProcessTimestamps;
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
@@ -57,10 +58,29 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         DateTimeOffset SelectLockTimeout { get; set; }
 
+        /// <summary>
+        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
+        /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
+        /// </summary>
+        bool? StreamsProcessIsWaiting { get; set; }
+
+        /// <summary>
+        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
+        /// Данные о последних (наибольших) timestamp поступивших в стримы.
+        /// </summary>
+        Dictionary<string, long>? StreamsTimeStamp { get; set; }
+
+        /// <summary>
+        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
+        /// Данные о последних (наибольших) timestamp, которые процесс обработал.
+        /// </summary>
+        Dictionary<string, long>? StreamProcessTimestamps { get; set; }
+
         public enum TriggerKind 
         {
             Counter,
             Timer,
+            StreamsTrigger,
         }
     }
 }

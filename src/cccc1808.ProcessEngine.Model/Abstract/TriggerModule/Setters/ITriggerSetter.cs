@@ -13,48 +13,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
         void OneOf(
             ITriggerComponent<TId> trigger,
             Action<int> counterHandler,
-            Action timerHandler)
-        {
-            switch (trigger.Kind)
-            {
-                case ITriggerComponent<TId>.TriggerKind.Counter:
-                    {
-                        counterHandler(trigger.Counter!.Value);
-                        break;
-                    }
+            Action timerHandler,
+            Action<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>> streamHandler
+            );
 
-                case ITriggerComponent<TId>.TriggerKind.Timer:
-                    {
-                        timerHandler();
-                        break;
-                    }
-
-                default: throw new NotImplementedException("[Bug]");
-            }
-        }
-
-        async ValueTask OneOfAsync(
-            ITriggerComponent<TId> trigger, 
+        ValueTask OneOfAsync(
+            ITriggerComponent<TId> trigger,
             Func<int, ValueTask> counterHandler,
-            Func<ValueTask> timerHandler)
-        {
-            switch(trigger.Kind)
-            {
-                case ITriggerComponent<TId>.TriggerKind.Counter:
-                    {
-                        await counterHandler(trigger.Counter!.Value);
-                        break;
-                    }
-
-                case ITriggerComponent<TId>.TriggerKind.Timer:
-                    {
-                        await timerHandler();
-                        break;
-                    }
-
-                default: throw new NotImplementedException("[Bug]");
-            }
-        }
+            Func<ValueTask> timerHandler,
+            Func<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>, ValueTask> streamHandler);        
 
         void ProcessCounter(ITriggerComponent<TId> trigger, int eventCount);
 
@@ -65,5 +32,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
         void SetCompleted(ITriggerComponent<TId> trigger, bool value);
 
         void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);
+
+        void SetStreamsState(
+            ITriggerComponent<TId> trigger,
+            bool processIsWaiting,
+            Dictionary<string, long> channels,
+            Dictionary<string, long> process);
     }
 }

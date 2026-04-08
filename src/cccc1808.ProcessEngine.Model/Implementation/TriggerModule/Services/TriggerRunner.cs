@@ -10,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
@@ -149,7 +150,64 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 triggerSetter.SetActivated(trigger, true);
                                             }
                                         },
-                                        timerHandler: () => triggerSetter.SetActivated(trigger, true)
+                                        timerHandler: () => triggerSetter.SetActivated(trigger, true),
+                                        streamHandler: (processIsWaiting, channelsTimeStamps, processTimestamps) => 
+                                        {
+                                            var streamsMaxTimestamps = new Dictionary<string, long>(channelsTimeStamps);
+                                            var processMaxTimestamps = new Dictionary<string, long>(processTimestamps);
+
+                                            foreach (var elem2 in elem.Value)
+                                            {
+                                                switch (elem2.Kind)
+                                                {
+                                                    case ITriggerEvent.KindEnum.WakeupSignalEvent:
+                                                        {
+                                                            var typedEvent = (ISignalStreamTriggerEvent)elem2;
+                                                            streamsMaxTimestamps[typedEvent.StreamKey] = Math.Max(
+                                                                streamsMaxTimestamps.TryGetValue(typedEvent.StreamKey, out var c)? c : -1,
+                                                                typedEvent.StreamTimestamp);
+
+                                                            break;
+                                                        }
+
+                                                    case ITriggerEvent.KindEnum.Stream_ProcessGoWaitEvent: 
+                                                        {
+                                                            var typedEvent = (IProcessGoWaitSpleepEvent)elem2;
+
+                                                            foreach (var elem in typedEvent.ChannelsTimestampOffsets)
+                                                            {
+                                                                processMaxTimestamps[elem.Key] = Math.Max(
+                                                                    processMaxTimestamps.TryGetValue(elem.Key, out var c) ? c : -1,
+                                                                    elem.Value
+                                                                    );
+                                                            }
+
+                                                            processIsWaiting = true;
+                                                            break;
+                                                        }
+
+                                                    default: throw new Exception($"[Bug]. Триггер не поддерживает тип события {elem2.Kind}.");
+                                                }
+                                            }
+                                        
+                                            // Есть ли каналы, по которым процесс не обработал последний сигнал.
+                                            var haveNotProcessedSignals = streamsMaxTimestamps.Any(
+                                                e => e.Value > processMaxTimestamps[e.Key]);
+
+                                            // Если процесс уснул и не обработал все сигналы.
+                                            if (processIsWaiting && haveNotProcessedSignals)
+                                            {
+                                                // Взводим триггер на пробуждение.
+                                                triggerSetter.SetActivated(trigger, true);
+                                                processIsWaiting = false;
+                                            }
+
+                                            triggerSetter.SetStreamsState(
+                                                trigger,
+                                                processIsWaiting,
+                                                streamsMaxTimestamps, 
+                                                processMaxTimestamps);
+                                        }
                                         );
                                 }
 

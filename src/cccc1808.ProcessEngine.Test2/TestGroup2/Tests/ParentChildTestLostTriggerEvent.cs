@@ -167,7 +167,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     true,
                     false,
                     processId,
-                    null));
+                    null,
+                    stream: null));
 
                 await dbContext.SaveChangesAsync(default);
             }

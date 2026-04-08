@@ -15,7 +15,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
     public interface ITriggerEventRaiser
     {
         ValueTask RaiseAsync(
-            ITriggerEvent[] events,
+            ICollection<ITriggerEvent> events,
             CancellationToken cancellationToken);
     }
 }
