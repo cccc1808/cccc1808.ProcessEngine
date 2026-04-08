@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -12,6 +13,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
@@ -23,6 +25,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Enti
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage
@@ -134,11 +137,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 ? DateTimeOffset.Now + _repositoryOptions.SoftTimeout.Value
                 : (DateTimeOffset?)null;
 
+            var messagesLimit = _options.MessageLimitFunc(notProcessedOutboxProcessesIds.Count);
+            int selectedMessages;
             (ProcessDbEntity<TId> Process, IEnumerable<OutboxMessageDbEntity<TId>> Messages)[] processGroups;
             using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
-                var limit = _options.MessageLimitFunc(notProcessedOutboxProcessesIds.Count);
-
                 // В1: нормальный join
                 var idsQuery = _dbContext
                     .QueryFromCollection(notProcessedOutboxProcessesIds.Select(
@@ -178,6 +181,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                     .OrderByDescending(e => e.Message.Priority)
                     .ThenBy(e => e.Message.OrderId)
                     .ToArrayAsync(cancellationToken);
+                selectedMessages = data.Length;
 
                 // В2 Коррелированный подзапрос
                 //var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
@@ -248,23 +252,81 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
             if (notProcessedOutboxProcessesIds.Any())
             {
-                // Процессы попали в селектор, но не уложились в лимит сообщений.
-
-                // Снимаем select lock, чтобы другая нода могла брать их в обработку.
-                // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
-                await using (var scope = _serviceProvider.CreateAsyncScope())
+                if (selectedMessages < messagesLimit)
                 {
-                    var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
+                    // Это означает, что есть активные процессы, в которых нет сообщений.
+                    // Пробуем отправить спать.
+                    await using (var scope = _serviceProvider.CreateAsyncScope())
+                    {
+                        var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                        var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                        var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
 
-                    await selectQuery.UnlockSelectAsync(
-                        notProcessedOutboxProcessesIds,
-                        cancellationToken);
+                        await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
+                        {
+                            var haveChanges = false;
+                            using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                            {
+                                var activeWithoutMessages = await dbContext.Set<ProcessDbEntity<TId>>()
+                                    .Join(
+                                        dbContext.Set<ProcessWakeupDbEntity<TId>>(),
+                                        e => e.Id,
+                                        e => e.ProcessId,
+                                        (e1, e2) => new { Process = e1, Wakeup = e2 }
+                                    )
+                                    .Where(e => notProcessedOutboxProcessesIds.Contains(e.Process.Id))
+                                    .Where(e => !_dbContext.Set<OutboxMessageDbEntity<TId>>().Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
+                                    .ToArrayAsync(cancellationToken);
+
+                                if (activeWithoutMessages.Any())
+                                {
+                                    haveChanges = true;
+                                    foreach (var elem in activeWithoutMessages)
+                                    {
+                                        if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
+                                        {
+                                            elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                                            elem.Process.Status = ProcessStatusEnum.WaitEvent;
+                                            elem.Wakeup.IsAsyncExecuting = false;
+
+                                            notLoadedProcesses.Remove(elem.Process.Id);
+                                            notProcessedOutboxProcessesIds.Remove(elem.Process.Id);
+                                        }
+                                    }
+                                }
+
+                            }
+
+                            if (haveChanges)
+                            {
+                                await dbContext.SaveChangesAsync(cancellationToken);
+                            }
+
+                            // !TODO: событие для stream trigger.
+                            await transaction.CommitAsync(cancellationToken);
+                        }
+                    }
                 }
 
-                // Чтобы основной загрузчик не пытался их загрузить.
-                foreach (var elem in notProcessedOutboxProcessesIds)
+                if (notProcessedOutboxProcessesIds.Any())
                 {
-                    notLoadedProcesses.Remove(elem);
+                    //// Процессы попали в селектор, но не уложились в лимит сообщений.
+                    // Снимаем select lock, чтобы другая нода могла брать их в обработку.
+                    // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
+                    await using (var scope = _serviceProvider.CreateAsyncScope())
+                    {
+                        var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
+
+                        await selectQuery.UnlockSelectAsync(
+                            notProcessedOutboxProcessesIds,
+                            cancellationToken);
+                    }
+
+                    // Чтобы основной загрузчик не пытался их загрузить.
+                    foreach (var elem in notProcessedOutboxProcessesIds)
+                    {
+                        notLoadedProcesses.Remove(elem);
+                    }
                 }
             }
         }
