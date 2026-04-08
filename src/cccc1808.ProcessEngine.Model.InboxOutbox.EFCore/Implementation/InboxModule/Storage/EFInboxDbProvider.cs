@@ -20,7 +20,6 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
@@ -70,8 +69,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         public async Task LoadProcessDataAsync(
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
+            if (isAsyncExecution)
+            {
+                // Данные уже загружены в LoadProcessForAsyncProcessingAsync.
+                return;
+            }
+
             var inboxProcesses = byTypeIndex[_inboxRegistryDto.Registry.ProcessType];
 
             // 1) Загружаем данные процесса.
@@ -79,7 +85,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 .Include(e => e.Queue)
                 .Include(e => e.Aggregate)
                 .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, inboxProcesses)
-                .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
+                .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
 
             // 2) Загружаем сообщения по процессам.
             //var messages = await _dbContext.Set<InboxMessageDbEntity<TId>>()
@@ -105,7 +111,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     inboxData[process.Id],
                     [] // messagesByStream[process.Id].Select(e => (IInboxMessageComponent<TId>)new EFInboxMessageProxy<TId>(e)).ToArray()
                     );
-                process.AddComponent(component);
+                process.AddComponent<IInboxComponent<TId>>(component);
             }            
 
             // 4) В других loader могут загружаться сущности по агрегатам (Range), или загружать уже в самом хендлеое (Single).
@@ -117,14 +123,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            var inboxProcessesIds = byTypeIndex[_inboxRegistryDto.Registry.ProcessType]
-                .Select(e => notLoadedProcesses[e])
-                .ToDictionary(e => e.Id, e => e);
-
-            if (!inboxProcessesIds.Any())
+            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Registry.ProcessType, out var inboxProcessesIds))
             {
                 return;
             }
+
+            var notProcessedInboxProcessesIds = inboxProcessesIds.ToHashSet();
 
             var softTimeout = _repositoryOptions.SoftTimeout.HasValue
                 ? DateTimeOffset.Now + _repositoryOptions.SoftTimeout.Value
@@ -133,31 +137,70 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             (ProcessDbEntity<TId> Process, IEnumerable<InboxMessageDbEntity<TId>> Messages)[] processGroups;
             using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
-                var limit = _options.MessageLimitFunc(inboxProcessesIds.Count);
+                var limit = _options.MessageLimitFunc(notProcessedInboxProcessesIds.Count);
 
-                var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
+                // В1: нормальный join
+                var idsQuery = _dbContext
+                    .QueryFromCollection(notProcessedInboxProcessesIds.Select(
+                        e => new
+                        {
+                            ProcessTypeId = _inboxRegistryDto.Registry.ProcessType.ProcessType,
+                            ProcessVersion = _inboxRegistryDto.Registry.ProcessType.ProcessVersion,
+                            Priority = _inboxRegistryDto.Registry.Priority,
+                            Id = e,
+                        })
+                    .ToArray());
+                var query = _dbContext.Set<ProcessDbEntity<TId>>()
+                    .Join(
+                        idsQuery, 
+                        e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
+                        e => e,
+                        (e1, e2) => e1)
+                    .Join(
+                        _dbContext.Set<InboxMessageDbEntity<TId>>(),
+                        e => e.Id,
+                        e => e.ProcessId,
+                        (e1, e2) => new { Process = e1, Message = e2 });
+
+                query = query
                     .ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForHandler.Query,
-                        new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForSelectorHandlerParameters(
+                        _processDbEntityConditions.DbProcessingForHandlerProjection(query),
+                        e => e.Process,
+                        new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForHandlerParameters(
                             _dbContext,
                             [_inboxRegistryDto.Registry],
-                            notLoadedProcesses.Keys));
-                var messagesQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
+                            notProcessedInboxProcessesIds))
                     .ApplayQueryCondition(
-                        _messageStreamConditions.ForProcessing.Query,
-                        new IMessageStreamConditions<TId, InboxMessageDbEntity<TId>>.ForProcessingParamDto1(
-                            WithPriorityOrdering: true
-                            )
-                        );
-
-                var data = await processQuery
-                    .Join(messagesQuery, e => e.Id, e => e.ProcessId, (process, message) => new { process, message })
-                    .Take(limit)
+                        _messageStreamConditions.ForProcessingProjection(query),
+                        e => e.Message,
+                        new IMessageStreamConditions<TId, InboxMessageDbEntity<TId>>.ForProcessingParamDto1()
+                    );
+                var data = await query
+                    .OrderByDescending(e => e.Message.Priority)
+                    .ThenBy(e => e.Message.OrderId)
                     .ToArrayAsync(cancellationToken);
 
+                // В2 Коррелированный подзапрос
+                //var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
+                //    .ApplayQueryCondition(
+                //        _processDbEntityConditions.DbProcessingForHandler.Query,
+                //        new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForSelectorHandlerParameters(
+                //            _dbContext,
+                //            [_inboxRegistryDto.Registry],
+                //            notLoadedProcesses.Keys));
+                //var messagesQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
+                //    .ApplayQueryCondition(
+                //        _messageStreamConditions.ForProcessing.Query,
+                //        new IMessageStreamConditions<TId, InboxMessageDbEntity<TId>>.ForProcessingParamDto1()
+                //        );
+                //var data = await processQuery
+                //    .Join(messagesQuery, e => e.Id, e => e.ProcessId, (process, message) => new { process, message })
+                //    .Take(limit)
+                //    .ToArrayAsync(cancellationToken);
+
                 processGroups = data
-                    .GroupBy(e => e.process.Id)
-                    .Select(e => (e.First().process, e.Select(e => e.message)))
+                    .GroupBy(e => e.Process.Id)
+                    .Select(e => (e.First().Process, e.Select(e => e.Message)))
                     .ToArray();
             }
 
@@ -200,11 +243,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 loadBuffer.Add(container.Id, container);
 
                 notLoadedProcesses.Remove(elem.Process.Id);
-                inboxProcessesIds.Remove(elem.Process.Id);
+                notProcessedInboxProcessesIds.Remove(elem.Process.Id);
             }
 
 
-            if (inboxProcessesIds.Any())
+            if (notProcessedInboxProcessesIds.Any())
             {
                 // Процессы попали в селектор, но не уложились в лимит сообщений.
 
@@ -215,14 +258,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
 
                     await selectQuery.UnlockSelectAsync(
-                        inboxProcessesIds.Keys,
+                        notProcessedInboxProcessesIds,
                         cancellationToken);
                 }
 
                 // Чтобы основной загрузчик не пытался их загрузить.
-                foreach (var elem in inboxProcessesIds)
+                foreach (var elem in notProcessedInboxProcessesIds)
                 {
-                    notLoadedProcesses.Remove(elem.Key);
+                    notLoadedProcesses.Remove(elem);
                 }
             }
         }

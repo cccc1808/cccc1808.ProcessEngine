@@ -25,13 +25,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Condi
             ForProcessing
         {  get; }
 
-        public readonly record struct ForProcessingParamDto1(
-            bool WithPriorityOrdering
-            );
+        [Obsolete("Сортировка по Priority, OrderId")]
+        IQueryableCondition<TProjection, TEntity, ForProcessingParamDto1> ForProcessingProjection<TProjection>(IQueryable<TProjection> _);
+
+        public readonly record struct ForProcessingParamDto1();
 
         public readonly record struct ForProcessingParamDto2(
-            ICollection<TId> ProcessIds,
-            bool WithPriorityOrdering
+            ICollection<TId> ProcessIds
             );
     }
 }

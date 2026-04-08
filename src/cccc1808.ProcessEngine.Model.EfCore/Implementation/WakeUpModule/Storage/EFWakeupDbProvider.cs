@@ -39,6 +39,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
         public async Task LoadProcessDataAsync(
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
             var ids = byTypeIndex

@@ -17,8 +17,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
     {
         public void Configure(EntityTypeBuilder<InboxMessageDbEntity<TId>> builder)
         {
+            // TODO:
+            builder.Property(e => e.Id).ValueGeneratedNever();
+
             IdempotencyIndex(builder);
-            IsActiveIndex(builder);
+
+            IsActiveIndex(builder); // TODO: Проверить какой индекс использутеся.
+            IsActiveIndexV2(builder);
         }
 
         /// <summary>
@@ -27,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         /// <param name="builder"></param>
         protected virtual void IdempotencyIndex(EntityTypeBuilder<InboxMessageDbEntity<TId>> builder) 
         {
-            builder.HasIndex(e => new { e.ProcessId, e.IdemporencyId })
+            builder.HasIndex(e => new { e.ProcessId, e.IdempotencyId })
                 .IsUnique();
         }
 
@@ -39,6 +44,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         protected virtual void IsActiveIndex(EntityTypeBuilder<InboxMessageDbEntity<TId>> builder)
         {
             builder.HasIndex(e => new { e.ProcessId, e.Priority, e.OrderId })
+                .HasFilter("is_active is true");
+        }
+
+        protected virtual void IsActiveIndexV2(EntityTypeBuilder<InboxMessageDbEntity<TId>> builder)
+        {
+            builder.HasIndex(e => new { e.Priority, e.OrderId, e.ProcessId })
                 .HasFilter("is_active is true");
         }
     }

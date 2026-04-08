@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
@@ -55,11 +57,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
             ) DbProcessingForSelector
         { get; }
 
+        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters> DbProcessingForSelectorProjection<T>(IQueryable<T> _)
+        {
+            return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters>(
+                (q, p, pr) => q
+                    .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
+                    .DWhere(p, e => e.SelectLockTimeout < pr.now)
+                    );
+        }
+
         public (
             object? no, 
-            IQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorHandlerParameters> Query)
+            IQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters> Query)
             DbProcessingForHandler
         { get; }
+
+        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters> DbProcessingForHandlerProjection<T>(
+            IQueryable<T> source)
+        {
+            return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters>(
+                (q, s, p) =>
+                {
+                    // var collection = p.dbContext.QueryFromCollection(p.registrations);
+
+                    return source
+                        .DWhere(s, e => e.Status == ProcessStatusEnum.AsyncExecute)
+                        .DWhere(s, e => !e.StoppedByError && e.RetryCount == null)
+                        // .DWhere(s, e => p.ids.Contains(e.Id))
+                        ;
+                });
+        }
 
 
         #endregion
@@ -130,6 +157,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 new DelegateIQueryableCondition<TEntity, (IEFDbContext dbContext, ICollection<ProcessRegistryDto> data)>(
                     (s, p) => 
                     {
+                        throw new Exception("Использовать нормальный join.");
+
                         var joinData = p
                             .data
                             .Select(e => new { ProcessTypeId = e.ProcessType.ProcessType, e.ProcessType.ProcessVersion, e.Priority })
@@ -165,7 +194,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
 
             DbProcessingForHandler = (
                 null,
-                new DelegateIQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorHandlerParameters>(
+                new DelegateIQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters>(
                     (s, p) =>
                     {
                         s = s
@@ -186,6 +215,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                         && e.SelectLockTimeout < timeout) // 3) Процесс давно не брался в обработку.                        
                     )
                 );
-        }
+        }        
     }
 }

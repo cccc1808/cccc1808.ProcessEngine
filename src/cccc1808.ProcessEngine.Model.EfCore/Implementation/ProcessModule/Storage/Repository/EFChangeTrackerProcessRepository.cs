@@ -145,15 +145,46 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             {
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                 {
-                    var data = await _dbContext.Set<TDbEntity>()
-                        .ApplayQueryCondition(
-                            _processDbEntityConditions.DbProcessingForHandler.Query,
-                            new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForSelectorHandlerParameters(
-                                _dbContext,
-                                _processRegistry.All(),
-                                notLoadedProcesses.Keys))
+                    // В1.1: нормальный join
+                    var idsQuery = _dbContext
+                    .QueryFromCollection(notLoadedProcesses.Values.Select(
+                        e => new
+                        {
+                            ProcessTypeId = e.ProcessType.ProcessType,
+                            ProcessVersion = e.ProcessType.ProcessVersion,
+                            Priority = e.Priority,
+                            Id = e.Id,
+                        })
+                    .ToArray());
+                    var query = _dbContext.Set<TDbEntity>()
+                        .Join(
+                            idsQuery,
+                            e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
+                            e => e,
+                            (e1, e2) => new { Process = e1, e2 }
+                        );
+                    query = query.ApplayQueryCondition(
+                        _processDbEntityConditions.DbProcessingForHandlerProjection(query),
+                        e => e.Process,
+                        new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForHandlerParameters(
+                            _dbContext,
+                            [], // join выше
+                            notLoadedProcesses.Keys)
+                        );
+                    var data = await query
+                        .Select(e => e.Process)
                         .ToArrayAsync(cancellationToken);
-                   
+
+                    // В2 Коррелированный подзапрос
+                    //var data = await _dbContext.Set<TDbEntity>()
+                    //    .ApplayQueryCondition(
+                    //        _processDbEntityConditions.DbProcessingForHandler.Query,
+                    //        new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForSelectorHandlerParameters(
+                    //            _dbContext,
+                    //            _processRegistry.All(),
+                    //            notLoadedProcesses.Keys))
+                    //    .ToArrayAsync(cancellationToken);
+
                     foreach (var elem in data)
                     {
                         // Так как мы уже считали с блокировкой,
@@ -192,6 +223,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 await elem.LoadProcessDataAsync(
                     loadBuffer,
                     byTypeIndex,
+                    isAsyncExecution: true,
                     cancellationToken);
             }
 
@@ -240,10 +272,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
             foreach (var elem in _processLoaders)
             {
-                await elem.LoadRangeAsync(
+                await elem.LoadProcessDataAsync(
                     containers,
                     byTypeIndex,
-                    withLock: false,
+                    isAsyncExecution: false,
                     cancellationToken);
             }
 

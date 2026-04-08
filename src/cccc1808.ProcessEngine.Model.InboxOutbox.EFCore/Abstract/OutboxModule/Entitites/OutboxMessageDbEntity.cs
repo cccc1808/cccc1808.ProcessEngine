@@ -39,5 +39,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.
         public JsonElement Headers { get; set; }
 
         public DateTimeOffset? SendDate { get; set; }
+
+        public OutboxMessageDbEntity() { }
+
+        public OutboxMessageDbEntity(TId id, int partition, short priority, long orderId, TId processId, bool isActive, string key, string idemporencyId, JsonElement body, JsonElement headers, DateTimeOffset? sendDate)
+        {
+            Id = id;
+            Partition = partition;
+            Priority = priority;
+            OrderId = orderId;
+            ProcessId = processId;
+            IsActive = isActive;
+            Key = key;
+            IdemporencyId = idemporencyId;
+            Body = body;
+            Headers = headers;
+            SendDate = sendDate;
+        }
     }
 }

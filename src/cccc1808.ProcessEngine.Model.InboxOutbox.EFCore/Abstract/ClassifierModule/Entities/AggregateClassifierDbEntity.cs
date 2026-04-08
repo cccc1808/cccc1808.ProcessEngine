@@ -20,5 +20,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierMod
         public string AggregateType { get; set; } = default!;
 
         public string AggregateId { get; set; } = default!;
+
+        public AggregateClassifierDbEntity() 
+        { }
+
+        public AggregateClassifierDbEntity(TId id, string aggregateType, string aggregateId)
+        {
+            Id = id;
+            AggregateType = aggregateType;
+            AggregateId = aggregateId;
+        }
     }
 }

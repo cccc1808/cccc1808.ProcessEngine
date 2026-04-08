@@ -12,5 +12,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierMod
         public TId Id { get; set; } = default!;
 
         public string Name { get; set; } = default!;
+
+
+        public QueueClassifierDbEntity() 
+        {
+        }
+
+        public QueueClassifierDbEntity(TId id, string name)
+        {
+            Id = id;
+            Name = name;
+        }
     }
 }

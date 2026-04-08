@@ -7,7 +7,7 @@
             CancellationToken cancellationToken);
 
         Task DbWorkAsync(
-            bool executeOne,
+            bool oneCycle,
             CancellationToken cancellationToken);
     }
 }

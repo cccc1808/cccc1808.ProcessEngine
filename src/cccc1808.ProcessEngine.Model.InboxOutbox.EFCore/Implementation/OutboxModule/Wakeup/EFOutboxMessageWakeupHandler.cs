@@ -17,14 +17,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup
 {
-    public class OutboxMessageWakeupHandler<TId> : IWakeupCheckHandler<TId>
+    public class EFOutboxMessageWakeupHandler<TId> : IWakeupCheckHandler<TId>
     {
         private readonly IEFDbContext _dbContext;
 
         private readonly IProcessLinkedConditions<TId, OutboxMessageDbEntity<TId>> _processLinkedConditions;
         private readonly IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>> _messageStreamConditions;
 
-        public OutboxMessageWakeupHandler(
+        public EFOutboxMessageWakeupHandler(
             IEFDbContext dbContext, 
             
             IProcessLinkedConditions<TId, OutboxMessageDbEntity<TId>> processLinkedConditions,

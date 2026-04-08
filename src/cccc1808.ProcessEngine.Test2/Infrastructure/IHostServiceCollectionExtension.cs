@@ -25,12 +25,14 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
@@ -51,6 +53,22 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Conditions;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierModule.Conditions;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 
 using Microsoft.EntityFrameworkCore;
@@ -155,7 +173,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>>, ProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<Id_RangeCondition<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<IProcessContainerConditions<Guid>, ProcessContainerConditions<Guid>>()
-                .AddScoped<IProcessErrorDbEntityConditions<Guid>, ProcessErrorDbEntityConditions<Guid>>()
+                .AddScoped<IProcessErrorDbEntityConditions<Guid>, ProcessErrorDbEntityConditions<Guid>>()                
                 ;
 
             foreach (var elem in registrations)
@@ -221,6 +239,54 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .Decorate<ITriggerEventRaiser, TriggerEventRaiserAfterTransactionCompleteDecorator>()
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer>()
+                ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddInboxOutbox(
+            this IServiceCollection services,
+            InboxRunner<Guid>.OptionsDto inboxRunnerOptions,
+            EFInboxConsumerService<Guid>.Options inboxConsumerOptions,
+            EFInboxDbProvider<Guid>.Options inboxDbProviderOptions,
+            EFOutboxDbProvider<Guid>.Options outboxDbProviderOptions,
+            InboxRegistryDto inboxRegistry,
+            OutboxRegistryDto outboxRegistry) 
+        {
+            services
+                .AddScoped<EFInboxDbProvider<Guid>>()
+                .AddSingleton(inboxDbProviderOptions)
+                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider<Guid>>())
+                .AddScoped<EFOutboxDbProvider<Guid>>()
+                .AddSingleton(outboxDbProviderOptions)
+                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider<Guid>>())
+
+                .AddScoped<IHeaderJsonSerializer, HeaderJsonSerializer>()
+
+                .AddScoped<IInboxSetter, InboxSetter>()
+                .AddScoped<IOutboxSetter, OutboxSetter>()
+
+                .AddScoped<IInboxRunner, InboxRunner<Guid>>()
+                .AddSingleton(inboxRunnerOptions)
+
+                .AddScoped<IInboxConsumerService, EFInboxConsumerService<Guid>>()
+                .AddSingleton(inboxConsumerOptions)
+
+                .AddScoped<IClassifierRepository<Guid>, EFClassifierRepository<Guid>>()
+                .AddSingleton<EFClassifierRepository<Guid>.CachState>()
+
+                .AddScoped<IAggregateClassifierDbEntityCondition<Guid>, AggregateClassifierDbEntityCondition<Guid>>()
+
+                .AddSingleton(inboxRegistry)
+                .AddSingleton(outboxRegistry)
+
+                .AddScoped<IProcessLinkedConditions<Guid, InboxMessageDbEntity<Guid>>, ProcessLinkedConditions<Guid, InboxMessageDbEntity<Guid>>>()
+                .AddScoped<IMessageStreamConditions<Guid, InboxMessageDbEntity<Guid>>, MessageStreamConditions<Guid, InboxMessageDbEntity<Guid>>>()
+                .AddScoped<IProcessLinkedConditions<Guid, OutboxMessageDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxMessageDbEntity<Guid>>>()
+                .AddScoped<IMessageStreamConditions<Guid, OutboxMessageDbEntity<Guid>>, MessageStreamConditions<Guid, OutboxMessageDbEntity<Guid>>>()
+
+                .AddScoped<IProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>>()
+                .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()
                 ;
 
             return services;

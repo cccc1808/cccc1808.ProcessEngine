@@ -19,7 +19,6 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Components;
 
@@ -28,7 +27,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage
 {
-    internal class EFOutboxDbProvider<TId>
+    public class EFOutboxDbProvider<TId>
         : IProcessDbProvider<TId>
     {       
         private readonly IServiceProvider _serviceProvider;
@@ -69,14 +68,24 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         public async Task LoadProcessDataAsync(
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
-            var outboxProcesses = byTypeIndex[_outboxRegistry.Registry.ProcessType];
+            if (isAsyncExecution)
+            {
+                // Данные уже загружены в LoadProcessForAsyncProcessingAsync.
+                return;
+            }
+
+            if (!byTypeIndex.TryGetValue(_outboxRegistry.Registry.ProcessType, out var outboxProcessesIds))
+            {
+                return;
+            }
 
             // 1) Загружаем данные процесса.
             var outboxData = await _dbContext.Set<OutboxProcessDataDbEntity<TId>>()
                 .Include(e => e.Queue)
-                .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, outboxProcesses)
+                .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, outboxProcessesIds)
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
 
             // 2) Загружаем сообщения по процессам.
@@ -95,14 +104,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             //    .GroupBy(e => e.ProcessId)
             //    .ToDictionary(e => e.Key, e => e);
 
-            foreach (var elem in outboxProcesses)
+            foreach (var elem in outboxProcessesIds)
             {
                 var process = processes[elem];
                 var component = new EFOutboxComponentProxy<TId>(
                     outboxData[process.Id],
                     [] //messagesByStream[process.Id].Select(e => new EFOutboxMessageProxy<TId>(e)).ToArray()                    
                     );
-                process.AddComponent(component);
+                process.AddComponent<IOutboxComponent<TId>>(component);
             }
 
             // 4) В других DbProvider могут загружаться сущности по агрегатам (Range), или загружать уже в самом хендлеое (Single).
@@ -114,14 +123,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex, 
             CancellationToken cancellationToken)
         {
-            var outboxProcessesIds = byTypeIndex[_outboxRegistry.Registry.ProcessType]
-                .Select(e => notLoadedProcesses[e])
-                .ToDictionary(e => e.Id, e => e);
-
-            if (!outboxProcessesIds.Any())
+            if (!byTypeIndex.TryGetValue(_outboxRegistry.Registry.ProcessType, out var outboxProcessesIds))
             {
                 return;
             }
+
+            var notProcessedOutboxProcessesIds = outboxProcessesIds.ToHashSet();
 
             var softTimeout = _repositoryOptions.SoftTimeout.HasValue
                 ? DateTimeOffset.Now + _repositoryOptions.SoftTimeout.Value
@@ -130,31 +137,69 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             (ProcessDbEntity<TId> Process, IEnumerable<OutboxMessageDbEntity<TId>> Messages)[] processGroups;
             using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
-                var limit = _options.MessageLimitFunc(outboxProcessesIds.Count);
+                var limit = _options.MessageLimitFunc(notProcessedOutboxProcessesIds.Count);
 
-                var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
+                // В1: нормальный join
+                var idsQuery = _dbContext
+                    .QueryFromCollection(notProcessedOutboxProcessesIds.Select(
+                        e => new
+                        {
+                            ProcessTypeId = _outboxRegistry.Registry.ProcessType.ProcessType,
+                            ProcessVersion = _outboxRegistry.Registry.ProcessType.ProcessVersion,
+                            Priority = _outboxRegistry.Registry.Priority,
+                            Id = e,
+                        })
+                    .ToArray());
+                var query = _dbContext.Set<ProcessDbEntity<TId>>()
+                    .Join(
+                        idsQuery,
+                        e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
+                        e => e,
+                        (e1, e2) => e1)
+                    .Join(
+                        _dbContext.Set<OutboxMessageDbEntity<TId>>(),
+                        e => e.Id,
+                        e => e.ProcessId,
+                        (e1, e2) => new { Process = e1, Message = e2 });
+                query = query
                     .ApplayQueryCondition(
-                    _processDbEntityConditions.DbProcessingForHandler.Query,
-                    new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForSelectorHandlerParameters(
-                        _dbContext,
-                        [_outboxRegistry.Registry],
-                        notLoadedProcesses.Keys));
-                var messagesQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
+                        _processDbEntityConditions.DbProcessingForHandlerProjection(query),
+                        e => e.Process,
+                        new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForHandlerParameters(
+                            _dbContext,
+                            [_outboxRegistry.Registry],
+                            notProcessedOutboxProcessesIds))
                     .ApplayQueryCondition(
-                        _messageStreamConditions.ForProcessing.Query,
-                        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto1(
-                            WithPriorityOrdering: true
-                            )
-                        );
-
-                var data = await processQuery
-                    .Join(messagesQuery, e => e.Id, e => e.ProcessId, (process, message) => new { process, message })
-                    .Take(limit)
+                        _messageStreamConditions.ForProcessingProjection(query),
+                        e => e.Message,
+                        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto1()
+                    );
+                var data = await query
+                    .OrderByDescending(e => e.Message.Priority)
+                    .ThenBy(e => e.Message.OrderId)
                     .ToArrayAsync(cancellationToken);
 
+                // В2 Коррелированный подзапрос
+                //var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
+                //    .ApplayQueryCondition(
+                //    _processDbEntityConditions.DbProcessingForHandler.Query,
+                //    new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForSelectorHandlerParameters(
+                //        _dbContext,
+                //        [_outboxRegistry.Registry],
+                //        notLoadedProcesses.Keys));
+                //var messagesQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
+                //    .ApplayQueryCondition(
+                //        _messageStreamConditions.ForProcessing.Query,
+                //        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto1()
+                //        );
+                //var data = await processQuery
+                //    .Join(messagesQuery, e => e.Id, e => e.ProcessId, (process, message) => new { process, message })
+                //    .Take(limit)
+                //    .ToArrayAsync(cancellationToken);
+
                 processGroups = data
-                    .GroupBy(e => e.process.Id)
-                    .Select(e => (e.First().process, e.Select(e => e.message)))
+                    .GroupBy(e => e.Process.Id)
+                    .Select(e => (e.First().Process, e.Select(e => e.Message)))
                     .ToArray();
             }
 
@@ -197,10 +242,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 loadBuffer.Add(container.Id, container);
 
                 notLoadedProcesses.Remove(elem.Process.Id);
-                outboxProcessesIds.Remove(elem.Process.Id);
+                notProcessedOutboxProcessesIds.Remove(elem.Process.Id);
             }            
 
-            if (outboxProcessesIds.Any())
+            if (notProcessedOutboxProcessesIds.Any())
             {
                 // Процессы попали в селектор, но не уложились в лимит сообщений.
 
@@ -211,14 +256,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                     var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
 
                     await selectQuery.UnlockSelectAsync(
-                        outboxProcessesIds.Keys,
+                        notProcessedOutboxProcessesIds,
                         cancellationToken);
                 }
 
                 // Чтобы основной загрузчик не пытался их загрузить.
-                foreach (var elem in outboxProcessesIds)
+                foreach (var elem in notProcessedOutboxProcessesIds)
                 {
-                    notLoadedProcesses.Remove(elem.Key);
+                    notLoadedProcesses.Remove(elem);
                 }
             }
         }

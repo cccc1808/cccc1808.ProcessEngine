@@ -9,6 +9,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
 {
+    /// <summary>
+    /// TODO: думаю нужен ключ упорядочивания применения лоадеров.
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
     public interface IProcessDbProvider<TId>
     {
         /// <summary>
@@ -18,11 +22,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
         /// <param name="withLock"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task LoadRangeAsync(
-            IDictionary<TId, IProcessContainer<TId>> processes,
-            IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
-            bool withLock,
-            CancellationToken cancellationToken);
+        //Task LoadRangeAsync(
+        //    IDictionary<TId, IProcessContainer<TId>> processes,
+        //    IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+        //    bool withLock,
+        //    CancellationToken cancellationToken);
 
         /// <summary>
         /// Необязательный функционал для асинхронной обработки,
@@ -48,6 +52,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
         Task LoadProcessDataAsync(            
             IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
+            bool isAsyncExecution,
             CancellationToken  cancellationToken);
 
         /// <summary>

@@ -52,19 +52,24 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             CancellationToken cancellationToken)
         {
             var component = process.GetComponent<IInboxComponent<TId>>();
-            var message = component.Messages[component.CurrentMessageIndex];
 
-            await HandleMessageAsync(
-                process,
-                message,
-                cancellationToken
-                );
+            // TODO: заготовка без изоляции.
+            while (component.CurrentMessageIndex < component.Messages.Count)
+            {
+                var message = component.Messages[component.CurrentMessageIndex];
 
-            _inboxSetter.InboxMessageProcessed(
-                process,
-                component,
-                message
-                );
+                await HandleMessageAsync(
+                    process,
+                    message,
+                    cancellationToken
+                    );
+
+                _inboxSetter.InboxMessageProcessed(
+                    process,
+                    component,
+                    message
+                    );
+            }
         }        
 
         protected abstract ValueTask HandleMessageAsync(

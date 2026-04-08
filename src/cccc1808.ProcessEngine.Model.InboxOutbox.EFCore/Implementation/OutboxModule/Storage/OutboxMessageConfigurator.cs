@@ -17,6 +17,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
     {
         public void Configure(EntityTypeBuilder<OutboxMessageDbEntity<TId>> builder)
         {
+            // TODO:
+            builder.Property(e => e.Id).ValueGeneratedNever();
+
             IdempotencyIndex(builder);
             IsActiveIndex(builder);
         }

@@ -36,12 +36,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                 return;
             }
 
-            message.IsActive = false;            
+            message.IsActive = false;
+            inboxComponent.CurrentMessageIndex++;
 
             if (inboxComponent.CurrentMessageIndex < inboxComponent.Messages.Count)
             {
-                // Есть еще сообщение в батче.
-                inboxComponent.CurrentMessageIndex++;
+                // Есть еще сообщение в батче.                
             }
             // Батч обработан - пытаемся устнуть.
             else

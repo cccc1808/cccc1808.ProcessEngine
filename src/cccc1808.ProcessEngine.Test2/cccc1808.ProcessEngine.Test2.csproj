@@ -44,7 +44,6 @@
 
   <ItemGroup>
     <Folder Include="TestGroup1\" />
-    <Folder Include="TestGroup4\" />
   </ItemGroup>
 
 	<!--Constructor init as error-->

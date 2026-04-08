@@ -29,7 +29,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
         public int Partition => DbEntity.Partition;
 
-        public string IdemporencyId => DbEntity.IdemporencyId;
+        public string IdemporencyId => DbEntity.IdempotencyId;
 
         public JsonElement Body => DbEntity.Body;
 

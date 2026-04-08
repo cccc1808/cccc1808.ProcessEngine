@@ -17,10 +17,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
     {
         public void Configure(EntityTypeBuilder<InboxProcessDataDbEntity<TId>> builder)
         {
+            // TODO:
+            builder.Property(e => e.Id).ValueGeneratedNever();
+
             builder.Property(e => e.WakeupTriggerKey)
                 .HasMaxLength(255);
 
             ProcessIdIndex(builder);
+            AggregateQueueIndex(builder);
         }
 
         /// <summary>
@@ -31,6 +35,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         {
             builder.HasIndex(e => e.ProcessId)
                 .IsUnique();            
+        }
+
+        /// <summary>
+        /// TODO: see condtion
+        /// </summary>
+        /// <param name="builder"></param>
+        protected virtual void AggregateQueueIndex(EntityTypeBuilder<InboxProcessDataDbEntity<TId>> builder)
+        {
+            builder.HasIndex(e => new { e.AggregateId, e.QueueId })
+                .IsUnique();
         }
     }
 }

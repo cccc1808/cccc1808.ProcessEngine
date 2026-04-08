@@ -65,18 +65,48 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                     {
                         // TODO: можно сделать без загрузки, но не через LINQ.
-                        var batch = await _dbContext.Set<TEntity>()
-                            .ApplayQueryCondition(
-                                _processDbEntityConditions.DbProcessingForSelector.Query,
-                                new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(
-                                    now,
-                                    _dbContext,
-                                    registrations
-                                    ))
-                            .OrderByDescending(e => e.Priority)
+
+                        // В1: нормальный join
+                        var registrationQuery = _dbContext.QueryFromCollection(
+                            registrations
+                            .Select(e => new 
+                            {
+                                ProcessTypeId = e.ProcessType.ProcessType,
+                                ProcessVersion = e.ProcessType.ProcessVersion,
+                                Priority = e.Priority,
+                            })
+                            .ToArray());
+                        var query = _dbContext.Set<TEntity>()
+                            .Join(
+                                registrationQuery,
+                                e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority },
+                                e => e,
+                                (e1, e2) => new { Process = e1, e2 }
+                                );
+                        query = query.ApplayQueryCondition(
+                            _processDbEntityConditions.DbProcessingForSelectorProjection(query),
+                            e => e.Process,
+                            new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
+                            );
+
+                        var batch = await query
+                            .OrderByDescending(e => e.Process.Priority)
                             .Take(context.Data.BatchSize)
-                            .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority })
+                            .Select(e => new { e.Process.Id, e.Process.ProcessTypeId, e.Process.ProcessVersion, e.Process.Priority })
                             .ToArrayAsync(cancellationToken);
+
+                        // В2 Коррелированный подзапрос
+                        //var batch = await _dbContext.Set<TEntity>()
+                        //    .ApplayQueryCondition(
+                        //        _processDbEntityConditions.DbProcessingForSelector.Query,
+                        //        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(
+                        //            now,
+                        //            _dbContext,
+                        //            registrations
+                        //            ))
+                        //    .Take(context.Data.BatchSize)
+                        //    .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority })
+                        //    .ToArrayAsync(cancellationToken);
 
                         if (batch.Length == 0)
                         {
@@ -95,14 +125,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     }
 
                     // Устанавливаем отметку о блокировке выборки.
+                    _ = _processDbEntityConditions.DbProcessingForHandler; // для ссылки;
                     await _dbContext.Set<TEntity>()
-                        .ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForHandler.Query,
-                        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorHandlerParameters(
-                            _dbContext,
-                            registrations,
-                            result.Select(e => e.Id).ToArray()
-                            ))                      
+                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
+                        .Where(e => e.Status == ProcessStatusEnum.AsyncExecute)
+
+                        //.ApplayQueryCondition(
+                        //    _processDbEntityConditions.DbProcessingForHandler.Query,
+                        //    new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters(
+                        //        _dbContext,
+                        //        registrations,
+                        //        result.Select(e => e.Id).ToArray()
+                        //        ))                      
                         .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, selectDate), cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);

@@ -27,6 +27,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
         public async Task LoadProcessDataAsync(
             IDictionary<Guid, IProcessContainer<Guid>> processes, 
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,
+            bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
             var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(4, 1), out var group)

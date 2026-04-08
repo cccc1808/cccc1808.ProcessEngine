@@ -26,5 +26,20 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.E
         public QueueClassifierDbEntity<TId> Queue { get; set; } = default!;
 
         public string WakeupTriggerKey { get; set; } = default!;
+
+
+        public InboxProcessDataDbEntity(
+            TId id, 
+            TId processId, 
+            TId aggregateId,
+            TId queueId, 
+            string wakeupTriggerKey)
+        {
+            Id = id;
+            ProcessId = processId;
+            AggregateId = aggregateId;
+            QueueId = queueId;
+            WakeupTriggerKey = wakeupTriggerKey;
+        }
     }
 }

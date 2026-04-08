@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +17,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
     {
         public void Configure(EntityTypeBuilder<OutboxProcessDataDbEntity<TId>> builder)
         {
+            // TODO:
+            builder.Property(e => e.Id).ValueGeneratedNever();
+
             builder.Property(e => e.WakeupTriggerKey)
                 .HasMaxLength(255);
 

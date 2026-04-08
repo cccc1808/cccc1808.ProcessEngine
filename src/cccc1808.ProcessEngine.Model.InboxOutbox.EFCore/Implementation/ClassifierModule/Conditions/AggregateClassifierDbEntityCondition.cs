@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ConditionModule;
-using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
@@ -30,11 +29,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                 new DelegateIQueryableCondition<AggregateClassifierDbEntity<TId>, (IEFDbContext context, ICollection<AggregateDto> ids)>(
                     (s, p) => 
                     {
+                        throw new Exception("Использовать нормальный join.");
+
                         var queryList = p.context.QueryFromCollection(
-                
                             p.ids                    
-                            .Select(e => new { e.AggregateType, e.AggregateId })                    
-                            .ToArray());
+                                .Select(e => new { e.AggregateType, e.AggregateId })                    
+                                .ToArray());
 
                         var query = 
                             from e1 in s

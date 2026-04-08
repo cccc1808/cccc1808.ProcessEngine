@@ -42,7 +42,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         /// <returns></returns>
         protected virtual IndexBuilder<TProcess> DbProcessingForSelectorHandlerIndex(EntityTypeBuilder<TProcess> builder)
         {
-            return builder.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion, e.Id })
+            return builder.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id })
                 .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
         }
 

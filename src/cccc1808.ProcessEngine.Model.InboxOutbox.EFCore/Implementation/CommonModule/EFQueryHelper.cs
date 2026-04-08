@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,13 +16,17 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.CommonM
         public static async Task<Dictionary<TKey, (bool IsInserterted, TEntity Entity)>> GetOrInsertAsync<TEntity, TKey>(
             IEFDbContext context,
             ICollection<TKey> keys,
-            Func<IQueryable<TEntity>> selectQueryFunc,
+            Func<ICollection<TKey>, IQueryable<TEntity>, IQueryable<TEntity>> selectQueryFunc,
             Func<TEntity, TKey> keySelectorFunc,
-            Func<TKey, TEntity> buildFunc,
+            Expression<Func<TEntity, object>> unique,
+            Func<ICollection<TKey>, CancellationToken, ValueTask<ICollection<TEntity>>> buildFunc,
             CancellationToken cancellationToken)
             where TEntity : class
         {
-            var founded = await selectQueryFunc()
+            var founded = await selectQueryFunc(
+                keys,
+                context.Set<TEntity>().AsNoTracking())
+                .AsNoTracking()
                 .ToArrayAsync(cancellationToken);
 
             var notFounded = keys.ToHashSet();
@@ -31,15 +36,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.CommonM
                     keySelectorFunc(elem));
             }
 
+            var newEntities = await buildFunc(notFounded, cancellationToken);
             var inserted = await context.Set<TEntity>()
-                .UpsertRange(notFounded.Select(e => buildFunc(e)))
+                .UpsertRange(newEntities)
+                .On(unique)
                 .NoUpdate()
                 .RunAndReturnAsync(cancellationToken);
+
             var insertedKeys = inserted
                 .Select(e => keySelectorFunc(e))
                 .ToHashSet();
 
-            var result = await selectQueryFunc()
+            var result = await selectQueryFunc(
+                keys,
+                context.Set<TEntity>().AsNoTracking()
+                )                
                 .ToArrayAsync(cancellationToken);
 
             return result.ToDictionary(

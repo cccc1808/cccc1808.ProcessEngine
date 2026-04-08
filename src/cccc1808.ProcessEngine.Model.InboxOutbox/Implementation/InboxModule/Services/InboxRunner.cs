@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 
@@ -20,7 +21,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
     /// <typeparam name="TId"></typeparam>
     /// <typeparam name="TDbContext"></typeparam>
     public class InboxRunner<TId>
-        : IAsyncDisposable
+        : IInboxRunner
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
@@ -32,11 +33,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             IQueueProviderFactory _,
             OptionsDto options)
         {
-            _serviceProvider = serviceProvider;       
+            _serviceProvider = serviceProvider;
             _options = options;
         }
 
-        public async Task StartAsync()
+        public async Task StartAsync(
+            bool oneExecute)
         {
             await StopAsync();
 
@@ -55,9 +57,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                         state.ServiceScope.ServiceProvider,
                         _options,
                         elem,
+                        oneExecute,
                         state.CancellationTokenSource.Token)
                     );
                 state.Workers.Add(task);
+            }
+
+            if (oneExecute)
+            {
+                await Task.WhenAll(state.Workers);
             }
         }
 
@@ -69,24 +77,32 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                 return;
             }
 
-            try 
+            try
             {
                 state.CancellationTokenSource.Cancel();
 
                 await Task.WhenAll(
                     state.Workers);
             }
-            finally 
+            finally
             {
                 await state.ServiceScope.DisposeAsync();
                 State = null;
             }
         }
 
+        public async Task WaitRunningTasksAsync(CancellationToken cancellationToken)
+        {
+            var state = State;
+            await Task.WhenAll(
+                state.Workers);
+        }
+
         private static async Task Body(
             IServiceProvider serviceProvider,
             OptionsDto options,
             string queueName,
+            bool oneExecute,
             CancellationToken cancelationToken)
         {
             var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
@@ -106,11 +122,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
 
                 await using (var scope = serviceProvider.CreateAsyncScope())
                 {
-                    var handler = scope.ServiceProvider.GetRequiredService<IInboxConsumerService>();
-                    await handler.ProcessBatchAsync(batch, cancelationToken);
+                    var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                    var consumerService = scope.ServiceProvider.GetRequiredService<IInboxConsumerService>();
+
+                    await using (var transaction = await transactionService.StartTransactionAsync(cancelationToken))
+                    {
+                        await consumerService.ProcessBatchAsync(batch, cancelationToken);
+                        await transaction.CommitAsync(cancelationToken);
+                    }                                       
                 }
 
                 await consumer.CommitAsync(cancelationToken);
+
+                if (oneExecute)
+                {
+                    break;
+                }
             }
         }
 
@@ -119,7 +146,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             await StopAsync();
         }
 
-        private record WorkersState 
+        private record WorkersState
         {
             public AsyncServiceScope ServiceScope { get; init; }
 
@@ -128,7 +155,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             public List<Task> Workers { get; init; } = default!;
         }
 
-        public class OptionsDto 
+        public class OptionsDto
         {
             /// <summary>
             /// Список очередей.
@@ -136,10 +163,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             public string[] Queues { get; set; }
                 = Array.Empty<string>();
 
-            public int ConsumeBatchSize { get; set; } 
+            public int ConsumeBatchSize { get; set; }
                 = 250;
 
-            public TimeSpan ConsumeTimeout { get; set; } 
+            public TimeSpan ConsumeTimeout { get; set; }
                 = TimeSpan.FromSeconds(2);
         }
     }

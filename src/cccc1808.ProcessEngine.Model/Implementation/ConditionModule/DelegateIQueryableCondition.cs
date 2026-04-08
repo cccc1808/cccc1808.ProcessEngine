@@ -1,4 +1,6 @@
-﻿using cccc1808.ProcessEngine.Model.Abstract.ConditionModule;
+﻿using System.Linq.Expressions;
+
+using cccc1808.ProcessEngine.Model.Abstract.ConditionModule;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ConditionModule
 {
@@ -15,6 +17,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ConditionModule
         public IQueryable<TData> ApplayQuery(IQueryable<TData> source, TParameters parameters)
         {
             return _applayQueryableFunc(source, parameters);
+        }
+    }
+
+    public class DelegateIQueryableCondition<TData, TPro, TParameters>
+        : IQueryableCondition<TData, TPro, TParameters>
+    {
+        private readonly Func<IQueryable<TData>, Expression<Func<TData, TPro>>, TParameters, IQueryable<TData>> _applayQueryableFunc;
+
+        public DelegateIQueryableCondition(Func<IQueryable<TData>, Expression<Func<TData, TPro>>, TParameters, IQueryable<TData>> applayQueryableFunc)
+        {
+            _applayQueryableFunc = applayQueryableFunc;
+        }
+
+        public IQueryable<TData> ApplayQuery(
+            IQueryable<TData> source,
+            Expression<Func<TData, TPro>> selector,
+            TParameters parameters)
+        {
+            return _applayQueryableFunc(source, selector, parameters);
         }
     }
 

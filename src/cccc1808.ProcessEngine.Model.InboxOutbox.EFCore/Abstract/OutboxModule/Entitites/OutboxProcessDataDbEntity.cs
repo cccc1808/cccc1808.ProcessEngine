@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.
     public class OutboxProcessDataDbEntity<TId>
         : IId<TId>,
         IProcessLinked<TId>
-    {
+    {  
         public TId Id { get; set; } = default!;
 
         public TId ProcessId { get; set; } = default!;
@@ -25,5 +25,17 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.
         public QueueClassifierDbEntity<TId> Queue { get; set; } = default!;
 
         public string WakeupTriggerKey { get; set; } = default!;
+
+        public OutboxProcessDataDbEntity() 
+        { }
+
+        public OutboxProcessDataDbEntity(TId id, TId processId, TId aggregateId, TId queueId, string wakeupTriggerKey)
+        {
+            Id = id;
+            ProcessId = processId;
+            AggregateId = aggregateId;
+            QueueId = queueId;
+            WakeupTriggerKey = wakeupTriggerKey;
+        }
     }
 }
