@@ -41,7 +41,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
 
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeUpComponent>();
+                var component = elem.GetComponent<IWakeupComponent>();
 
                 if (activeChildExsist.TryGetValue(elem.Id, out var exsists))
                 {

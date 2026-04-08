@@ -9,16 +9,16 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions
 {
-    public interface IProcessWakeUpDbEntityConditions<TId>
+    public interface IProcessWakeupDbEntityConditions<TId>
     {
         (
             object _no,
-            IQueryableCondition<ProcessWakeUpDbEntity<TId>, ICollection<TId>> QueryRange
+            IQueryableCondition<ProcessWakeupDbEntity<TId>, ICollection<TId>> QueryRange
             ) ProcessLinkedDbEntity { get; }
 
         (
-            IInMemoryCondition<ProcessWakeUpDbEntity<TId>> Memory,
-            IQueryableCondition<ProcessWakeUpDbEntity<TId>> Query
+            IInMemoryCondition<ProcessWakeupDbEntity<TId>> Memory,
+            IQueryableCondition<ProcessWakeupDbEntity<TId>> Query
             ) IsAsyncExecuting { get; }
     }
 }

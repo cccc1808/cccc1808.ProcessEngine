@@ -68,7 +68,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 {
                     // Retry trigger.
 
-                    if (elem.TryGetComponent<IWakeUpComponent>(out _))
+                    if (elem.TryGetComponent<IWakeupComponent>(out _))
                     {
                         await _triggerRepository.CreateTriggerAsync(
                             key: Guid.NewGuid().ToString(),

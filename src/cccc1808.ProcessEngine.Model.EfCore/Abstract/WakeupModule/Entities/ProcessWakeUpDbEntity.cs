@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities
 {
-    public class ProcessWakeUpDbEntity<TId>
+    public class ProcessWakeupDbEntity<TId>
         : IId<TId>, 
         IProcessLinked<TId>
     {
@@ -23,11 +23,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities
         /// </summary>
         public bool IsAsyncExecuting { get; set; }
 
-        public ProcessWakeUpDbEntity() 
+        public ProcessWakeupDbEntity() 
         {
         }
 
-        public ProcessWakeUpDbEntity(
+        public ProcessWakeupDbEntity(
             TId id,
             TId processId,
             bool isAsyncExecuting)

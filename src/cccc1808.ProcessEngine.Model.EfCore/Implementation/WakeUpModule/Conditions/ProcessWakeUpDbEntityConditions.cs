@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ConditionModule;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Conditions;
@@ -13,30 +12,30 @@ using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions
 {
-    public class ProcessWakeUpDbEntityConditions<TId>
-        : IProcessWakeUpDbEntityConditions<TId>
+    public class ProcessWakeupDbEntityConditions<TId>
+        : IProcessWakeupDbEntityConditions<TId>
     {
         public (
             object _no,
-            IQueryableCondition<ProcessWakeUpDbEntity<TId>, ICollection<TId>> QueryRange
+            IQueryableCondition<ProcessWakeupDbEntity<TId>, ICollection<TId>> QueryRange
             ) ProcessLinkedDbEntity
         { get; }
 
         public (
-            IInMemoryCondition<ProcessWakeUpDbEntity<TId>> Memory, 
-            IQueryableCondition<ProcessWakeUpDbEntity<TId>> Query
+            IInMemoryCondition<ProcessWakeupDbEntity<TId>> Memory, 
+            IQueryableCondition<ProcessWakeupDbEntity<TId>> Query
             ) IsAsyncExecuting
         { get; }
 
-        public ProcessWakeUpDbEntityConditions()
+        public ProcessWakeupDbEntityConditions()
         {
             ProcessLinkedDbEntity = (
                 null!, 
-                new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>());
+                new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeupDbEntity<TId>>());
 
             IsAsyncExecuting = (
-                new DelegateInMemoryCondition<ProcessWakeUpDbEntity<TId>>((e) => e.IsAsyncExecuting),
-                new DelegateIQueryableCondition<ProcessWakeUpDbEntity<TId>>((e) => e.Where(e => e.IsAsyncExecuting))
+                new DelegateInMemoryCondition<ProcessWakeupDbEntity<TId>>((e) => e.IsAsyncExecuting),
+                new DelegateIQueryableCondition<ProcessWakeupDbEntity<TId>>((e) => e.Where(e => e.IsAsyncExecuting))
                 );
         }
     }

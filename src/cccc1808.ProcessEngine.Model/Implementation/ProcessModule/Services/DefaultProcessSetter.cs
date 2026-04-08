@@ -51,7 +51,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
         {
             process.Process.Status = status;
 
-            if (process.TryGetComponent<IWakeUpComponent>(out var w))
+            if (process.TryGetComponent<IWakeupComponent>(out var w))
             {
                 // Если не в асинхронном выполнении, то меняем также компонент (аккуратно с этим).
                 if (!w.InAsyncExecuting)

@@ -348,14 +348,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             // [Hack]: Немного костыль, но вот так (чтобы запись не обновлялась при промежуточных сохранениях, не ставился lock):
             foreach (var elem in processes)
             {
-                if (elem.TryGetComponent<IWakeUpComponent>(out var component))
+                if (elem.TryGetComponent<IWakeupComponent>(out var component))
                 {
-                    if (component is not EFWakeUpProxyComponent<TId> proxy)
+                    if (component is not EFWakeupProxyComponent<TId> proxy)
                     {
                         throw new Exception("[Bug]");
                     }
 
-                    var entry = _dbContext.DbContext.Set<ProcessWakeUpDbEntity<TId>>().Attach(proxy.DbEntity);
+                    var entry = _dbContext.DbContext.Set<ProcessWakeupDbEntity<TId>>().Attach(proxy.DbEntity);
                     entry.State = component.NeedUpdate 
                         ? EntityState.Modified
                         : EntityState.Unchanged;

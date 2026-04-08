@@ -36,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
         private readonly IProcessContainerConditions<TId> _processContainerConditions;
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
-        private readonly IProcessWakeUpDbEntityConditions<TId> _processWakeUpDbEntityConditions;        
+        private readonly IProcessWakeupDbEntityConditions<TId> _processWakeUpDbEntityConditions;        
 
         private readonly OptionsDto _optionsDto;
 
@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
             IProcessContainerConditions<TId> processContainerConditions,
             IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
-            IProcessWakeUpDbEntityConditions<TId> processWakeUpDbEntityConditions,
+            IProcessWakeupDbEntityConditions<TId> processWakeUpDbEntityConditions,
 
             OptionsDto optionsDto)
         {
@@ -88,7 +88,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     }
 
                     // Нет компонента.
-                    if (!elem.TryGetComponent<IWakeUpComponent>(out var component))
+                    if (!elem.TryGetComponent<IWakeupComponent>(out var component))
                     {
                         continue;
                     }
@@ -134,7 +134,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                 // 1) Получаем wakeup с блокировкой.
                 using (var hint = This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
-                    var wakeUps = await This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+                    var wakeUps = await This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
                         .AsNoTracking()
                         .ApplayQueryCondition(This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, context.Keys)
                         .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
@@ -224,14 +224,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             }
 
             var checkBuffer = ids.ToHashSet();
-            var updateBuffer = new Dictionary<TId, ProcessWakeUpDbEntity<TId>>(ids.Length);
+            var updateBuffer = new Dictionary<TId, ProcessWakeupDbEntity<TId>>(ids.Length);
 
             while (true)
             {
                 // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                 {
-                    var wakeups = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+                    var wakeups = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
                         .AsNoTracking()
                         .ApplayQueryCondition(
                             _processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
@@ -257,7 +257,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     {
                         using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                         {
-                            var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+                            var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
                                 .AsNoTracking()
                                 .ApplayQueryCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer)
                                 .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
@@ -330,12 +330,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
         {
             public IProcessContainer<TId> Process { get; init; } = default!;
 
-            public IWakeUpComponent WakeUpComponent { get; init; } = default!;
+            public IWakeupComponent WakeUpComponent { get; init; } = default!;
 
             /// <summary>
             /// Пробуждение с блокировкой.
             /// </summary>
-            public ProcessWakeUpDbEntity<TId> WakeupWithLock { get; set; } = default!;
+            public ProcessWakeupDbEntity<TId> WakeupWithLock { get; set; } = default!;
         }
 
         /// <summary>

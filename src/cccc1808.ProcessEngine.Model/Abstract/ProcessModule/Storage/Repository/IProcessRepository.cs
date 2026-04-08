@@ -42,7 +42,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Обновить данные компонента <see cref="WakeupModule.Components.IWakeUpComponent"/>.
+        /// Обновить данные компонента <see cref="WakeupModule.Components.IWakeupComponent"/>.
         /// </summary>
         /// <param name="processes"></param>
         /// <param name="cancellationToken"></param>

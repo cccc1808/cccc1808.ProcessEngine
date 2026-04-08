@@ -127,7 +127,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton(s => new EFWakeupService<Guid>.OptionsDto())
                 .AddSingleton<IWakeupRegistry<Guid>, WakeupRegistry<Guid>>()
                 
-                .AddScoped<IProcessWakeUpDbEntityConditions<Guid>, ProcessWakeUpDbEntityConditions<Guid>>()
+                .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>()
 ;
 
             foreach (var elem in registrations)

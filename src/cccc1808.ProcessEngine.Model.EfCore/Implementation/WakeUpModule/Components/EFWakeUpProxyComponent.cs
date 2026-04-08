@@ -9,10 +9,10 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components
 {
-    public class EFWakeUpProxyComponent<TId>
-        : IWakeUpComponent
+    public class EFWakeupProxyComponent<TId>
+        : IWakeupComponent
     {
-        public ProcessWakeUpDbEntity<TId> DbEntity { get; }
+        public ProcessWakeupDbEntity<TId> DbEntity { get; }
 
         public bool IsAsyncExecuting
         {
@@ -26,8 +26,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
 
         public bool HandlerResult { get; set; }
 
-        public EFWakeUpProxyComponent(
-            ProcessWakeUpDbEntity<TId> dbEntity,
+        public EFWakeupProxyComponent(
+            ProcessWakeupDbEntity<TId> dbEntity,
             bool inAsyncExecuting)
         {
             DbEntity = dbEntity;

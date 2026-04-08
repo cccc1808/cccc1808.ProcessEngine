@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
 {
-    public interface IWakeUpComponent
+    public interface IWakeupComponent
     {
         #region persist
         

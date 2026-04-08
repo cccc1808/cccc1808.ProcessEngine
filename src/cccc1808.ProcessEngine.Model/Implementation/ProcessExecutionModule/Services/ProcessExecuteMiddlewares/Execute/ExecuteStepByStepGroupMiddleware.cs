@@ -463,7 +463,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 CancellationToken cancellationToken);
 
             /// <summary>
-            /// Сохранить состояние <see cref="cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components.IWakeUpComponent" /> и статус процесса.
+            /// Сохранить состояние <see cref="cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components.IWakeupComponent" /> и статус процесса.
             /// </summary>
             /// <param name="processes"></param>
             /// <param name="cancellationToken"></param>

@@ -13,31 +13,31 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration
 {
     public class ProcessWakeUpDbEntityConfiguration<TId>
-        : IEntityTypeConfiguration<ProcessWakeUpDbEntity<TId>>
+        : IEntityTypeConfiguration<ProcessWakeupDbEntity<TId>>
     {
-        public void Configure(EntityTypeBuilder<ProcessWakeUpDbEntity<TId>> builder)
+        public void Configure(EntityTypeBuilder<ProcessWakeupDbEntity<TId>> builder)
         {
             builder.HasOne(e => e.Process)
                 .WithOne()
-                .HasForeignKey<ProcessWakeUpDbEntity<TId>>(e => e.ProcessId)
+                .HasForeignKey<ProcessWakeupDbEntity<TId>>(e => e.ProcessId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             ProcessIdIndex(builder);
             IsAsyncExecutingIndex(builder);
         }
 
-        protected virtual IndexBuilder<ProcessWakeUpDbEntity<TId>> ProcessIdIndex(
-            EntityTypeBuilder<ProcessWakeUpDbEntity<TId>> builder)
+        protected virtual IndexBuilder<ProcessWakeupDbEntity<TId>> ProcessIdIndex(
+            EntityTypeBuilder<ProcessWakeupDbEntity<TId>> builder)
         {
             return builder.HasIndex(e => e.ProcessId)
                 .IsUnique();
         } 
 
         /// <summary>
-        /// <see cref="IProcessWakeUpDbEntityConditions{TId}.IsAsyncExecuting"/>
+        /// <see cref="IProcessWakeupDbEntityConditions{TId}.IsAsyncExecuting"/>
         /// </summary>
-        protected virtual IndexBuilder<ProcessWakeUpDbEntity<TId>> IsAsyncExecutingIndex(
-            EntityTypeBuilder<ProcessWakeUpDbEntity<TId>> builder)
+        protected virtual IndexBuilder<ProcessWakeupDbEntity<TId>> IsAsyncExecutingIndex(
+            EntityTypeBuilder<ProcessWakeupDbEntity<TId>> builder)
         {
             return builder.HasIndex(e => e.ProcessId)
                 .HasFilter("is_async_executing is true")

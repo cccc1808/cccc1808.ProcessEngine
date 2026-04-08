@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeUpComponent>();
+                var component = elem.GetComponent<IWakeupComponent>();
 
                 if (result.TryGetValue(elem.Id, out var haveMessage))
                 {

@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
     {
         private readonly IEFDbContext _dbContext;
         private readonly IWakeupRegistry<TId> _wakeupRegistry;
-        private readonly ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
+        private readonly ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeupDbEntity<TId>> _processWakeUpDbEntity_ProcessId_RangeCondition;        
 
         public EFWakeupDbProvider(
             IEFDbContext dbContext,
@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
         {
             _dbContext = dbContext;
             _wakeupRegistry = wakeupRegistry;
-            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeUpDbEntity<TId>>();
+            _processWakeUpDbEntity_ProcessId_RangeCondition = new ProcessLinkedDbEntity_RangeCondition<TId, ProcessWakeupDbEntity<TId>>();
         }
 
         public async Task LoadProcessDataAsync(
@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                 .ToArray();
 
             // Не блокируем т.к. система отдельно управляет блокировками.
-            var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+            var data = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
                 .AsNoTracking() // [Hack]: Не отслеживаем, смотри IProcessRepository<TId>.UpdateWakeupAsync
                 .ApplayQueryCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, ids)
                 .ToArrayAsync(cancellationToken);
@@ -61,8 +61,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             {
                 var process = processes[elem.ProcessId];
 
-                process.AddComponent<IWakeUpComponent>(
-                    new EFWakeUpProxyComponent<TId>(
+                process.AddComponent<IWakeupComponent>(
+                    new EFWakeupProxyComponent<TId>(
                         elem, 
                         inAsyncExecuting: true));
             }
@@ -85,7 +85,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             CancellationToken cancellationToken)
         {
             // Не блокируем при withLock.
-            var data = await _dbContext.Set<ProcessWakeUpDbEntity<TId>>()
+            var data = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
                 .ApplayQueryCondition(_processWakeUpDbEntity_ProcessId_RangeCondition, processes.Keys)
                 .ToArrayAsync(cancellationToken);
 
@@ -93,8 +93,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             {
                 var process = processes[elem.ProcessId];
 
-                process.AddComponent<IWakeUpComponent>(
-                    new EFWakeUpProxyComponent<TId>(
+                process.AddComponent<IWakeupComponent>(
+                    new EFWakeupProxyComponent<TId>(
                         elem,
                         inAsyncExecuting: true));
             }

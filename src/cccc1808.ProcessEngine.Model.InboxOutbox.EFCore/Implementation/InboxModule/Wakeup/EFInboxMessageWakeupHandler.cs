@@ -51,7 +51,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeUpComponent>();
+                var component = elem.GetComponent<IWakeupComponent>();
 
                 if (result.TryGetValue(elem.Id, out var haveMessage))
                 {
