@@ -31,6 +31,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
         : IClassifierRepository<TId>
     {
         private readonly IServiceProvider _serviceProvider;
+        /// <summary>
+        /// TODO: 1) ограничение размера кеша, отчистка. 2) Генерация идентификаторов offset.
+        /// </summary>
         private readonly CachState _cachState;
 
 

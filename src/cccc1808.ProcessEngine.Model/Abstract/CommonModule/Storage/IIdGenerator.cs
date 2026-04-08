@@ -10,6 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
     /// Генератор Id для БД.
     /// Предпологается для случаев, когда id генерируется на бекенде.
     /// Если id из БД, то реализация должна возвращать значение по умолчанию.
+    /// TODO: прикинуть возможность использования sequence.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public interface IIdGenerator<TId>

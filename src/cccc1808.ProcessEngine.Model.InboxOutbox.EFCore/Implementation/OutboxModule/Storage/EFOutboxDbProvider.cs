@@ -204,6 +204,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             }
 
             var processData = await _dbContext.Set<OutboxProcessDataDbEntity<TId>>()
+                .Include(e => e.Queue)
                 .Where(e => processGroups.Select(e => e.Process.Id).Contains(e.ProcessId))
                 .ToDictionaryAsync(e => e.ProcessId, e => e);
 

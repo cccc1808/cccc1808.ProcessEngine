@@ -180,7 +180,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
-                await triggerService.DbWorkAsync(oneCycle: true, default);
+                await triggerService.DbWorkAsync(executeOne: true, default);
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(

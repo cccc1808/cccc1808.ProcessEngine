@@ -15,12 +15,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         : IProcessHandlerMiddleware<TId>
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly Func<IServiceProvider, IProcessHandlerMiddleware<TId>> _next;
+        private readonly Func<IServiceProvider, IReadOnlyList<IReadOnlyList<ProcessInstanceInfoDto<TId>>>, IProcessHandlerMiddleware<TId>> _next;
         private readonly ITransactionManager _transactionManager;
 
         public TransactionMiddleware(
             IServiceProvider serviceProvider,
-            Func<IServiceProvider, IProcessHandlerMiddleware<TId>> next,
+            Func<IServiceProvider, IReadOnlyList<IReadOnlyList<ProcessInstanceInfoDto<TId>>>, IProcessHandlerMiddleware<TId>> next,
             ITransactionManager transactionManager)
         {
             _serviceProvider = serviceProvider;
@@ -34,7 +34,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         {
             await using (var transaction = await _transactionManager.StartTransactionAsync(cancellationToken))
             {
-                var handler = _next(_serviceProvider);
+                var handler = _next(_serviceProvider, ids);
                 await handler.HandleRangeAsync(ids, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
             }

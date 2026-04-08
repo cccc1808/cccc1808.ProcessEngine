@@ -228,6 +228,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
             while (true)
             {
+                //// Замечание: share lock не является обязательно необходимым, может быть достаточной реализация только на основе update lock.
+
                 // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                 {

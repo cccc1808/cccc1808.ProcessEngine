@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 .HasMaxLength(255);
 
             ProcessIdIndex(builder);
+            AggregateQueueIndex(builder);
         }
 
         /// <summary>
@@ -34,6 +36,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         {
             builder.HasIndex(e => e.ProcessId)
                 .IsUnique();            
+        }
+
+        /// <summary>
+        /// TODO: see condtion
+        /// </summary>
+        /// <param name="builder"></param>
+        protected virtual void AggregateQueueIndex(EntityTypeBuilder<OutboxProcessDataDbEntity<TId>> builder)
+        {
+            builder.HasIndex(e => new { e.AggregateId, e.QueueId })
+                .IsUnique();
         }
     }
 }

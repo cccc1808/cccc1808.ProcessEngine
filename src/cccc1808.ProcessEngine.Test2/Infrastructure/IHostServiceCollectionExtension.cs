@@ -45,6 +45,7 @@ using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
@@ -66,13 +67,17 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierM
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+
+using Scrutor;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -254,6 +259,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             OutboxRegistryDto outboxRegistry) 
         {
             services
+
+                .AddScoped<IOutboxSender<Guid>, OutboxSender<Guid>>()
+
                 .AddScoped<EFInboxDbProvider<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)
                 .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider<Guid>>())
@@ -274,6 +282,20 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<IClassifierRepository<Guid>, EFClassifierRepository<Guid>>()
                 .AddSingleton<EFClassifierRepository<Guid>.CachState>()
+
+                .AddScoped(s => new OutboxRangeProcessHandler<Guid>(
+                    s.GetRequiredService<IProcessRepository<Guid>>(),
+                    s.GetRequiredService<ITriggerRepository<Guid>>(),
+                    s.GetRequiredService<IProcessSetter>(),
+                    s.GetRequiredService<IQueueProviderFactory>(),
+                    s.GetRequiredService<IOutboxSetter>(),
+                    new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(
+                        10,
+                        IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
+                        true,
+                        true,
+                        true)
+                    ))
 
                 .AddScoped<IAggregateClassifierDbEntityCondition<Guid>, AggregateClassifierDbEntityCondition<Guid>>()
 

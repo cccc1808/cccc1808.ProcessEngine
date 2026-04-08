@@ -29,12 +29,14 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Wakeup;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
@@ -52,12 +54,13 @@ using Xunit.Sdk;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 {
-    [CollectionDefinition(Name)]
+    [CollectionDefinition(Name, DisableParallelization = true)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
         public const string Name = "FixtureCollection 4";
         public const string TriggerQueue = "trigger_events";
         public const string InboxQueue = "inbox_test";
+        public const string OutboxQueue = "outbox_test";
 
         // This class has no code, and is never created. Its purpose is simply
         // to be the place to apply [CollectionDefinition] and all the
@@ -191,14 +194,38 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                         (s) => new TransactionMiddleware<Guid>(
                             s,
-                            (s) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                            s,
-                            s.GetRequiredService<IIsolationService>(),
-                            s.GetRequiredService<IProcessSetter>(),
-                            s.GetRequiredService<IWakeupService<Guid>>(),
-                            (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
-                            s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                            ),
+                            (s, ids) => 
+                            {
+                                var inbox = s.GetRequiredService<InboxRegistryDto>();
+                                var outbox = s.GetRequiredService<OutboxRegistryDto>();
+
+                                if (ids.First().First().ProcessType == inbox.Registry.ProcessType)
+                                {
+                                    return new ExecuteStepByStepGroupMiddleware<Guid>(
+                                        s,
+                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IProcessSetter>(),
+                                        s.GetRequiredService<IWakeupService<Guid>>(),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
+                                        s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                        );
+                                }
+                                else if (ids.First().First().ProcessType == outbox.Registry.ProcessType)
+                                {
+                                    return new ExecuteStepByStepGroupMiddleware<Guid>(
+                                        s,
+                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IProcessSetter>(),
+                                        s.GetRequiredService<IWakeupService<Guid>>(),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler<Guid>>()),
+                                        s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                        );
+                                }
+                                else 
+                                {
+                                    throw new NotImplementedException("Test");
+                                }
+                            },
                             s.GetRequiredService<ITransactionManager>()
                             ) 
                         )
@@ -213,8 +240,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             false,
                             true),
                         IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                        UseSave: true))
-                    .AddSingleton<Process1Body.TestState>();
+                        UseSave: true));
 
                 services
                     .AddInboxOutbox(
@@ -257,6 +283,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
             {
                 await using (var scope = ServiceProvider.CreateAsyncScope())
                 {
+                    // InMemory
+                    {
+                        var cachce = scope.ServiceProvider.GetRequiredService<EFClassifierRepository<Guid>.CachState>();
+                        cachce._queueCache.Clear();
+                        cachce._aggregateCache.Clear();
+                        cachce._inboxInfo.Clear();
+                        cachce._outboxInfo.Clear();
+                        cachce._inboxOffset.Clear();
+                        cachce._outboxOffset.Clear();
+                    }
+
                     // Db
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();

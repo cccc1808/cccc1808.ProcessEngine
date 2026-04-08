@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Service
     /// Публикация событий в TransactionOutbox.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public interface IOutboxRaiser<TId>
+    public interface IOutboxSender<TId>
     {
         ValueTask SendAsync(
             ICollection<(AggregateDto aggregate, MessageDto message)> messages,

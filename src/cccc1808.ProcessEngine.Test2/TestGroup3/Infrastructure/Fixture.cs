@@ -181,13 +181,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                         (s) => new TransactionMiddleware<Guid>(
                             s,
-                            (s) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                            s,
-                            s.GetRequiredService<IIsolationService>(),
-                            s.GetRequiredService<IProcessSetter>(),
-                            s.GetRequiredService<IWakeupService<Guid>>(),
-                            (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
-                            s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                            (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                s,
+                                s.GetRequiredService<IIsolationService>(),
+                                s.GetRequiredService<IProcessSetter>(),
+                                s.GetRequiredService<IWakeupService<Guid>>(),
+                                (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
                             ),
                             s.GetRequiredService<ITransactionManager>()
                             ) 

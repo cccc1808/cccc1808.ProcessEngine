@@ -42,7 +42,7 @@ using Xunit.Sdk;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 {
-    [CollectionDefinition(Name)]
+    [CollectionDefinition(Name, DisableParallelization = true)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
         public const string Name = "FixtureCollection 2";
@@ -191,13 +191,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                         (s) => new TransactionMiddleware<Guid>(
                             s,
-                            (s) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                            s,
-                            s.GetRequiredService<IIsolationService>(),
-                            s.GetRequiredService<IProcessSetter>(),
-                            s.GetRequiredService<IWakeupService<Guid>>(),
-                            (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
-                            s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                            (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                s,
+                                s.GetRequiredService<IIsolationService>(),
+                                s.GetRequiredService<IProcessSetter>(),
+                                s.GetRequiredService<IWakeupService<Guid>>(),
+                                (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
                             ),
                             s.GetRequiredService<ITransactionManager>()
                             ) 

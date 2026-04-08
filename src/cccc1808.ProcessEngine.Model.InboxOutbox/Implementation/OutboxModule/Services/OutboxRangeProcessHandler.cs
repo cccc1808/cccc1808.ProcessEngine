@@ -36,7 +36,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
-            IOutboxSetter outboxSetter)
+            IOutboxSetter outboxSetter,
+            ExecuteStepByStepGroupMiddleware<TId>.OptionsDto options)
             : base(
                   repository,
                   triggerRepository,
@@ -44,9 +45,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
         {
             _queueProviderFactory = queueProviderFactory;
             _outboxSetter = outboxSetter;
+            Options = options;
         }
 
-        public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options => throw new NotImplementedException();
+        public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options { get; }
 
         public override async ValueTask StepRangeAsync(
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group,

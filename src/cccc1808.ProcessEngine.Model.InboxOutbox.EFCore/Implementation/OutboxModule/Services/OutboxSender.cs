@@ -17,7 +17,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Enti
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Services
 {
-    public class OutboxRaiser<TId> : IOutboxRaiser<TId>
+    public class OutboxSender<TId> : IOutboxSender<TId>
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
         private readonly IClassifierRepository<TId> _classifierRepository;
 
-        public OutboxRaiser(
+        public OutboxSender(
             IIdGenerator<TId> idGenerator, 
             IEFDbContext dbContext,
             ITriggerEventRaiser triggerEventRaiser,

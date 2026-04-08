@@ -13,8 +13,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
-using LinqToDB;
-
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using Shouldly;
@@ -108,7 +107,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
-                await triggerRunnern.DbWorkAsync(oneCycle: true, default);
+                await triggerRunnern.DbWorkAsync(executeOne: true, default);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
@@ -187,7 +186,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
-                await triggerRunnern.DbWorkAsync(oneCycle: true, default);
+                await triggerRunnern.DbWorkAsync(executeOne: true, default);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
