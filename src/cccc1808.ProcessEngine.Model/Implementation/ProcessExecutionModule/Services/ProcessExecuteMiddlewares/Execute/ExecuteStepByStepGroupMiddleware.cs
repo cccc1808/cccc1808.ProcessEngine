@@ -74,15 +74,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     || !This._processContainerConditions.AsyncExecute.Memory.Check(elem);
 
                 if (stopInCurrentSession)
-                {
-                    ////  Обработка завершена
-
-                    if (!elem.CurrentSession.CurrentSessionHaveError)
-                    {
-                        // В сессии нет ошибок, тогда отчищаем ошибку.
-                        This._processSetter.ClearError(elem);
-                    }
-                    
+                {                                     
                     return true;
                 }
 
@@ -119,19 +111,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             var executingProcesses = LinkContainer.Create(
                 allProcesses
                     .Data
-                    .ToDictionary(
-                        e => e.Key,
-                        e =>
-                        { 
+                    .Where(
+                        e => 
+                        {
                             if (e.Value.TryGetComponent<ISoftTimeoutComponent>(out var softTimeoutComponent))
                             {
                                 softTimeoutDate = DateTimeOffsetHelper.Min(
-                                    softTimeoutDate, 
+                                    softTimeoutDate,
                                     softTimeoutComponent.StopDate ?? DateTimeOffset.MaxValue);
                             }
 
-                            return e.Value; 
-                        }
+                            return !StopCheck(this, e.Value);
+                        })
+                    .ToDictionary(
+                        e => e.Key,
+                        e => e.Value
                         )
                 );
 
@@ -183,6 +177,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 // 3.1) Условие асинхронной обработки процесса.
                                 if (StopCheck(p.This, elem))
                                 {
+                                    ////  Обработка завершена  
+                                    if (!elem.CurrentSession.CurrentSessionHaveError)
+                                    {
+                                        // В сессии нет ошибок, тогда отчищаем ошибку.
+                                        p.This._processSetter.ClearError(elem);
+                                    }
+
                                     forStop.Add(elem.Id);                                    
                                 }
                                 else
@@ -258,6 +259,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         {
                             if (StopCheck(p.This, elem))
                             {
+                                ////  Обработка завершена  
+                                if (!elem.CurrentSession.CurrentSessionHaveError)
+                                {
+                                    // В сессии нет ошибок, тогда отчищаем ошибку.
+                                    p.This._processSetter.ClearError(elem);
+                                }
+
                                 forStop.Add(elem.Id);
                             }
                         }

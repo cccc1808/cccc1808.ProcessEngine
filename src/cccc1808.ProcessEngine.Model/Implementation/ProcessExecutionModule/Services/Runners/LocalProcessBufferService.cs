@@ -30,7 +30,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             = new ConcurrentDictionary<Guid, Action<ILocalProcessBufferService<TId>>>();
 
         public int FreeSpace 
-            => GetFreeSpace(_size);
+            => GetFreeSpace();
 
         public LocalProcessBufferService(Options options) 
         {
@@ -137,29 +137,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         public (int FreeSpace, Queue<ProcessInstanceInfoDto<TId>> ids) TryProduce(
             Queue<ProcessInstanceInfoDto<TId>> ids)
         {
-            int currentSize = _size;
-
-            if (GetFreeSpace(currentSize) == 0)
-            {
-                return (0, ids);
-            }
-            
             while(ids.TryDequeue(out var elem))
             {
-                _channel.Writer.TryWrite(elem);
-                currentSize = Interlocked.Increment(ref _size);
-
-                if (GetFreeSpace(currentSize) == 0)
+                if (_channel.Writer.TryWrite(elem))
                 {
+                    Interlocked.Increment(ref _size);
+                }
+                else 
+                {
+                    ids.Enqueue(elem);
                     return (0, ids);
                 }
             }
 
-            return (currentSize, ids);
+            return (_size, ids);
         }
 
-        private int GetFreeSpace(int size)
-            => Math.Max(_options.SizeLimit - size, 0);
+        private int GetFreeSpace()
+            => Math.Max(_options.SizeLimit - _size, 0);
 
         public IDisposable AddEmptyHandler(
             Action<ILocalProcessBufferService<TId>> handler)

@@ -332,7 +332,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                 await dbContext.SaveChangesAsync(cancellationToken);
                             }
 
-                            // !TODO: событие для stream trigger.
                             await transaction.CommitAsync(cancellationToken);
                         }
                     }

@@ -164,7 +164,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
                         e => e,
                         (e1, e2) => e1)
-                    .LeftJoin(
+                    .Join(
                         _dbContext.Set<InboxMessageDbEntity<TId>>(),
                         e => e.Id,
                         e => e.ProcessId,
@@ -336,7 +336,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                 await dbContext.SaveChangesAsync(cancellationToken);
                             }
 
-                            // !TODO: событие для stream trigger.
                             await transaction.CommitAsync(cancellationToken);
                         }
                     }
