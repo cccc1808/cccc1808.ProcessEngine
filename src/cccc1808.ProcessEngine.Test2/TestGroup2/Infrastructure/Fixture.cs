@@ -184,12 +184,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             SelectBatchLimit: 1,
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: 1,
-                            BatchTimeout: TimeSpan.FromSeconds(1)),                    
-                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
-                        s.GetRequiredService<IExecuteLimiterInvoker>(),
-                        s.GetRequiredService<ProcessCountLimiter>(),
-                        (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
-                        (s) => new TransactionMiddleware<Guid>(
+                            BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                       
+                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,
                             (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                 s,
@@ -200,7 +197,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 s.GetRequiredService<IProcessContainerConditions<Guid>>()
                             ),
                             s.GetRequiredService<ITransactionManager>()
-                            ) 
+                            )
+                        ),                    
+                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
+                        s.GetRequiredService<IExecuteLimiterInvoker>(),
+                        s.GetRequiredService<ProcessCountLimiter>()
                         )
                 );
                 services

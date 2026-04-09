@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,7 +20,6 @@ using Microsoft.Extensions.DependencyInjection;
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners
 {
     /// <summary>
-    /// TODO: кривая реализация буфер выполняющихся задач.
     /// TODO: подумать нужна ли InMemory queue или может синхронно вычитывать и запускать 
     /// (если лимит, то сбрасываем select lock и спим пока не снимется лимит)
     /// (по хорошему нужно мерить производительность разных реализаций, но пока не буду).
@@ -32,44 +32,32 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly OptionsDto _options;
         private readonly ILocalProcessBufferService<TId> _buffer;
         private readonly IExecuteLimiterInvoker _executeLimiter;
-        private readonly ProcessCountLimiter _processCountLimiter;
-        private readonly Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<TId>> _selectFactory;
-        private readonly Func<IServiceProvider, IProcessHandlerMiddleware<TId>> _rootMiddlewareFactory;
+        private readonly ProcessCountLimiter _processCountLimiter;        
 
-        private List<Task> RunningTasks { get; }
-            = new List<Task>();
+        private ConcurrentDictionary<Guid, Task> RunningTasks { get; }
+            = new ConcurrentDictionary<Guid, Task>();
 
         public ProcessRunner(
             IServiceProvider serviceProvider,
             OptionsDto options,
             ILocalProcessBufferService<TId> buffer,
             IExecuteLimiterInvoker executeLimiter,
-            ProcessCountLimiter processCountLimiter,
-            Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<TId>> selectFactory,
-            Func<IServiceProvider, IProcessHandlerMiddleware<TId>> rootMiddlewareFactory
+            ProcessCountLimiter processCountLimiter
             )
         {
             _serviceProvider = serviceProvider;
             _options = options;
             _buffer = buffer;
             _executeLimiter = executeLimiter;
-            _processCountLimiter = processCountLimiter;
-            _selectFactory = selectFactory;
-            _rootMiddlewareFactory = rootMiddlewareFactory;           
-        }          
-
-        public async ValueTask DisposeAsync()
-        {
-            await WaitRunningTasksAsync(default);
-            RunningTasks.Clear();
+            _processCountLimiter = processCountLimiter;          
         }
-
+        
         public async Task BuildHandler()
         {
             await using (var scope = _serviceProvider.CreateAsyncScope())
             {
-                _selectFactory(scope.ServiceProvider);
-                var middleware = _rootMiddlewareFactory(scope.ServiceProvider);
+                _options.SelectFactory(scope.ServiceProvider);
+                _options.RootMiddlewareFactory(scope.ServiceProvider);
             }
         }
 
@@ -78,84 +66,90 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             CancellationToken cancellationToken)
         {
             {
+                var selectTaskId = Guid.NewGuid();
                 var selectTask = Task.Run(
                     async () =>
                     {
-                        // Для пробуждения, если очередь опустела.
-                        var wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-                        using var _ = _buffer.AddEmptyHandler(
-                            (b) => wakeUpTask.TrySetResult());
-
-                        var registrations = _serviceProvider
-                            .GetRequiredService<IProcessRegistry>()
-                            .All();
-
-                        while (true)
+                        try
                         {
-                            await using (var scope = _serviceProvider.CreateAsyncScope())
+                            // Для пробуждения, если очередь опустела.
+                            var wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                            using var _ = _buffer.AddEmptyHandler(
+                                (b) => wakeUpTask.TrySetResult());
+
+                            var registrations = _serviceProvider
+                                .GetRequiredService<IProcessRegistry>()
+                                .All();
+
+                            while (true)
                             {
-                                var freeSpace = _buffer.FreeSpace;
-
-                                var select = _selectFactory(scope.ServiceProvider);
-
-
-                                var selectContext = new LinkContainer<(object? _, int BatchSize)>(
-                                    (null, Math.Min(freeSpace, _options.SelectBatchLimit))
-                                    );
-
-                                wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-                                await foreach (var elem in select.SelectProcessIdsForAsyncProcessingAsync(
-                                    selectContext,
-                                    registrations,
-                                    cancellationToken)
-                                    .WithCancellation(cancellationToken))
+                                await using (var scope = _serviceProvider.CreateAsyncScope())
                                 {
-                                    // Выборка пустая.
-                                    if (elem.Count == 0)
+                                    var freeSpace = _buffer.FreeSpace;
+
+                                    var select = _options.SelectFactory(scope.ServiceProvider);
+
+                                    var selectContext = new LinkContainer<(object? _, int BatchSize)>(
+                                        (null, Math.Min(freeSpace, _options.SelectBatchLimit))
+                                        );
+
+                                    wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                                    await foreach (var elem in select.SelectProcessIdsForAsyncProcessingAsync(
+                                        selectContext,
+                                        registrations,
+                                        cancellationToken)
+                                        .WithCancellation(cancellationToken))
                                     {
-                                        break;
+                                        // Выборка пустая.
+                                        if (elem.Count == 0)
+                                        {
+                                            break;
+                                        }
+
+                                        var produceResult = _buffer.TryProduce(elem);
+
+                                        // Буфер заполнен.
+                                        if (produceResult.ids.Count != 0)
+                                        {
+                                            // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
+                                            // чтобы их могли взять в обработку другие экземпляры.
+                                            await select.UnlockSelectAsync(
+                                                produceResult.ids,
+                                                cancellationToken);
+
+                                            break;
+                                        }
+
+                                        selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
+
+                                        if (oneCycle)
+                                        {
+                                            break;
+                                        }
                                     }
-
-                                    var produceResult = _buffer.TryProduce(elem);
-
-                                    // Буфер заполнен.
-                                    if (produceResult.ids.Count != 0)
-                                    {
-                                        // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
-                                        // чтобы их могли взять в обработку другие экземпляры.
-                                        await select.UnlockSelectAsync(
-                                            produceResult.ids,
-                                            cancellationToken);
-
-                                        break;
-                                    }
-
-                                    selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
 
                                     if (oneCycle)
                                     {
                                         break;
                                     }
-                                }
 
-                                if (oneCycle)
-                                {
-                                    break;
+                                    await TimeoutHelper.ExecuteWithTimeoutAsync(
+                                        wakeUpTask,
+                                        _options.selectEmptyTimeout,
+                                        static async (p) => await p.Task
+                                        );
                                 }
-
-                                await TimeoutHelper.ExecuteWithTimeoutAsync(
-                                    wakeUpTask,
-                                    _options.selectEmptyTimeout,
-                                    static async (p) => await p.Task
-                                    );
                             }
+                        }
+                        finally 
+                        {
+                            RunningTasks.TryRemove(selectTaskId, out _);
                         }
                     }
                     );
-
-                RunningTasks.Add(selectTask);
+                RunningTasks.TryAdd(selectTaskId, selectTask);
             }
 
             while (!cancellationToken.IsCancellationRequested)
@@ -173,7 +167,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 }
 
                 _processCountLimiter.Start(batch.Count);
-
+                var taskId = Guid.NewGuid();
                 var task = Task.Run(
                     async () => 
                     {
@@ -181,17 +175,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         {
                             await using (var scope = _serviceProvider.CreateAsyncScope())
                             {
-                                var handler = _rootMiddlewareFactory(scope.ServiceProvider);
+                                var handler = _options.RootMiddlewareFactory(scope.ServiceProvider);
                                 await handler.HandleRangeAsync([batch], cancellationToken);
                             }
                         }
                         finally 
                         {
                             _processCountLimiter.Stop(batch.Count);
+                            RunningTasks.TryRemove(taskId, out _);
                         }
                     }
                     );
-                RunningTasks.Add(task);   
+                RunningTasks.TryAdd(taskId, task);   
                 
                 if (oneCycle)
                 {
@@ -204,7 +199,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         public async Task WaitRunningTasksAsync(CancellationToken cancellationToken)
         {
-            await Task.WhenAll(RunningTasks);
+            await Task.WhenAll(RunningTasks.Values);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await WaitRunningTasksAsync(default);
+            RunningTasks.Clear();
         }
 
 
@@ -219,7 +220,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             int SelectBatchLimit,
             TimeSpan selectEmptyTimeout,
             int BatchLimit,
-            TimeSpan BatchTimeout
+            TimeSpan BatchTimeout,
+            Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<TId>> SelectFactory,
+            Func<IServiceProvider, IProcessHandlerMiddleware<TId>> RootMiddlewareFactory
             );
     }
 }

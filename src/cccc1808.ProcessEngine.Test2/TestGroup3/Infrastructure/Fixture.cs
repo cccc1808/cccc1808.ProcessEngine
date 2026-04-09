@@ -174,25 +174,26 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             SelectBatchLimit: FixtureCollection.RangeConst,
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: FixtureCollection.RangeConst,
-                            BatchTimeout: TimeSpan.FromSeconds(2)),                    
+                            BatchTimeout: TimeSpan.FromSeconds(2),
+                            SelectFactory: s => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
+                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
+                                s,
+                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                    s,
+                                    s.GetRequiredService<IIsolationService>(),
+                                    s.GetRequiredService<IProcessSetter>(),
+                                    s.GetRequiredService<IWakeupService<Guid>>(),
+                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                ),
+                                s.GetRequiredService<ITransactionManager>()
+                                )
+                            ),                    
                         s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
                         s.GetRequiredService<IExecuteLimiterInvoker>(),
-                        s.GetRequiredService<ProcessCountLimiter>(),
-                        (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
-                        (s) => new TransactionMiddleware<Guid>(
-                            s,
-                            (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                                s,
-                                s.GetRequiredService<IIsolationService>(),
-                                s.GetRequiredService<IProcessSetter>(),
-                                s.GetRequiredService<IWakeupService<Guid>>(),
-                                (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
-                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                            ),
-                            s.GetRequiredService<ITransactionManager>()
-                            ) 
+                        s.GetRequiredService<ProcessCountLimiter>()
                         )
-                );
+                    );
                 services
                     .AddScoped<Process1Body>();                
 
