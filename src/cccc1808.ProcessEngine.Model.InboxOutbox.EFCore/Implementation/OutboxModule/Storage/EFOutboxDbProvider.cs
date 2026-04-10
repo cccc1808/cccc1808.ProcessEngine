@@ -261,12 +261,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
                         var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                         var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
+                        var messageStreamConditions = scope.ServiceProvider.GetRequiredService<IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>>();
 
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
+                                var messageQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
+                                   .ApplayQueryCondition(messageStreamConditions.IsActiveMessages.Query);
+
                                 var activeWithoutMessages = await dbContext.Set<ProcessDbEntity<TId>>()
                                     .Join(
                                         dbContext.Set<ProcessWakeupDbEntity<TId>>(),
@@ -275,7 +279,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                         (e1, e2) => new { Process = e1, Wakeup = e2 }
                                     )
                                     .Where(e => notProcessedOutboxProcessesIds.Contains(e.Process.Id))
-                                    .Where(e => !_dbContext.Set<OutboxMessageDbEntity<TId>>().Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
+                                    .Where(e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
                                     .ToArrayAsync(cancellationToken);
 
                                 if (activeWithoutMessages.Any())

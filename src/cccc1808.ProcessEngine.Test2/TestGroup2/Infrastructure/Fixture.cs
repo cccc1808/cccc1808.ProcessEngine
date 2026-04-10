@@ -46,6 +46,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
         public const string Name = "FixtureCollection 2";
+        public const int TestTimeout = 10000;
 
         // This class has no code, and is never created. Its purpose is simply
         // to be the place to apply [CollectionDefinition] and all the
@@ -150,7 +151,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.Options() 
+                        new TriggerRunner<Guid>.OptionsDto() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -185,6 +186,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: 1,
                             BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectorExceptionDelay: TimeSpan.Zero,
                             SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                       
                             RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,

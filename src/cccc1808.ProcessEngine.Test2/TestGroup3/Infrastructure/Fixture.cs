@@ -141,7 +141,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.Options() 
+                        new TriggerRunner<Guid>.OptionsDto() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -175,6 +175,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: FixtureCollection.RangeConst,
                             BatchTimeout: TimeSpan.FromSeconds(2),
+                            SelectorExceptionDelay: TimeSpan.Zero,
                             SelectFactory: s => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                             RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                                 s,

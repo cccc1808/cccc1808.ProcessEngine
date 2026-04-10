@@ -86,20 +86,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 && !process.Process.StoppedByError
                 )
             {
-                // Тут статус не трогаем.
-                process.Process.StoppedByError = false;
-                process.Process.RetryCount = (short)((process.Process.RetryCount ?? 0) + 1);
-
                 // Ждем retry триггер.
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
+
+                process.Process.StoppedByError = false;
+                process.Process.RetryCount = (short)((process.Process.RetryCount ?? 0) + 1);
+                
                 result = (true, _retryDelayFunc(process.Process.RetryCount.Value, ex));
             }
             else
             {
-                process.Process.StoppedByError = true;
-
                 // Останавливаем выполнение
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
+
+                process.Process.StoppedByError = true;
+                
                 result = (false, DateTimeOffset.MinValue);
             }
 

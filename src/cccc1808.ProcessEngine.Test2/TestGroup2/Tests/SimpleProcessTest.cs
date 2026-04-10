@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact]
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
         public async Task Test1()
         {
             var idGenerator = _fixture.ServiceProvider.GetRequiredService<IIdGenerator<Guid>>();

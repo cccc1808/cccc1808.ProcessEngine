@@ -56,8 +56,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 {
     [CollectionDefinition(Name, DisableParallelization = true)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
-    {       
+    {
         public const string Name = "FixtureCollection 4";
+        public const int TestTimeout = 10000;
         public const string TriggerQueue = "trigger_events";
         public const string InboxQueue = "inbox_test";
         public const string OutboxQueue = "outbox_test";
@@ -155,7 +156,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.Options() 
+                        new TriggerRunner<Guid>.OptionsDto() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -188,6 +189,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: 1,
                             BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectorExceptionDelay: TimeSpan.Zero,
                             SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                        
                             RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,
@@ -246,8 +248,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddInboxOutbox(
                         new InboxRunner<Guid>.OptionsDto() 
                         {
-                            ConsumeBatchSize = 100,
-                            ConsumeTimeout = TimeSpan.FromSeconds(2),
+                            ConsumeBatchLimit = 100,
+                            ConsumeBatchTimeout = TimeSpan.FromSeconds(2),
                             Queues = [InboxQueue],
                         },
                         new EFInboxConsumerService<Guid>.Options() 

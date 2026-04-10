@@ -4,10 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
+using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -107,36 +110,95 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
         {
             var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
 
-            var consumer = await queueProviderFactory.GetConsumerAsync(queueName, cancelationToken);
+            var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
+                queueProviderFactory, 
+                options.ExceptionDelay, 
+                consumer: null, 
+                queueName, 
+                oneExecute: oneExecute,
+                (ex) => {  /*TODO: log*/ },
+                cancelationToken);
             while (!cancelationToken.IsCancellationRequested)
             {
-                var batch = await consumer.ConsumeBatchAsync(
-                    options.ConsumeBatchSize,
-                    options.ConsumeTimeout,
-                    cancelationToken);
-
-                if (batch.Count == 0)
+                try
                 {
-                    continue;
-                }
+                    var batch = await consumer.ConsumeBatchAsync(
+                        options.ConsumeBatchLimit,
+                        options.ConsumeBatchTimeout,
+                        cancelationToken);
 
-                await using (var scope = serviceProvider.CreateAsyncScope())
-                {
-                    var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
-                    var consumerService = scope.ServiceProvider.GetRequiredService<IInboxConsumerService>();
-
-                    await using (var transaction = await transactionService.StartTransactionAsync(cancelationToken))
+                    if (!batch.Any())
                     {
-                        await consumerService.ProcessBatchAsync(batch, cancelationToken);
-                        await transaction.CommitAsync(cancelationToken);
-                    }                                       
+                        continue;
+                    }
+
+                    await using (var scope = serviceProvider.CreateAsyncScope())
+                    {
+                        while (true) 
+                        {
+                            try
+                            {
+                                var transactionService = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                                var consumerService = scope.ServiceProvider.GetRequiredService<IInboxConsumerService>();
+
+                                await using (var transaction = await transactionService.StartTransactionAsync(cancelationToken))
+                                {
+                                    await consumerService.ProcessBatchAsync(batch, cancelationToken);
+                                    await transaction.CommitAsync(cancelationToken);
+                                }
+
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                // exception в хендлере.
+                                if (OperationCancelHelper.IsCancelException(ex, cancelationToken))
+                                {
+                                    throw;
+                                }
+
+                                // TODO: log.
+
+                                if (oneExecute)
+                                {
+                                    throw;
+                                }                                
+
+                                await Task.Delay(options.ExceptionDelay, cancelationToken);
+                            }
+                        }                        
+                    }
+
+                    await consumer.CommitAsync(cancelationToken);
+
+                    if (oneExecute)
+                    {
+                        break;
+                    }
                 }
-
-                await consumer.CommitAsync(cancelationToken);
-
-                if (oneExecute)
+                catch (Exception ex) 
                 {
-                    break;
+                    // exception при работе с брокером.
+                    if (OperationCancelHelper.IsCancelException(ex, cancelationToken))
+                    {
+                        throw;
+                    }
+
+                    // TODO: log.
+
+                    if (oneExecute)
+                    {
+                        throw;
+                    }
+
+                    consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
+                        queueProviderFactory, 
+                        options.ExceptionDelay,
+                        consumer,
+                        queueName,
+                        oneExecute: false,
+                        (ex) => {  /*TODO: log*/ },
+                        cancelationToken);
                 }
             }
         }
@@ -163,11 +225,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             public string[] Queues { get; set; }
                 = Array.Empty<string>();
 
-            public int ConsumeBatchSize { get; set; }
+            public int ConsumeBatchLimit { get; set; }
                 = 250;
 
-            public TimeSpan ConsumeTimeout { get; set; }
+            public TimeSpan ConsumeBatchTimeout { get; set; }
                 = TimeSpan.FromSeconds(2);
+
+            public TimeSpan ExceptionDelay { get; set; }
+                = TimeSpan.FromSeconds(10);
         }
     }
 }

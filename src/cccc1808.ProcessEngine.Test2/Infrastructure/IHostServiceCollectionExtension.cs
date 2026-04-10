@@ -231,7 +231,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
-            TriggerRunner<Guid>.Options triggerServiceOptions,
+            TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
             TriggerOptions triggerOptions)
         {
             services

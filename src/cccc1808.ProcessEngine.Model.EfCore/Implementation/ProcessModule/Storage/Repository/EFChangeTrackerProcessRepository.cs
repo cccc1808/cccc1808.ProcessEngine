@@ -147,15 +147,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 {
                     // В1.1: нормальный join
                     var idsQuery = _dbContext
-                    .QueryFromCollection(notLoadedProcesses.Values.Select(
-                        e => new
-                        {
-                            ProcessTypeId = e.ProcessType.ProcessType,
-                            ProcessVersion = e.ProcessType.ProcessVersion,
-                            Priority = e.Priority,
-                            Id = e.Id,
-                        })
-                    .ToArray());
+                        .QueryFromCollection(notLoadedProcesses.Values.Select(
+                            e => new
+                            {
+                                ProcessTypeId = e.ProcessType.ProcessType,
+                                ProcessVersion = e.ProcessType.ProcessVersion,
+                                Priority = e.Priority,
+                                Id = e.Id,
+                            })
+                        .ToArray());
                     var query = _dbContext.Set<TDbEntity>()
                         .Join(
                             idsQuery,
@@ -306,7 +306,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 var errorSet = _dbContext.Set<ProcessErrorDbEntity<TId>>();
 
                 var errorStateChanged = processes
-                    .Where(e => e.CurrentSession?.NeedUpdateErrorData ?? true)
+                    .Where(e => e.CurrentSession.NeedUpdateErrorData)
                     .ToArray();
                 var errorEntries = new List<EntityEntry<ProcessErrorDbEntity<TId>>>(errorStateChanged.Length);
 
@@ -361,7 +361,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         elem.State = EntityState.Detached;
                     }
                 }
-
 
                 foreach (var elem in errorStateChanged)
                 {
