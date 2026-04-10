@@ -76,6 +76,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
+            // TODO: !Критично. если это асинхронное выполнение и ReTry то будет перезагрузка после ошибки. Нужно проверить такой сценарий.
+
             if (isAsyncExecution)
             {
                 // Данные уже загружены в LoadProcessForAsyncProcessingAsync.
