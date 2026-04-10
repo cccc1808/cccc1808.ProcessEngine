@@ -171,7 +171,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForHandlerParameters(
                             _dbContext,
                             [], // join выше
-                            notLoadedProcesses.Keys)
+                            [] // join выше                              
+                            )
                         );
                     var data = await query
                         .Select(e => e.Process)

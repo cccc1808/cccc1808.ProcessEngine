@@ -32,6 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             string name, 
             CancellationToken cancellationToken)
         {
+            // TODO: убрать _consumers и сделать отвественным за disconnect / dispoce потребителя.
             var container = _consumers.GetOrAdd(name, static (_) => new LockContainer<KafkaConsumer>());
 
             return await container.DoubleCheckPatternAsync(
