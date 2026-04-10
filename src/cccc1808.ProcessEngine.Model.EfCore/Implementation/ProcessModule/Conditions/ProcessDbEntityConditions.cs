@@ -82,7 +82,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
 
                     return source
                         .DWhere(s, e => e.Status == ProcessStatusEnum.AsyncExecute)
-                        .DWhere(s, e => !e.StoppedByError && e.RetryCount == null)
                         // .DWhere(s, e => p.ids.Contains(e.Id))
                         ;
                 });

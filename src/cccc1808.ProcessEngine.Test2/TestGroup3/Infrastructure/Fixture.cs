@@ -48,10 +48,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
         public const string Name = "FixtureCollection 3";
         public const int RangeConst = 1000;
 
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
-
         public class Fixture : IAsyncLifetime
         {           
             private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;

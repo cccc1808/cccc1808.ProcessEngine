@@ -46,11 +46,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
         public const string Name = "FixtureCollection 2";
-        public const int TestTimeout = 10000;
-
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
+        public const int TestTimeout = 5000;
 
         public class Fixture : IAsyncLifetime
         {           
