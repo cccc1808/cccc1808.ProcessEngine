@@ -146,6 +146,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                 {
                     // В1.1: нормальный join
+                    // TODO: такой запрос имеет смысл, если есть фильтрующие индексы на разные типы процессов (тип, версия, приоритет), иначе наверное лучше просто по id.
                     var idsQuery = _dbContext
                         .QueryFromCollection(notLoadedProcesses.Values.Select(
                             e => new
