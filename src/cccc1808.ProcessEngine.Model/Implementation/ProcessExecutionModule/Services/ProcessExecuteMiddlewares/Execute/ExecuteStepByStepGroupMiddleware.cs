@@ -181,6 +181,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     if (!elem.CurrentSession.CurrentSessionHaveError)
                                     {
                                         // В сессии нет ошибок, тогда отчищаем ошибку.
+                                        // TODO: подумать нужно ли сбрасывать ошибку если это elem.CurrentSession.StopAsyncProcessingSession?
                                         p.This._processSetter.ClearError(elem);
                                     }
 

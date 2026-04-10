@@ -68,7 +68,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 process.CurrentSession.HaveErrorOnStart
                 || process.CurrentSession.CurrentSessionHaveError;
 
-            process.CurrentSession.CurrentSessionHaveError = false;
+            // process.CurrentSession.CurrentSessionHaveError = false;
             process.Process.RetryCount = null;
             process.Process.StoppedByError = false;
             process.Process.Error = null;
