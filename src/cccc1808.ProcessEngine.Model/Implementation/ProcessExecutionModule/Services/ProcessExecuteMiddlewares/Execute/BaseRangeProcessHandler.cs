@@ -60,41 +60,50 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             Exception ex,
             CancellationToken cancellationToken)
         {
+            var retryTriggers = new List<ITriggerRepository<TId>.CreateTriggerDto>(group.Group.Count);
             foreach (var elem in group.Group.Values)
             {
                 var errorResult = _processSetter.SetError(elem, ex, allowRetry: true);
 
+                // Retry trigger.
                 if (errorResult.IsRetry)
                 {
-                    // Retry trigger.
-
                     if (elem.TryGetComponent<IWakeupComponent>(out _))
                     {
-                        await _triggerRepository.CreateTriggerAsync(
-                            key: Guid.NewGuid().ToString(),
-                            timerDate: errorResult.Timeout,
-                            processId: elem.Id,
-                            handlerKey: WakeupTriggerRangeHandler<TId>.Name,
-                            kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                            priority: elem.Process.Info.Priority,
-                            isActivated: true,
-                            counter: null,
-                            cancellationToken);
+                        retryTriggers.Add(
+                            new ITriggerRepository<TId>.CreateTriggerDto(
+                                key: Guid.NewGuid().ToString(),
+                                timerDate: errorResult.Timeout,
+                                processId: elem.Id,
+                                handlerKey: WakeupTriggerRangeHandler<TId>.Name,
+                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                priority: elem.Process.Info.Priority,
+                                isActivated: true,
+                                counter: null)
+                            );                        
                     }
                     else 
                     {
-                        await _triggerRepository.CreateTriggerAsync(
-                            key: Guid.NewGuid().ToString(),
-                            timerDate: errorResult.Timeout,
-                            processId: elem.Id,
-                            handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
-                            kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                            priority: elem.Process.Info.Priority,
-                            isActivated: true,
-                            counter: null,
-                            cancellationToken);                        
+                        retryTriggers.Add(
+                            new ITriggerRepository<TId>.CreateTriggerDto(
+                                key: Guid.NewGuid().ToString(),
+                                timerDate: errorResult.Timeout,
+                                processId: elem.Id,
+                                handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
+                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                priority: elem.Process.Info.Priority,
+                                isActivated: true,
+                                counter: null)
+                            );
                     }                        
                 }
+            }
+
+            if (retryTriggers.Any())
+            {
+                await _triggerRepository.CreateTriggerRangeAsync(
+                    retryTriggers,
+                    cancellationToken);
             }
         }
 

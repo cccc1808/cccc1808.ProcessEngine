@@ -113,45 +113,50 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         }
 
         public async Task CreateTriggerAsync(
-            string key,
-            DateTimeOffset timerDate,
-            TId processId,
-            string handlerKey,
-            ITriggerComponent<TId>.TriggerKind kind,
-            short priority,
-            bool isActivated,
-            int? counter,
+            ITriggerRepository<TId>.CreateTriggerDto createDto,
             CancellationToken cancellationToken)
         {
-            if (key.Length > 255)
+            await CreateTriggerRangeAsync(
+                [createDto], 
+                cancellationToken);
+        }
+
+        public async Task CreateTriggerRangeAsync(
+            ICollection<ITriggerRepository<TId>.CreateTriggerDto> createDto,
+            CancellationToken cancellationToken)
+        {
+            var create = new List<TriggerDbEntity<TId>>(createDto.Count);
+            foreach (var elem in createDto)
             {
-                throw new ArgumentException(nameof(key));
-            }
-            if (handlerKey.Length > 255)
-            {
-                throw new ArgumentException(nameof(handlerKey));
+                if (elem.key.Length > 255)
+                {
+                    throw new ArgumentException(nameof(elem.key));
+                }
+                if (elem.handlerKey.Length > 255)
+                {
+                    throw new ArgumentException(nameof(elem.handlerKey));
+                }
+
+                create.Add(new TriggerDbEntity<TId>(
+                    id: await _idGenerator.NextAsync(cancellationToken),
+                    key: elem.key,
+                    selectLockTimeout: DateTimeOffset.MinValue,
+                    timerDate: elem.timerDate,
+                    handlerKey: elem.handlerKey,
+                    kind: elem.kind,
+                    priority: elem.priority,
+                    isActivated: elem.isActivated,
+                    isCompleted: false,
+                    processId: elem.processId,
+                    counter: elem.counter));
             }
 
-            var entity = new TriggerDbEntity<TId>(
-                id: await _idGenerator.NextAsync(cancellationToken),
-                key: key,
-                selectLockTimeout: DateTimeOffset.MinValue,
-                timerDate: timerDate,
-                handlerKey: handlerKey,
-                kind: kind,
-                priority: priority,
-                isActivated: isActivated,
-                isCompleted: false,
-                processId: processId,
-                counter: counter
-                );
-
-            Set.Add(entity);
+            Set.AddRange(create);
         }
 
         public async Task SaveAsync(ICollection<ITriggerComponent<TId>> triggers, CancellationToken cancellationToken)
         {
             await _efDbContext.SaveChangesAsync(cancellationToken);
-        }
+        }        
     }
 }

@@ -254,7 +254,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                 // 2) Получаем updlock.
                 var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                     (This: this, checkBuffer, updateBuffer),
-                    _optionsDto.WakeupEndUpdLockTimeout,
+                    _optionsDto.WakeupTryUpdatelockTimeout,
                     static async (p, t) =>
                     {
                         using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
@@ -268,7 +268,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                             // У нас монопольная блокировка wakeup через updlock.
                             foreach (var elem in wakeupsWithLock)
                             {
-                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
+                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem)
+                                    || elem.Process.Status is ProcessStatusEnum.Complete)
                                 {
                                     // Пробуждение не нужно.
                                     p.checkBuffer.Remove(elem.ProcessId);
@@ -297,7 +298,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     elem.IsAsyncExecuting = true;
                 }
 
-                // Процессы не в состоянии обработки т.к. мы получили блокировку на wakeup, котрый в состоянии !IsAsyncExecuting.
+                // Процессы не в состоянии обработки т.к. мы получили updatelock на wakeup и увидели статус WaitEvent.
                 ProcessDbEntity<TId>[] processes;
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
@@ -343,9 +344,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="WakeupEndUpdLockTimeout">Timeout попытки получения updlock на wakeup.</param>
+        /// <param name="WakeupTryUpdatelockTimeout">Timeout попытки получения updlock на wakeup.</param>
         public record OptionsDto(
-            TimeSpan WakeupEndUpdLockTimeout
+            TimeSpan WakeupTryUpdatelockTimeout
             )
         {
             public OptionsDto(

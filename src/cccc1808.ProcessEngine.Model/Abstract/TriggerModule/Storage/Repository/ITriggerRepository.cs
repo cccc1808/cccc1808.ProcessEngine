@@ -27,14 +27,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken);
 
         Task CreateTriggerAsync(
-            string key,
-            DateTimeOffset timerDate,
-            TId processId,
-            string handlerKey,
-            ITriggerComponent<TId>.TriggerKind kind,
-            short priority,
-            bool isActivated,
-            int? counter,
+            CreateTriggerDto createDto,
+            CancellationToken cancellationToken);
+
+        Task CreateTriggerRangeAsync(
+            ICollection<CreateTriggerDto> createDto,
             CancellationToken cancellationToken);
 
         Task SaveAsync(
@@ -42,5 +39,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken);
 
         
+        public readonly record struct CreateTriggerDto(
+            string key,
+            DateTimeOffset timerDate,
+            TId processId,
+            string handlerKey,
+            ITriggerComponent<TId>.TriggerKind kind,
+            short priority,
+            bool isActivated,
+            int? counter);
     }
 }
