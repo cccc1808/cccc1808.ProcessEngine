@@ -69,9 +69,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
         #region IWakeUpService
 
-        public async Task AfterAsyncSessionHandlerAsync(
+        public async Task<ICollection<IProcessContainer<TId>>> AfterAsyncSessionHandlerAsync(
             ICollection<IProcessContainer<TId>> processes,
-            Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask> saveHandler,
             CancellationToken cancellationToken)
         {
             static Dictionary<TId, ExecuteContextItemDto> BuildContext(
@@ -226,32 +225,26 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             var context = BuildContext(this, processes);
             if (context.Count == 0)
             {
-                return;
+                return Array.Empty<IProcessContainer<TId>>();
             }
 
             await LockWakeupStateAndCheckCondition(this, context, cancellationToken);
 
             var forUpdate = ExecuteWakeup(this, context);
-
-            if (forUpdate.Any())
-            {
-                await saveHandler(
-                    forUpdate,
-                    cancellationToken);
-            }
+            return forUpdate;
         }
 
         public async Task WakeupProcessHandlerAsync(
-            TId[] ids,
+            ICollection<TId> ids,
             CancellationToken cancellationToken)
         {
-            if (ids.Length == 0)
+            if (ids.Count == 0)
             {
                 return;
             }
 
             var checkBuffer = ids.ToHashSet();
-            var updateBuffer = new Dictionary<TId, ProcessWakeupDbEntity<TId>>(ids.Length);
+            var updateBuffer = new Dictionary<TId, ProcessWakeupDbEntity<TId>>(ids.Count);
 
             while (true)
             {

@@ -405,10 +405,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
 
             //// 4) Проверка засыпания процессов.
-            await _wakeupService.AfterAsyncSessionHandlerAsync(
+            var wakeupUpdate = await _wakeupService.AfterAsyncSessionHandlerAsync(
                 allProcesses.Data.Values,
-                saveHandler: async (p, t) => await handler.SaveWakeupRangeAsync(p, cancellationToken),
                 cancellationToken);
+            await handler.SaveWakeupRangeAsync(wakeupUpdate, cancellationToken);
         }
 
         private async Task<Dictionary<TId, IProcessContainer<TId>>> LoadAsync(
