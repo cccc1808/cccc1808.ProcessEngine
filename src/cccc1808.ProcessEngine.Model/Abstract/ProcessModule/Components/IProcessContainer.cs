@@ -29,6 +29,16 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         IAsyncSessionComponent CurrentSession { get; }
 
         /// <summary>
+        /// Флаг говорит о том, загружено ли это состояние для выполнения асинхронной обработки или нет.
+        /// </summary>
+        bool InAsyncExecuting { get; }
+
+        /// <summary>
+        /// Процесс использует систему гарантированного пробуждения.
+        /// </summary>
+        bool UsingWakeup { get; }
+
+        /// <summary>
         /// Добавить компонент.
         /// </summary>
         /// <param name="component"></param>

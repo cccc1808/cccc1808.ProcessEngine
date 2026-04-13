@@ -289,6 +289,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     s.GetRequiredService<IProcessSetter>(),
                     s.GetRequiredService<IQueueProviderFactory>(),
                     s.GetRequiredService<IOutboxSetter>(),
+                    s.GetRequiredService<IHeaderJsonSerializer>(),
                     new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(
                         10,
                         IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,

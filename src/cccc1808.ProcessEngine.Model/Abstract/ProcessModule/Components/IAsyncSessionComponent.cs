@@ -14,7 +14,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
     public interface IAsyncSessionComponent
     {
         /// <summary>
-        /// Идентификатор сессии асинъронной обработки.
+        /// Идентификатор сессии асинхронной обработки.
         /// </summary>
         Guid SessionId { get; set; }
 

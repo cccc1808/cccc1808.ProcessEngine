@@ -19,10 +19,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Гарантированное пробуждение процессов 
+        /// Гарантированное пробуждение процессов (извне, не из асинхронного выполнения)
         /// (берет блокировку до конца транзакции, поэтому лучше вызывать в конце транзакции).
         /// </summary>
-        /// <param name="data">Id процесса и дата таймера.</param>
+        /// <param name="data">Id процесса.</param>
         Task WakeupProcessHandlerAsync(
             TId[] ids,
             CancellationToken cancellationToken);

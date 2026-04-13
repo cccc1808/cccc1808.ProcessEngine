@@ -18,6 +18,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
@@ -81,22 +82,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
                 foreach (var elem in processes)
                 {
+                    if (!elem.UsingWakeup)
+                    {
+                        continue;
+                    }
+
+                    if (!elem.InAsyncExecuting)
+                    {
+                        throw new InvalidOperationException("[Bug] Данный метод вызывается только в конце асинхронной обработки.");
+                    }
+
                     // Игнорируем процессы с ошибкой.
                     if (This._processContainerConditions.HaveError.Check(elem))
                     {
                         continue;
-                    }
-
-                    // Нет компонента.
-                    if (!elem.TryGetComponent<IWakeupComponent>(out var component))
-                    {
-                        continue;
-                    }
-
-                    // Флаг - что мы вышли из части ассинхронного выполнения.
-                    if (!component.InAsyncExecuting)
-                    {
-                        throw new InvalidOperationException("[Bug] Состояние.");
                     }
 
                     // Обрабатываем только указанные статусы.
@@ -104,7 +103,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     {
                         // Info:
                         // * AsyncExecuting - ничего обновлять и проверять не нужно (AsyncExecuting -> AsycnExecuting),
-                        // * Complete - необрабатывается
+                        // * Complete - не обрабатывается
                         continue;
                     }
                     
@@ -113,7 +112,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                         new ExecuteContextItemDto()
                         {
                             Process = elem,
-                            WakeUpComponent = component,
                             WakeupWithLock = null
                         });
                 }
@@ -131,7 +129,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                 Dictionary<TId, ExecuteContextItemDto> context, 
                 CancellationToken cancellationToken) 
             {               
-                // 1) Получаем wakeup с блокировкой.
+                // 1) Получаем wakeup с блокировкой
+                // (это небходимо, чтобы если сейчас идет попытка пробуждения по новому внешнему сигналу, то она будет выполняться после завершения это транзакции, и новый сигнал не потеряется).
                 using (var hint = This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                 {
                     var wakeUps = await This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
@@ -155,48 +154,73 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
                 foreach (var elem in checkGroups)
                 {
-                    await elem.Key.HandleRangeAsync(
-                        elem.Select(e => e.Element.Process).ToArray(),
+                    var processes = elem.Select(e => e.Element.Process).ToArray();
+
+                    var result = await elem.Key.HandleRangeAsync(
+                        processes,
                         cancellationToken);
+
+                    foreach (var elem2 in elem)
+                    {
+                        elem2.Element.WakeupCheckResult = result[elem2.Element.Process.Id];
+                    }
                 }
             }
 
             /// <summary>
             /// Обработка результатов, выставления статуса пробуждения.
             /// </summary>
-            static void ExecuteWakeup(
+            static List<IProcessContainer<TId>> ExecuteWakeup(
                 EFWakeupService<TId> This,
                 Dictionary<TId, ExecuteContextItemDto> context) 
             {
+                var forUpdate = new List<IProcessContainer<TId>>(context.Count);
                 foreach (var elem in context.Values)
                 {
-                    if (elem.WakeUpComponent.HandlerResult)
+                    var needUpdate = false;
+                    var isAsyncExecuting = false;
+                    if (elem.WakeupCheckResult)
                     {
-                        var needUpdate = 
-                            !elem.WakeUpComponent.IsAsyncExecuting 
+                        needUpdate = 
+                            !elem.WakeupWithLock.IsAsyncExecuting
                             || elem.Process.Process.Status != ProcessStatusEnum.AsyncExecute;
-
-                        if (needUpdate)
-                        {                            
-                            elem.WakeUpComponent.NeedUpdate = true;
-                            elem.WakeUpComponent.IsAsyncExecuting = true;
-                            This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.AsyncExecute);
-                        }                        
+                        isAsyncExecuting = true;                       
                     }
                     else
                     {
-                        var needUpdate =
-                            elem.WakeUpComponent.IsAsyncExecuting
+                        needUpdate =
+                            elem.WakeupWithLock.IsAsyncExecuting
                             || elem.Process.Process.Status != ProcessStatusEnum.WaitEvent;
+                        isAsyncExecuting = false;
+                    }
 
-                        if (needUpdate)
-                        {
-                            elem.WakeUpComponent.NeedUpdate = true;
-                            elem.WakeUpComponent.IsAsyncExecuting = false;
-                            This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.WaitEvent);
-                        }
+                    if (needUpdate)
+                    {
+                        This._processSetter.SetStatus(
+                            elem.Process,
+                            isAsyncExecuting ? ProcessStatusEnum.AsyncExecute : ProcessStatusEnum.WaitEvent);
+
+                        elem.Process.AddComponent<IWakeupComponent>(
+                            new EFWakeupProxyComponent<TId>(elem.WakeupWithLock)
+                            {
+                                IsAsyncExecuting = isAsyncExecuting,
+                                NeedUpdate = true,
+                            }
+                            );
+                        
+                        This._dbContext.Set<ProcessWakeupDbEntity<TId>>().Attach(
+                            new ProcessWakeupDbEntity<TId>(
+                                id: elem.WakeupWithLock.Id,
+                                processId: elem.Process.Id,
+                                isAsyncExecuting: isAsyncExecuting
+                                ))
+                            .State = EntityState.Modified;
+
+                        forUpdate.Add(elem.Process);
                     }
                 }
+
+                return forUpdate;
             }
 
             var context = BuildContext(this, processes);
@@ -207,11 +231,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
             await LockWakeupStateAndCheckCondition(this, context, cancellationToken);
 
-            ExecuteWakeup(this, context);            
+            var forUpdate = ExecuteWakeup(this, context);
 
-            await saveHandler(
-                context.Select(e => e.Value.Process).ToArray(),
-                cancellationToken);
+            if (forUpdate.Any())
+            {
+                await saveHandler(
+                    forUpdate,
+                    cancellationToken);
+            }
         }
 
         public async Task WakeupProcessHandlerAsync(
@@ -268,8 +295,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                             // У нас монопольная блокировка wakeup через updlock.
                             foreach (var elem in wakeupsWithLock)
                             {
-                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem)
-                                    || elem.Process.Status is ProcessStatusEnum.Complete)
+                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
                                 {
                                     // Пробуждение не нужно.
                                     p.checkBuffer.Remove(elem.ProcessId);
@@ -293,11 +319,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
             // 3) Обновляем wakeup и process
             {
-                foreach (var elem in updateBuffer.Values)
-                {
-                    elem.IsAsyncExecuting = true;
-                }
-
                 // Процессы не в состоянии обработки т.к. мы получили updatelock на wakeup и увидели статус WaitEvent.
                 ProcessDbEntity<TId>[] processes;
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
@@ -321,7 +342,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                         continue;
                     }
 
+                    var wakeup = updateBuffer[elem.Id];
+
                     elem.Status = ProcessStatusEnum.AsyncExecute;
+                    _dbContext.Set<ProcessWakeupDbEntity<TId>>().Attach(
+                        new ProcessWakeupDbEntity<TId>(
+                            id: wakeup.Id,
+                            processId: elem.Id,
+                            isAsyncExecuting: true
+                            ))
+                        .State = EntityState.Modified;
                 }
             }
         }
@@ -333,12 +363,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
         {
             public IProcessContainer<TId> Process { get; init; } = default!;
 
-            public IWakeupComponent WakeUpComponent { get; init; } = default!;
+            // public IWakeupComponent WakeUpComponent { get; init; } = default!;
 
             /// <summary>
             /// Пробуждение с блокировкой.
             /// </summary>
             public ProcessWakeupDbEntity<TId> WakeupWithLock { get; set; } = default!;
+
+            public bool WakeupCheckResult { get; set; }
         }
 
         /// <summary>

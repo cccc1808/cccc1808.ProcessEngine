@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -32,9 +33,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
     {
         protected readonly IEFDbContext _dbContext;
         protected readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IProcessRegistry _processRegistry;
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
+        private readonly IWakeupRegistry<TId> _wakeupRegistry;
         private readonly Options _options;
 
         private readonly IProcessDbEntityConditions<TId, TDbEntity> _processDbEntityConditions;
@@ -44,8 +45,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
             IIdGenerator<TId> idGenerator,
-            IProcessRegistry processRegistry,
             IEnumerable<IProcessDbProvider<TId>> processLoaders,
+            IWakeupRegistry<TId> wakeupRegistry,
             Options options,
 
             IProcessDbEntityConditions<TId, TDbEntity> processDbEntityConditions,
@@ -53,9 +54,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
-            _processRegistry = processRegistry;
             _idGenerator = idGenerator;
             _processLoaders = processLoaders;
+            _wakeupRegistry = wakeupRegistry;
             _options = options;
 
             _processDbEntityConditions = processDbEntityConditions;
@@ -205,8 +206,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                 stopAsyncProcessingSession: false,
                                 needUpdateErrorData: false,
                                 haveErrorOnStart: elem.StoppedByError || elem.RetryCount.HasValue // TODO: condition                                                                                                   
-                                )
-                               );
+                                ),
+                            isAsyncExecuting: true,
+                            usingWakeup: _wakeupRegistry.IsWakeupProcess(new ProcessTypeDto(elem.ProcessTypeId, elem.ProcessVersion))
+                            );
 
                         if (softTimeout.HasValue)
                         {
@@ -261,7 +264,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                     stopAsyncProcessingSession: false,
                                     needUpdateErrorData: false,
                                     haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue // TODO: condition                                                                                                   
-                                    )
+                                    ),
+                                isAsyncExecuting: false,
+                                usingWakeup: _wakeupRegistry.IsWakeupProcess(new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion))                                
                                 );
                         }
                         )
@@ -379,23 +384,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            // [Hack]: Немного костыль, но вот так (чтобы запись не обновлялась при промежуточных сохранениях, не ставился lock):
-            foreach (var elem in processes)
-            {
-                if (elem.TryGetComponent<IWakeupComponent>(out var component))
-                {
-                    if (component is not EFWakeupProxyComponent<TId> proxy)
-                    {
-                        throw new Exception("[Bug]");
-                    }
-
-                    var entry = _dbContext.DbContext.Set<ProcessWakeupDbEntity<TId>>().Attach(proxy.DbEntity);
-                    entry.State = component.NeedUpdate 
-                        ? EntityState.Modified
-                        : EntityState.Unchanged;
-                }
-            }
-
             // Код вызывается после финального сохрания
             // (иначе нельзя было бы гарантировать актуальность проверки IWakeupCheckHandler).
             // Поэтому сохраняем еще раз.

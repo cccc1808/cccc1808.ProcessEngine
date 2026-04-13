@@ -229,8 +229,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         stopAsyncProcessingSession: false,
                         needUpdateErrorData: false,
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue // TODO: condition                                                                                                   
-                        )
-                       );
+                        ),
+                    isAsyncExecuting: true,
+                    usingWakeup: true                       
+                    );
                 if (softTimeout.HasValue)
                 {
                     container.AddComponent<ISoftTimeoutComponent>(

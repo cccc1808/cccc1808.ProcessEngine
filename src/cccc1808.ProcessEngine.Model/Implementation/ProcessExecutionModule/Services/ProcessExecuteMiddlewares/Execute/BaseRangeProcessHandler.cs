@@ -68,7 +68,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 // Retry trigger.
                 if (errorResult.IsRetry)
                 {
-                    if (elem.TryGetComponent<IWakeupComponent>(out _))
+                    if (elem.UsingWakeup)
                     {
                         retryTriggers.Add(
                             new ITriggerRepository<TId>.CreateTriggerDto(
