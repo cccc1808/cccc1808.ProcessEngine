@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule
 {
+    /// <summary>
+    /// Взято из https://habr.com/ru/articles/313394/.
+    /// </summary>
     public static class QueryableExtension
     {
         // Добавляем "продвинутый" вариант Where
