@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
+using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
@@ -39,7 +41,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        [Fact(/*Timeout = FixtureCollection.TestTimeout*/)]
         public async Task Test()
         {
             var beId1 = Guid.NewGuid();
@@ -209,6 +211,71 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                     e => e.ShouldContain(e => e.Id == beId2),
                     e => e.First(e => e.Id == beId1).Counter.ShouldBe(4),
                     e => e.First(e => e.Id == beId2).Counter.ShouldBe(2));
+            }
+        }
+
+
+        [Fact]
+        public async Task TTest()
+        {
+            var beId1 = Guid.NewGuid();
+            var beId2 = Guid.NewGuid();
+
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
+                var options = scope.ServiceProvider.GetRequiredService<KafkaQueueProviderFactory.OptionsDto>();
+
+                options.PartitionCountFunc = (_) => 2;
+
+                var m1 = new Message1Dto()
+                {
+                    BuisnessEntityId = beId1,
+                };
+                var m2 = new Message1Dto()
+                {
+                    BuisnessEntityId = beId1,
+                };
+                var m3 = new Message1Dto()
+                {
+                    BuisnessEntityId = beId2,
+                };
+
+                var messages = new MessageDto[] {
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 0),
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 0),
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 1),                
+                };
+
+                var producer = await queueProviderFactory.GetProducerAsync(FixtureCollection.InboxQueue, default);
+                await producer.ProduceBatchAsync(
+                    messages,
+                    default);
+            }
+
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var store = new KafkaMessageStore(
+                    host: scope.ServiceProvider.GetRequiredService<KafkaQueueProviderFactory.OptionsDto>().Host);
+
+                var result1 = await store.GetMessagesAsync(
+                    [
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 0),
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 1),
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 1, 0),
+                        ],
+                    default);
+                var result2 = await store.GetMessagesAsync(
+                    [
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 1)
+                        ],
+                    default);
+
+                var result3 = await store.GetMessagesAsync(
+                    [
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 10)
+                        ],
+                    default);
             }
         }
     }

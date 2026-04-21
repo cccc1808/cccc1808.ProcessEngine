@@ -122,7 +122,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         {
             services
                 .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
-                .AddSingleton(options);
+                .AddSingleton(options)
+
+                .AddSingleton<IMessageStore>(s => new KafkaMessageStore(options.Host));
 
             return services;
         }
@@ -309,7 +311,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IMessageStreamConditions<Guid, OutboxMessageDbEntity<Guid>>, MessageStreamConditions<Guid, OutboxMessageDbEntity<Guid>>>()
 
                 .AddScoped<IProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>>()
-                .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()
+                .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()                
                 ;
 
             return services;

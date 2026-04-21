@@ -130,6 +130,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     b => 
                     {
                         new InboxMessageConfigurator<Guid>().Configure(b);
+                        b.Ignore(e => e.Body);
+                        b.Ignore(e => e.Headers);
                     });
 
                 modelBuilder.Entity<OutboxProcessDataDbEntity<Guid>>(

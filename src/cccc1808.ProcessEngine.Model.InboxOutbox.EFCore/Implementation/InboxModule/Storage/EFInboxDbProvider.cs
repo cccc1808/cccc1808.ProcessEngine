@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
@@ -22,11 +23,9 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage
@@ -40,6 +39,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly Options _options;
         private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;
+        private readonly IMessageStore _messageStore;
 
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
         private readonly IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> _processLinkedConditions;
@@ -52,6 +52,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             ILockQueryHintStore lockQueryHintStore,
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
+            IMessageStore messageStore,
 
             IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
             IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> processLinkedConditions,
@@ -64,6 +65,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _lockQueryHintStore = lockQueryHintStore;
             _options = options;
             _repositoryOptions = repositoryOptions;
+            _messageStore = messageStore;
 
             _processDbEntityConditions = processDbEntityConditions;
             _processLinkedConditions = processLinkedConditions;
@@ -210,12 +212,57 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 processGroups = data
                     .GroupBy(e => e.Process.Id)
                     .Select(e => (e.First().Process, e.Select(e => e.Message)))
-                    .ToArray();
-            }
+                    .ToArray();               
+            }            
 
             var processData = await _dbContext.Set<InboxProcessDataDbEntity<TId>>()
+                .Include(e => e.Queue)
                 .Where(e => processGroups.Select(e => e.Process.Id).Contains(e.ProcessId))
                 .ToDictionaryAsync(e => e.ProcessId, e => e);
+
+            // Получаем тело сообщения.
+            {
+                IEnumerable<IMessageStore.MessageIdDto> build() 
+                {
+                    foreach (var elem in processGroups)
+                    {
+                        foreach (var elem2 in elem.Messages)
+                        {
+                            yield return new IMessageStore.MessageIdDto(
+                                processData[elem.Process.Id].Queue.Name,
+                                elem2.IdempotencyId,
+                                elem2.Partition,
+                                elem2.OrderId);
+                        }
+                    }
+                }
+
+                var messageBody = await _messageStore.GetMessagesAsync(
+                    build().ToArray(),
+                    cancellationToken);
+
+                foreach (var elem in processGroups)
+                {
+                    foreach (var elem2 in elem.Messages)
+                    {
+                        var key = new IMessageStore.MessageIdDto(
+                            processData[elem.Process.Id].Queue.Name,
+                                null,
+                                elem2.Partition,
+                                elem2.OrderId);
+
+                        if (!messageBody.TryGetValue(key, out var body))
+                        {
+                            // TODO: set error
+                            throw new Exception("");
+                            continue;
+                        }
+
+                        elem2.Body = body.Body;
+                        // elem.Message.Headers = body.Headers;
+                    }
+                }
+            }
 
             foreach (var elem in processGroups)
             {
