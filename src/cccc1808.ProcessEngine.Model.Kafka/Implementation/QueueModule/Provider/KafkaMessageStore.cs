@@ -45,8 +45,6 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
 
             using (var consumer = builder.Build())
             {
-                // consumer.Subscribe("topic-name");
-
                 foreach (var elem in ranges)
                 {
                     consumer.Unassign();
@@ -69,7 +67,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                         }
                         if (consumeResult.Offset != offset)
                         {
-                            throw new Exception($"Сообщение с указанным offset не найдено. {elem.Queue}. {elem.PartitionId}. {offset}.");
+                            break;
                         }
 
                         result.Add(

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -20,6 +22,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
@@ -40,6 +43,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly Options _options;
         private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;
         private readonly IMessageStore _messageStore;
+        private readonly IProcessSetter _processSetter;
+        private readonly IHeaderJsonSerializer _headerJsonSerializer;
 
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
         private readonly IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> _processLinkedConditions;
@@ -53,6 +58,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
             IMessageStore messageStore,
+            IProcessSetter processSetter,
+            IHeaderJsonSerializer headerJsonSerializer,
 
             IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
             IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> processLinkedConditions,
@@ -66,6 +73,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _options = options;
             _repositoryOptions = repositoryOptions;
             _messageStore = messageStore;
+            _processSetter = processSetter;
+            _headerJsonSerializer = headerJsonSerializer;
 
             _processDbEntityConditions = processDbEntityConditions;
             _processLinkedConditions = processLinkedConditions;
@@ -221,6 +230,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 .ToDictionaryAsync(e => e.ProcessId, e => e);
 
             // Получаем тело сообщения.
+            var notFoundMessageProcessIds = new Dictionary<TId, IMessageStore.MessageIdDto>(0);
             {
                 IEnumerable<IMessageStore.MessageIdDto> build() 
                 {
@@ -253,13 +263,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                         if (!messageBody.TryGetValue(key, out var body))
                         {
-                            // TODO: set error
-                            throw new Exception("");
+                            notFoundMessageProcessIds.Add(elem.Process.Id, key);
                             continue;
                         }
 
                         elem2.Body = body.Body;
-                        // elem.Message.Headers = body.Headers;
+                        elem2.Headers = _headerJsonSerializer.Serialize(body.Headers);
                     }
                 }
             }
@@ -290,14 +299,29 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     container.AddComponent<ISoftTimeoutComponent>(
                         new SoftTimeoutComponent(softTimeout));
                 }
-                var component = new EFInboxComponentProxy<TId>(
-                    processData[elem.Process.Id],
-                    elem.Messages
-                        .Select(e => (IInboxMessageComponent<TId>)new EFInboxMessageProxy<TId>(e))
-                        .ToArray()
-                    );
-                container.AddComponent<IInboxComponent<TId>>(component);
 
+                IInboxComponent<TId> component;
+                if (!notFoundMessageProcessIds.TryGetValue(elem.Process.Id, out var notFoundedMessage))
+                {
+                    component = new EFInboxComponentProxy<TId>(
+                        processData[elem.Process.Id],
+                        elem.Messages
+                            .Select(e => (IInboxMessageComponent<TId>)new EFInboxMessageProxy<TId>(e))
+                            .ToArray());                    
+                }
+                else 
+                {
+                    component = new EFInboxComponentProxy<TId>(
+                        processData[elem.Process.Id],
+                        []
+                        );
+
+                    _processSetter.SetError(
+                        container,
+                        new Exception($"Тело сообщения с указанным offset не найдено. {notFoundedMessage.Queue}. {notFoundedMessage.PartitionId}. {notFoundedMessage.Offset}."),
+                        allowRetry: false);
+                }
+                container.AddComponent<IInboxComponent<TId>>(component);
                 loadBuffer.Add(container.Id, container);
 
                 notLoadedProcesses.Remove(elem.Process.Id);
