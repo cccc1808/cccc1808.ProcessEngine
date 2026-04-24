@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
@@ -27,17 +28,20 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         : ITriggerSingleHandler<TId>
     {
         private readonly IEFDbContext _dbContext;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IMessageStreamConditions<TId, InboxMessageDbEntity<TId>> _messageStreamConditions;
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
         private readonly Options _options;
 
         public IInboxEmergencyTriggerHandler(
             IEFDbContext dbContext,
+            IDateTimeProvider dateTimeProvider,
             IMessageStreamConditions<TId, InboxMessageDbEntity<TId>> messageStreamConditions,
             IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
             Options options)
         {
             _dbContext = dbContext;
+            _dateTimeProvider = dateTimeProvider;
             _messageStreamConditions = messageStreamConditions;
             _processDbEntityConditions = processDbEntityConditions;
             _options = options;
@@ -54,7 +58,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             // Пропускаем заблокированные.
             // Запускаем процессы.
 
-            var timeout = DateTimeOffset.UtcNow.Add(-_options.Timeout);
+            var timeout = _dateTimeProvider.UtcNow.Add(-_options.Timeout);
 
             var haveNotProcessed = true;
             while (haveNotProcessed) 
@@ -114,7 +118,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
             if (haveNotProcessed)
             {
-                return new ITriggerHandler.Result(true, true, DateTimeOffset.UtcNow + TimeSpan.FromMinutes(5));
+                return new ITriggerHandler.Result(true, true, _dateTimeProvider.UtcNow + TimeSpan.FromMinutes(5));
             }
             else 
             {

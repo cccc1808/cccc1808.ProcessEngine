@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -22,11 +23,9 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage
@@ -35,6 +34,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         : IProcessDbProvider<TId>
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
@@ -47,6 +47,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
         public EFInboxDbProvider(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
@@ -59,6 +60,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             )
         {
             _serviceProvider = serviceProvider;
+            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _inboxRegistryDto = inboxRegistryDto;
             _lockQueryHintStore = lockQueryHintStore;
@@ -222,7 +224,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 // Так как мы уже считали с блокировкой,
                 // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
-                elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
 
                 var container = new ProcessContainer<TId>(
                     new EFProcessProxyComponent<TId>(elem.Process),
@@ -297,7 +299,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                                            elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 

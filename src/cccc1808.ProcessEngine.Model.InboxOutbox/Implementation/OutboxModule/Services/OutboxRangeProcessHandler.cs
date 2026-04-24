@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
@@ -30,6 +31,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
         : BaseRangeProcessHandler<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IOutboxSetter _outboxSetter;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
 
@@ -38,6 +40,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
+            IDateTimeProvider dateTimeProvider,
             IOutboxSetter outboxSetter,
             IHeaderJsonSerializer headerJsonSerializer,
             ExecuteStepByStepGroupMiddleware<TId>.OptionsDto options)
@@ -47,6 +50,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                   setter)
         {
             _queueProviderFactory = queueProviderFactory;
+            _dateTimeProvider = dateTimeProvider;
             _outboxSetter = outboxSetter;
             _headerJsonSerializer = headerJsonSerializer;
             Options = options;
@@ -85,7 +89,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             foreach (var elem in groupByQueue)
             {
                 // Soft timeout
-                if (softTimeoutDate < DateTimeOffset.UtcNow)
+                if (softTimeoutDate < _dateTimeProvider.UtcNow)
                 {
                     foreach (var elem2 in group.Group.Values)
                     {

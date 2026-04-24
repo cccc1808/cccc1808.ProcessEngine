@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
@@ -41,6 +42,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.QueryHint;
@@ -169,10 +171,16 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         {
             services
 
+                .AddSingleton<IDateTimeProvider, DateTimeProvider>()
+
                 .AddScoped<IProcessRepository<Guid>, EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>>()
                 .AddSingleton(repositoryOptions)
 
-                .AddScoped<IProcessSetter>(s => new DefaultProcessSetter((_, _) => DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5)))
+                .AddScoped<IProcessSetter>(s => new DefaultProcessSetter(
+                    s.GetRequiredService<IDateTimeProvider>(),
+                    (_, _) => DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5)
+                    )                
+                )
                 .AddSingleton<IProcessRegistry, ProcessRegistry>()
 
                 .AddScoped<IProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>>, ProcessDbEntityConditions<Guid, ProcessDbEntity<Guid>>>()
@@ -288,6 +296,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     s.GetRequiredService<ITriggerRepository<Guid>>(),
                     s.GetRequiredService<IProcessSetter>(),
                     s.GetRequiredService<IQueueProviderFactory>(),
+                    s.GetRequiredService<IDateTimeProvider>(),
                     s.GetRequiredService<IOutboxSetter>(),
                     s.GetRequiredService<IHeaderJsonSerializer>(),
                     new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(

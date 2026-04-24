@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -69,6 +70,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                 await using (var scope = _serviceProvider.CreateAsyncScope())
                 {
                     var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                    var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                     var registry = scope.ServiceProvider.GetRequiredService<InboxRegistryDto>();
@@ -254,7 +256,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                     new TriggerDbEntity<TId>(
                                         id: await idGenerator.NextAsync(cancellationToken),
                                         key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: DateTimeOffset.UtcNow,
+                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
                                         handlerKey: WakeupStreamTriggerRangeHandler<TId>.Name,
                                         kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
@@ -313,6 +315,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                 await using (var scope = _serviceProvider.CreateAsyncScope())
                 {
                     var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                    var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                     var registry = scope.ServiceProvider.GetRequiredService<OutboxRegistryDto>();
@@ -495,7 +498,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                     new TriggerDbEntity<TId>(
                                         id: await idGenerator.NextAsync(cancellationToken),
                                         key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: DateTimeOffset.UtcNow,
+                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
                                         handlerKey: WakeupStreamTriggerRangeHandler<TId>.Name,
                                         kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,

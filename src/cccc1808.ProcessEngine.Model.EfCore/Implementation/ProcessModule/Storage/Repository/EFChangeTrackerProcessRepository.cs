@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
@@ -33,7 +34,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
     {
         protected readonly IEFDbContext _dbContext;
         protected readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IIdGenerator<TId> _idGenerator;
+        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly IIdGenerator<TId> _idGenerator;        
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
         private readonly IWakeupRegistry<TId> _wakeupRegistry;
         private readonly Options _options;
@@ -44,6 +46,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         public EFChangeTrackerProcessRepository(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
+            IDateTimeProvider dateTimeProvider,
             IIdGenerator<TId> idGenerator,
             IEnumerable<IProcessDbProvider<TId>> processLoaders,
             IWakeupRegistry<TId> wakeupRegistry,
@@ -54,6 +57,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
+            _dateTimeProvider = dateTimeProvider;
             _idGenerator = idGenerator;
             _processLoaders = processLoaders;
             _wakeupRegistry = wakeupRegistry;
@@ -194,7 +198,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         // Так как мы уже считали с блокировкой,
                         // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                         // Не сбрасываем на min, потому что значение используется.
-                        elem.SelectLockTimeout = DateTimeOffset.UtcNow;
+                        elem.SelectLockTimeout = _dateTimeProvider.UtcNow;
 
                         var container = new ProcessContainer<TId>(
                             new EFProcessProxyComponent<TId>(elem),

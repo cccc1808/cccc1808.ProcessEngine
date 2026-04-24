@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
@@ -177,6 +178,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                 s,
                                 (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                     s,
+                                    s.GetRequiredService<IDateTimeProvider>(),
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
                                     s.GetRequiredService<IWakeupService<Guid>>(),
