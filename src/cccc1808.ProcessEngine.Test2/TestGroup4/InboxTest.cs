@@ -228,23 +228,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
 
                 options.PartitionCountFunc = (_) => 2;
 
-                var m1 = new Message1Dto()
-                {
-                    BuisnessEntityId = beId1,
-                };
-                var m2 = new Message1Dto()
-                {
-                    BuisnessEntityId = beId1,
-                };
-                var m3 = new Message1Dto()
-                {
-                    BuisnessEntityId = beId2,
-                };
-
                 var messages = new MessageDto[] {
-                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 0),
-                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 0),
-                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument(m1).RootElement.Clone(), 1),                
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument("11").RootElement.Clone(), 0),
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument("12").RootElement.Clone(), 0),
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument("13").RootElement.Clone(), 0),
+                    new MessageDto(Guid.NewGuid().ToString(), FixtureCollection.InboxQueue, [], System.Text.Json.JsonSerializer.SerializeToDocument("21").RootElement.Clone(), 1),                
                 };
 
                 var producer = await queueProviderFactory.GetProducerAsync(FixtureCollection.InboxQueue, default);
@@ -262,16 +250,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                     [
                         new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 0),
                         new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 1),
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 2),
                         new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 1, 0),
                         ],
                     default);
+
                 var result2 = await store.GetMessagesAsync(
+                    [
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 0),
+                        new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 2),
+                        ],
+                    default);
+
+                var result3 = await store.GetMessagesAsync(
                     [
                         new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 1)
                         ],
                     default);
 
-                var result3 = await store.GetMessagesAsync(
+                var result4 = await store.GetMessagesAsync(
                     [
                         new IMessageStore.MessageIdDto(FixtureCollection.InboxQueue, null, 0, 10)
                         ],
