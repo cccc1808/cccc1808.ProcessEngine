@@ -160,12 +160,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 switch (elem2.Kind)
                                                 {
-                                                    case ITriggerEvent.KindEnum.WakeupSignalEvent:
+                                                    case ITriggerEvent.KindEnum.Stream_SignalEvent:
                                                         {
                                                             var typedEvent = (ISignalStreamTriggerEvent)elem2;
-                                                            streamsMaxTimestamps[typedEvent.StreamKey] = Math.Max(
-                                                                streamsMaxTimestamps.TryGetValue(typedEvent.StreamKey, out var c)? c : -1,
-                                                                typedEvent.StreamTimestamp);
+                                                            streamsMaxTimestamps[typedEvent.ChannelName] = Math.Max(
+                                                                streamsMaxTimestamps.TryGetValue(typedEvent.ChannelName, out var c)? c : -1,
+                                                                typedEvent.ChannelTimestamp);
 
                                                             break;
                                                         }
@@ -173,7 +173,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     case ITriggerEvent.KindEnum.Stream_ProcessGoWaitEvent: 
                                                         {
                                                             var typedEvent = (IProcessGoWaitSpleepEvent)elem2;
-
                                                             foreach (var elem in typedEvent.ChannelsTimestampOffsets)
                                                             {
                                                                 processMaxTimestamps[elem.Key] = Math.Max(
@@ -192,7 +191,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         
                                             // Есть ли каналы, по которым процесс не обработал последний сигнал.
                                             var haveNotProcessedSignals = streamsMaxTimestamps.Any(
-                                                e => e.Value > processMaxTimestamps[e.Key]);
+                                                e => processMaxTimestamps.TryGetValue(e.Key, out var p) 
+                                                    ? e.Value > p
+                                                    : true);
 
                                             // Если процесс уснул и не обработал все сигналы.
                                             if (processIsWaiting && haveNotProcessedSignals)

@@ -3,7 +3,11 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events.Stream;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class ProcessGoWaitEvent : TriggerEvent, IProcessGoWaitSpleepEvent
+    /// <summary>
+    /// Событие о засыпании stream процесса для StreamTrigger.
+    /// </summary>
+    public class ProcessGoWaitEvent 
+        : TriggerEvent, IProcessGoWaitSpleepEvent
     {
         public IReadOnlyDictionary<string, long> ChannelsTimestampOffsets { get; set; }
 

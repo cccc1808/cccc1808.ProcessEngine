@@ -130,7 +130,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     )
 
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), typeof(ParentCheckWakeupHandler))
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), typeof(ParentCheckWakeupHandler))],
+                        []
                     )
 
                     .AddTriggerServices(

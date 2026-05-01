@@ -2,6 +2,6 @@
 
 namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto
 {
-    public record StreamWakeupRegistryDto(
+    public record StreamRegistryDto(
         ProcessRegistryDto ProcessRegistry);
 }

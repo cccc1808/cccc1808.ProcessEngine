@@ -143,6 +143,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                                 priority: elem2.Process.Info.Priority,
                                 isActivated: true,
                                 counter: null,
+                                stream: null,
                                 cancellationToken);
                         }
                     }

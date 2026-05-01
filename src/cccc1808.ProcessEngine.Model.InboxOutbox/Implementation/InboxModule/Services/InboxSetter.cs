@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services
 {
@@ -19,12 +19,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
         : IInboxSetter
     {
         private readonly IProcessSetter _processSetter;
+        private readonly InboxRegistryDto _inboxRegistry;
 
         public InboxSetter(
-            IProcessSetter processSetter)
+            IProcessSetter processSetter,
+            InboxRegistryDto inboxRegistry)
         {
             _processSetter = processSetter;
-        }        
+            _inboxRegistry = inboxRegistry;
+        }
 
         public void InboxMessageProcessed<TId>(
             IProcessContainer<TId> process,
@@ -51,45 +54,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                 // Если в БД еще есть активные сообщения, то это обнаружит InboxMessageWakeupHandler.
                 _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
-        }              
-    }
 
-
-    public class OutboxSetter 
-        : IOutboxSetter
-    {
-        private readonly IProcessSetter _processSetter;
-
-        public OutboxSetter(
-            IProcessSetter processSetter)
-        {
-            _processSetter = processSetter;
-        }
-
-        public void OutboxMessageProcessed<TId>(
-            IProcessContainer<TId> process,
-            IOutboxComponent<TId> outboxComponent,
-            IOutboxMessageComponent<TId> message)
-        {
-            if (process.CurrentSession.CurrentSessionHaveError)
-            {
-                return;
-            }
-
-            message.IsActive = false;
-            message.SendDate = DateTimeOffset.UtcNow;
-            outboxComponent.ProcessedCount++;
-
-            if (outboxComponent.ProcessedCount < outboxComponent.Messages.Count)
-            {
-                // Есть еще сообщение в батче.
-            }
-            else
-            {
-                // Батч обработан.
-                // Если в БД еще есть активные сообщения, то это обнаружит OutboxMessageWakeupHandler.
-                _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
-            }
+            // Обновляем смещение для триггера.
+            var streamComponent = process.GetComponent<IStreamTriggerComponent>();
+            streamComponent.UpdateMaxTimestamp(_inboxRegistry.TriggerChannelName, message.OrderId);
         }
     }
 }

@@ -25,7 +25,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
             builder
                 .Property(e => e.HandlerKey)
-                .HasMaxLength(255);            
+                .HasMaxLength(255);
+
+            builder.Property(e => e.StreamData);
 
             KeyIndex(builder);
             KeyNotCompleteIndex(builder);

@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -20,6 +21,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -33,6 +35,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
         private readonly IProcessSetter _processSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IWakeupRegistry<TId> _wakeupRegistry;
+        private readonly ITriggerEventRaiser _triggerEventRaiser;
 
         private readonly IProcessContainerConditions<TId> _processContainerConditions;
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
@@ -46,6 +49,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             IProcessSetter processSetter,
             ILockQueryHintStore lockQueryHintStore,
             IWakeupRegistry<TId> wakeupRegistry,
+            ITriggerEventRaiser triggerEventRaiser,
 
             IProcessContainerConditions<TId> processContainerConditions,
             IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions,
@@ -58,6 +62,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             _processSetter = processSetter;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupRegistry = wakeupRegistry;
+            _triggerEventRaiser = triggerEventRaiser;
 
             _processContainerConditions = processContainerConditions;
             _processDbEntityConditions = processDbEntityConditions;
@@ -73,11 +78,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask> saveHandler,
             CancellationToken cancellationToken)
         {
-            static Dictionary<TId, ExecuteContextItemDto> BuildContext(
+            static ExecuteContext BuildContext(
                 EFWakeupService<TId> This,
                 ICollection<IProcessContainer<TId>> processes)
             {
-                var context = new Dictionary<TId, ExecuteContextItemDto>(processes.Count);
+                var wakeupData = new Dictionary<TId, ExecuteWakeupContextItemDto>(processes.Count);
+                var streamData = new Dictionary<TId, ExecuteStreamContextItemDto>(processes.Count);
 
                 foreach (var elem in processes)
                 {
@@ -85,18 +91,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                     if (This._processContainerConditions.HaveError.Check(elem))
                     {
                         continue;
-                    }
-
-                    // Нет компонента.
-                    if (!elem.TryGetComponent<IWakeupComponent>(out var component))
-                    {
-                        continue;
-                    }
-
-                    // Флаг - что мы вышли из части ассинхронного выполнения.
-                    if (!component.InAsyncExecuting)
-                    {
-                        throw new InvalidOperationException("[Bug] Состояние.");
                     }
 
                     // Обрабатываем только указанные статусы.
@@ -107,18 +101,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                         // * Complete - необрабатывается
                         continue;
                     }
-                    
-                    context.Add(
-                        elem.Id,
-                        new ExecuteContextItemDto()
+
+                    if (elem.TryGetComponent<IStreamTriggerComponent>(out var streamTriggerComponent))
+                    {
+                        // В текущей реализации stream trigger не используется проверку условия wakeup.
+                        // Отчасти потому, что в таком случае есть шанс, что обработанное будет утеряно и не будет передано в StreamTrigger.
+                        streamData.Add(
+                            elem.Id,
+                            new ExecuteStreamContextItemDto(elem, streamTriggerComponent));
+                        continue;
+                    }
+
+                    // Нет компонента.
+                    if (elem.TryGetComponent<IWakeupComponent>(out var wakeupComponent))
+                    {
+                        // Флаг - что мы вышли из части ассинхронного выполнения.
+                        if (!wakeupComponent.InAsyncExecuting)
                         {
-                            Process = elem,
-                            WakeUpComponent = component,
-                            WakeupWithLock = null
-                        });
+                            throw new InvalidOperationException("[Bug] Состояние.");
+                        }
+
+                        wakeupData.Add(
+                            elem.Id,
+                            new ExecuteWakeupContextItemDto(elem, wakeupComponent));
+                    }
                 }
 
-                return context;
+                return new ExecuteContext(
+                    wakeupData,
+                    streamData
+                    );
             }
 
             /// <summary>
@@ -127,8 +139,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             /// (ждем завершения блокировок всех сигналов).
             /// </summary>
             static async Task LockWakeupStateAndCheckCondition(
-                EFWakeupService<TId> This, 
-                Dictionary<TId, ExecuteContextItemDto> context, 
+                EFWakeupService<TId> This,
+                IDictionary<TId, ExecuteWakeupContextItemDto> context, 
                 CancellationToken cancellationToken) 
             {               
                 // 1) Получаем wakeup с блокировкой.
@@ -142,7 +154,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
                     foreach (var elem in wakeUps)
                     {
-                        context[elem.ProcessId].WakeupWithLock = elem;
+                        context[elem.ProcessId].UpdateLockHolded = true;
                     }
                 }
 
@@ -166,7 +178,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
             /// </summary>
             static void ExecuteWakeup(
                 EFWakeupService<TId> This,
-                Dictionary<TId, ExecuteContextItemDto> context) 
+                IDictionary<TId, ExecuteWakeupContextItemDto> context) 
             {
                 foreach (var elem in context.Values)
                 {
@@ -196,22 +208,41 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
                             This._processSetter.SetStatus(elem.Process, ProcessStatusEnum.WaitEvent);
                         }
                     }
-                }
+                } }
+
+            static async ValueTask ExecuteStreamAsync(
+                EFWakeupService<TId> This,
+                IDictionary<TId, ExecuteStreamContextItemDto> streamData,
+                CancellationToken cancellationToken) 
+            {
+                var processGoWaitTriggerEvents = streamData.Values
+                    .Where(e => e.Process.Process.Status is ProcessStatusEnum.WaitEvent)
+                    .Select(e => new ProcessGoWaitEvent(
+                        e.StreamTriggerComponent.TriggerKey, 
+                        e.StreamTriggerComponent.ProcessedChannels.ToDictionary()))
+                    .ToArray();
+
+                // Для процессов, использующих stream trigger, публикуем событие о том, что процесс засыпает и данные о смещения каналов.
+                // Если поступают новые сигналы, то триггер пробудит процесс.
+                await This._triggerEventRaiser.RaiseAsync(processGoWaitTriggerEvents, cancellationToken);
             }
 
             var context = BuildContext(this, processes);
-            if (context.Count == 0)
+
+            if (context.WakeupData.Any())
             {
-                return;
+                await LockWakeupStateAndCheckCondition(this, context.WakeupData, cancellationToken);
+                ExecuteWakeup(this, context.WakeupData);
+
+                await saveHandler(
+                    context.WakeupData.Select(e => e.Value.Process).ToArray(),
+                    cancellationToken);
             }
 
-            await LockWakeupStateAndCheckCondition(this, context, cancellationToken);
-
-            ExecuteWakeup(this, context);            
-
-            await saveHandler(
-                context.Select(e => e.Value.Process).ToArray(),
-                cancellationToken);
+            if (context.StreamData.Any())
+            {
+                await ExecuteStreamAsync(this, context.StreamData, cancellationToken);
+            }
         }
 
         public async Task WakeupProcessHandlerAsync(
@@ -327,17 +358,53 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Servic
 
         #endregion
 
-
-        private class ExecuteContextItemDto
+        private class ExecuteContext 
         {
-            public IProcessContainer<TId> Process { get; init; } = default!;
+            public IDictionary<TId, ExecuteWakeupContextItemDto> WakeupData { get; }
 
-            public IWakeupComponent WakeUpComponent { get; init; } = default!;
+            public IDictionary<TId, ExecuteStreamContextItemDto> StreamData { get; }
 
-            /// <summary>
-            /// Пробуждение с блокировкой.
-            /// </summary>
-            public ProcessWakeupDbEntity<TId> WakeupWithLock { get; set; } = default!;
+            public ExecuteContext(
+                IDictionary<TId, ExecuteWakeupContextItemDto> wakeupData,
+                IDictionary<TId, ExecuteStreamContextItemDto> streamData)
+            {
+                WakeupData = wakeupData;
+                StreamData = streamData;
+            }
+        }
+
+        private class ExecuteWakeupContextItemDto
+        {
+            public IProcessContainer<TId> Process { get; }
+
+            public IWakeupComponent WakeUpComponent { get; }
+
+            public bool UpdateLockHolded { get; set; }
+
+            public ExecuteWakeupContextItemDto(
+                IProcessContainer<TId> process, 
+                IWakeupComponent wakeUpComponent)
+            {
+                Process = process;
+                WakeUpComponent = wakeUpComponent;
+
+                UpdateLockHolded = false;
+            }
+        }
+
+        private class ExecuteStreamContextItemDto 
+        {
+            public IProcessContainer<TId> Process { get; }
+
+            public IStreamTriggerComponent StreamTriggerComponent { get; }
+
+            public ExecuteStreamContextItemDto(
+                IProcessContainer<TId> process, 
+                IStreamTriggerComponent streamTriggerComponent)
+            {
+                Process = process;
+                StreamTriggerComponent = streamTriggerComponent;
+            }
         }
 
         /// <summary>

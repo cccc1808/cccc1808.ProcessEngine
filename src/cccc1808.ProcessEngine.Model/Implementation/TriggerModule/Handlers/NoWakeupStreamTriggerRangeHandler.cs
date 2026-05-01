@@ -11,15 +11,19 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 {
-    public class NoWakeupRetryTriggerRangeHandler<TId>
+    /// <summary>
+    /// Стрим триггер.
+    /// Пробуждает, не выключается, без задержки т.к. управляется стримом.
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
+    public class NoWakeupStreamTriggerRangeHandler<TId>
         : ITriggerRangeHandler<TId>
     {
-        public const string Name = "NoWakeupRetryTriggerRangeHandler";
-
+        public const string Name = "NoWakeupStreamTriggerRangeHandler";
         private readonly IProcessRepository<TId> _processRepository;
         private readonly IProcessSetter _processSetter;
 
-        public NoWakeupRetryTriggerRangeHandler(
+        public NoWakeupStreamTriggerRangeHandler(
             IProcessRepository<TId> processRepository,
             IProcessSetter processSetter)
         {
@@ -28,26 +32,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
         }
 
         public async ValueTask<IDictionary<string, ITriggerHandler.Result>> HandleAsync(
-            IEnumerable<ITriggerComponent<TId>> triggers, 
+            IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
             var processes = await _processRepository.GetWaitingRangeAsync(
-                triggers.Select(e => e.ProcessId).ToArray(), 
-                updateLock: true, 
+                triggers.Select(e => e.ProcessId).ToArray(),
+                updateLock: true,
                 cancellationToken);
 
             foreach (var elem in processes)
             {
                 _processSetter.SetStatus(
-                    elem, 
+                    elem,
                     Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute);
             }
 
             await _processRepository.UpdateAsync(processes, cancellationToken);
 
             return triggers.ToDictionary(
-                e => e.Key, 
-                e => new ITriggerHandler.Result(NeedRepeat: false, IsActivated: false, DateTimeOffset.MinValue));
+                e => e.Key,
+                e => new ITriggerHandler.Result(NeedRepeat: true, IsActivated: false, DateTimeOffset.MinValue));
         }
     }
 }

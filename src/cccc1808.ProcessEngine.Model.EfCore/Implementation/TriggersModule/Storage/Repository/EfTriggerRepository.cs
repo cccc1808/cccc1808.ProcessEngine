@@ -146,12 +146,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 processId: processId,
                 counter: counter,
                 stream: stream != null 
-                    ? new TriggerDbEntity<TId>.StreamDto() 
-                    {
-                        StreamProcessTimestamps = stream.StreamProcessTimestamps,
-                        StreamsProcessIsWaiting = stream.StreamsProcessIsWaiting,
-                        StreamsTimeStamp = stream.StreamsTimeStamp,
-                    }
+                    ? new TriggerDbEntity<TId>.StreamDto(
+                        stream.StreamsProcessIsWaiting,
+                        stream.StreamsTimeStamp,
+                        stream.StreamProcessTimestamps
+                        )
                     : null);
 
             Set.Add(entity);

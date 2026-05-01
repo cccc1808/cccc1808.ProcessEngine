@@ -2,8 +2,8 @@
 {
     public interface ISignalStreamTriggerEvent : ITriggerEvent
     {
-        string StreamKey { get; }
+        string ChannelName { get; }
 
-        long StreamTimestamp { get; }
+        long ChannelTimestamp { get; }
     }
 }

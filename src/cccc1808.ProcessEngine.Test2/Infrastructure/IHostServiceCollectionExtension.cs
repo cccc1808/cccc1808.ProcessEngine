@@ -143,7 +143,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddWakeupServices(
             this IServiceCollection services, 
-            params WakeupRegistryDto[] registrations)
+            WakeupRegistryDto[] wakeupRegistrations,
+            StreamRegistryDto[] streamRegistrations)
         {
             services
                 .AddScoped<IWakeupService<Guid>, EFWakeupService<Guid>>()
@@ -153,10 +154,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>()
 ;
 
-            foreach (var elem in registrations)
+            foreach (var elem in wakeupRegistrations)
             {
                 services.AddSingleton(elem);
                 services.AddScoped(elem.CheckWakeupHandlerType);
+            }
+
+            foreach (var elem in streamRegistrations)
+            {
+                services.AddSingleton(elem);
             }
 
             return services;
@@ -260,7 +266,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         {
             services
 
-                .AddScoped<IOutboxSender<Guid>, OutboxSender<Guid>>()
+                .AddScoped<IOutboxSender<Guid>, EFOutboxSender<Guid>>()
 
                 .AddScoped<EFInboxDbProvider<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)

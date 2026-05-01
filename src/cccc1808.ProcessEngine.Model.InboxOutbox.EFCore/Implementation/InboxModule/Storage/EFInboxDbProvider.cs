@@ -10,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
@@ -22,6 +23,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
@@ -223,6 +225,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
                 elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
                     new EFProcessProxyComponent<TId>(elem.Process),
@@ -242,12 +245,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         new SoftTimeoutComponent(softTimeout));
                 }
                 var component = new EFInboxComponentProxy<TId>(
-                    processData[elem.Process.Id],
+                    processDataElem,
                     elem.Messages
                         .Select(e => (IInboxMessageComponent<TId>)new EFInboxMessageProxy<TId>(e))
                         .ToArray()
                     );
                 container.AddComponent<IInboxComponent<TId>>(component);
+                container.AddComponent<IStreamTriggerComponent>(
+                    new StreamTriggerComponent(
+                        processDataElem.WakeupTriggerKey));
 
                 loadBuffer.Add(container.Id, container);
 
@@ -268,8 +274,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                         var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
                         var triggerEventRaiser = scope.ServiceProvider.GetRequiredService<ITriggerEventRaiser>();
-                        var streamWakeupRegistries = scope.ServiceProvider.GetServices<StreamWakeupRegistryDto>()
-                            .ToHashSet();
 
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
@@ -296,7 +300,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                 if (activeWithoutMessages.Any())
                                 {
                                     haveChanges = true;
-                                    var waitEvents = new List<ITriggerEvent>(activeWithoutMessages.Length);
                                     foreach (var elem in activeWithoutMessages)
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
@@ -307,28 +310,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);
-
-                                            var isStreamWakeup = streamWakeupRegistries.Contains(
-                                                new StreamWakeupRegistryDto(
-                                                    new ProcessRegistryDto(
-                                                        new ProcessTypeDto(elem.Process.ProcessTypeId, elem.Process.ProcessVersion), elem.Process.Priority)
-                                                    )
-                                                );
-
-                                            if (isStreamWakeup)
-                                            {
-                                                waitEvents.Add(new ProcessGoWaitEvent(
-                                                    elem.Data.WakeupTriggerKey,
-                                                    new Dictionary<string, long>(0)));
-                                            }
                                         }
                                     }
-
-                                    await triggerEventRaiser.RaiseAsync(
-                                        waitEvents,
-                                        cancellationToken);
                                 }
-
                             }
 
                             if (haveChanges)

@@ -144,14 +144,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
 
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), typeof(EFInboxMessageWakeupHandler<Guid>)),
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), typeof(EFOutboxMessageWakeupHandler<Guid>))
+                        [],
+                        [
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)),
+                            ]
                     )
 
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>))
+                        new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>))
                     )
 
                     .AddTriggerEngineServices(
@@ -263,8 +267,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             MessageLimitFunc = (m) => m * 10,
                         },
-                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
-                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1))
+                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), "inbox"),
+                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), "outbox")
                     );
 
                 services
@@ -286,12 +290,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     // InMemory
                     {
                         var cachce = scope.ServiceProvider.GetRequiredService<EFClassifierRepository<Guid>.CachState>();
-                        cachce._queueCache.Clear();
-                        cachce._aggregateCache.Clear();
-                        cachce._inboxInfo.Clear();
-                        cachce._outboxInfo.Clear();
-                        cachce._inboxOffset.Clear();
-                        cachce._outboxOffset.Clear();
+                        cachce.Clear();
                     }
 
                     // Db

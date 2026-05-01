@@ -11,32 +11,36 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Services
 {
-    public class OutboxSender<TId> : IOutboxSender<TId>
+    public class EFOutboxSender<TId> : IOutboxSender<TId>
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
         private readonly ITriggerEventRaiser _triggerEventRaiser;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
         private readonly IClassifierRepository<TId> _classifierRepository;
+        private readonly OutboxRegistryDto _outboxRegistry;
 
-        public OutboxSender(
-            IIdGenerator<TId> idGenerator, 
+        public EFOutboxSender(
+            IIdGenerator<TId> idGenerator,
             IEFDbContext dbContext,
             ITriggerEventRaiser triggerEventRaiser,
             IHeaderJsonSerializer headerJsonSerializer,
-            IClassifierRepository<TId> classifierRepository)
+            IClassifierRepository<TId> classifierRepository,
+            OutboxRegistryDto outboxRegistry)
         {
             _idGenerator = idGenerator;
             _dbContext = dbContext;
             _triggerEventRaiser = triggerEventRaiser;
             _headerJsonSerializer = headerJsonSerializer;
             _classifierRepository = classifierRepository;
+            _outboxRegistry = outboxRegistry;
         }
 
         public async ValueTask SendAsync(
@@ -52,29 +56,36 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 cancellationToken);
 
             var messageSet = _dbContext.Set<OutboxMessageDbEntity<TId>>();
+            var timestamps = new Dictionary<(AggregateDto Aggreagate, string Queue), long>(groups.Length);
             foreach (var elem in messages)
             {
                 var key = (elem.aggregate, elem.message.Queue);
-                messageSet.Add(
-                    new OutboxMessageDbEntity<TId>(
-                        id: await _idGenerator.NextAsync(cancellationToken),
-                        partition: 0,
-                        priority: 1,
-                        orderId: await _classifierRepository.GetOutboxOrderIdAsync(key, cancellationToken),
-                        processId: outboxes[key].ProcessId,
-                        isActive: true,
-                        key: elem.message.Key,
-                        idemporencyId: Guid.NewGuid().ToString(),
-                        body: elem.message.Body,
-                        headers: _headerJsonSerializer.Serialize(elem.message.Headers),
-                        sendDate: null
-                        ));
+
+                var entity = new OutboxMessageDbEntity<TId>(
+                    id: await _idGenerator.NextAsync(cancellationToken),
+                    partition: 0,
+                    priority: 1,
+                    orderId: await _classifierRepository.GetOutboxOrderIdAsync(key, cancellationToken),
+                    processId: outboxes[key].ProcessId,
+                    isActive: true,
+                    key: elem.message.Key,
+                    idemporencyId: Guid.NewGuid().ToString(),
+                    body: elem.message.Body,
+                    headers: _headerJsonSerializer.Serialize(elem.message.Headers),
+                    sendDate: null
+                    );
+                messageSet.Add(entity);
+
+                timestamps[key] = entity.OrderId;
             }
 
             // Для пробуждения outbox процесса
             await _triggerEventRaiser.RaiseAsync(
                 groups
-                    .Select(e => new TriggerEvent(outboxes[e.Key].TriggerKey, ignoreDelay: false))
+                    .Select(e => new SignalStreamTriggerEvent(
+                        outboxes[e.Key].TriggerKey,
+                        channelName: _outboxRegistry.TriggerChannelName,
+                        channelTimestamp: timestamps[e.Key]))
                     .ToArray(),
                 cancellationToken);
         }

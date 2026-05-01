@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -51,12 +52,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
                 if (Kind == ITriggerComponent<TId>.TriggerKind.StreamsTrigger)
                 {
                     using (var document = JsonSerializer.SerializeToDocument(
-                        new StreamDto()
-                        {
-                            StreamsTimeStamp = StreamsTimeStamp,
-                            StreamProcessTimestamps = StreamProcessTimestamps,
-                            StreamsProcessIsWaiting = StreamsProcessIsWaiting.Value
-                        }))
+                        new StreamDto(
+                            StreamsProcessIsWaiting!.Value,
+                            StreamsTimeStamp!,
+                            StreamProcessTimestamps!)))
                     {
                         return document.RootElement.Clone();
                     }
@@ -80,7 +79,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public Dictionary<string, long>? StreamsTimeStamp { get; set; }
 
-        public Dictionary<string, long>? StreamProcessTimestamps { get; set; }        
+        public Dictionary<string, long>? StreamProcessTimestamps { get; set; }
+
+        [Obsolete("For entity framework")]
+        public TriggerDbEntity() 
+        {
+            Id = default!;
+            Key = default!;
+            ProcessId = default!;
+            HandlerKey = default!;
+            StreamsTimeStamp = null;
+            StreamProcessTimestamps = null!;
+        }
 
         public TriggerDbEntity(
             TId id, 
@@ -116,9 +126,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         {
             public bool StreamsProcessIsWaiting { get; set; }
 
-            public Dictionary<string, long> StreamsTimeStamp { get; set; } = default!;
+            public Dictionary<string, long> StreamsTimeStamp { get; set; }
 
-            public Dictionary<string, long> StreamProcessTimestamps { get; set; } = default!;
+            public Dictionary<string, long> StreamProcessTimestamps { get; set; }
+
+            [Obsolete("Serialization.")]
+            public StreamDto() 
+            {
+                StreamsTimeStamp = null!;
+                StreamProcessTimestamps = null!;
+            }
 
             public StreamDto(
                 bool streamsProcessIsWaiting,

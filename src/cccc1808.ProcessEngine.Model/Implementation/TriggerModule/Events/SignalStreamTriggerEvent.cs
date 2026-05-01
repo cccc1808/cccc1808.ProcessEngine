@@ -3,26 +3,28 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events.Stream;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
+    /// <summary>
+    /// Событие о поступлении нового сигнала в StreamTrigger.
+    /// </summary>
     public class SignalStreamTriggerEvent : 
         TriggerEvent,
         ISignalStreamTriggerEvent
     {
-        public string StreamKey { get; set; }
+        public string ChannelName { get; set; }
 
-        public long StreamTimestamp { get; set; }
+        public long ChannelTimestamp { get; set; }
 
         public SignalStreamTriggerEvent(
             string triggerKey,
-            ITriggerEvent.KindEnum kind,
-            string channelKey,
-            long signalTimestamp)
+            string channelName,
+            long channelTimestamp)
             : base(
                   triggerKey, 
                   false,
-                  kind)
+                  ITriggerEvent.KindEnum.Stream_SignalEvent)
         {
-            StreamKey = channelKey;
-            StreamTimestamp = signalTimestamp;
+            ChannelName = channelName;
+            ChannelTimestamp = channelTimestamp;
         }
     }
 }

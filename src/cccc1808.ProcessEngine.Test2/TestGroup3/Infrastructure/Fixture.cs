@@ -133,7 +133,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         processCountLimiter: 1
                     )
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), typeof(ParentCheckWakeupHandler))
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), typeof(ParentCheckWakeupHandler))],
+                        []
                     )
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
