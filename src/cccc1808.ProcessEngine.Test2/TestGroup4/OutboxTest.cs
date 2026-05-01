@@ -41,7 +41,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact]
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
         public async Task Test()
         {
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())

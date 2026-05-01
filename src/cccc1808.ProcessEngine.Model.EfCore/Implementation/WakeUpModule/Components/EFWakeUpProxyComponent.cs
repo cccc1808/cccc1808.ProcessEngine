@@ -22,16 +22,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Compon
 
         public bool NeedUpdate { get; set; }
 
-        public bool InAsyncExecuting { get; set; }
-
-        public bool HandlerResult { get; set; }
-
         public EFWakeupProxyComponent(
-            ProcessWakeupDbEntity<TId> dbEntity,
-            bool inAsyncExecuting)
+            ProcessWakeupDbEntity<TId> dbEntity)
         {
             DbEntity = dbEntity;
-            InAsyncExecuting = inAsyncExecuting;
         }
     }
 }

@@ -13,17 +13,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
         public IProcessComponent<TId> Process { get; }
 
         public IAsyncSessionComponent CurrentSession { get; }
-        
+
+        public bool InAsyncExecuting { get; }
+
+        public bool UsingWakeup { get; }
 
         public ProcessContainer(
-            IProcessComponent<TId> process, 
-            IAsyncSessionComponent currentSession)
+            IProcessComponent<TId> process,
+            IAsyncSessionComponent currentSession,
+            bool isAsyncExecuting,
+            bool usingWakeup)
         {
             Process = process;
             AddComponent(process);
 
             CurrentSession = currentSession;
             AddComponent(currentSession);
+            InAsyncExecuting = isAsyncExecuting;
+            UsingWakeup = usingWakeup;
         }
 
         public T GetComponent<T>()

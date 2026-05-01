@@ -96,38 +96,57 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
                                     wakeUpTask = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                                    await foreach (var elem in select.SelectProcessIdsForAsyncProcessingAsync(
-                                        selectContext,
-                                        registrations,
-                                        cancellationToken)
-                                        .WithCancellation(cancellationToken))
+                                    try
                                     {
-                                        // Выборка пустая.
-                                        if (elem.Count == 0)
+                                        await foreach (var elem in select.SelectProcessIdsForAsyncProcessingAsync(
+                                            selectContext,
+                                            registrations,
+                                            cancellationToken)
+                                            .WithCancellation(cancellationToken))
                                         {
-                                            break;
+                                            // Выборка пустая.
+                                            if (elem.Count == 0)
+                                            {
+                                                break;
+                                            }
+
+                                            var produceResult = _buffer.TryProduce(elem);
+
+                                            // Буфер заполнен.
+                                            if (produceResult.ids.Count != 0)
+                                            {
+                                                // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
+                                                // чтобы их могли взять в обработку другие экземпляры.
+                                                await select.UnlockSelectAsync(
+                                                    produceResult.ids,
+                                                    cancellationToken);
+
+                                                break;
+                                            }
+
+                                            selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
+
+                                            if (oneCycle)
+                                            {
+                                                break;
+                                            }
                                         }
-
-                                        var produceResult = _buffer.TryProduce(elem);
-
-                                        // Буфер заполнен.
-                                        if (produceResult.ids.Count != 0)
+                                    }
+                                    catch(Exception ex)
+                                    {
+                                        if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
                                         {
-                                            // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
-                                            // чтобы их могли взять в обработку другие экземпляры.
-                                            await select.UnlockSelectAsync(
-                                                produceResult.ids,
-                                                cancellationToken);
-
-                                            break;
+                                            throw;
                                         }
-
-                                        selectContext.Data = (null, Math.Min(freeSpace, _options.SelectBatchLimit));
 
                                         if (oneCycle)
                                         {
-                                            break;
+                                            throw;
                                         }
+
+                                        // TODO: log
+
+                                        await Task.Delay(_options.SelectorExceptionDelay, cancellationToken);
                                     }
 
                                     if (oneCycle)
@@ -179,6 +198,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 await handler.HandleRangeAsync([batch], cancellationToken);
                             }
                         }
+                        catch(Exception ex)
+                        {
+                            if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                            {
+                                throw;
+                            }
+
+                            if (oneCycle)
+                            {
+                                throw;
+                            }
+
+                            // В целом предпологается, что хендел не должен допускать сюда Exception.
+                            // TODO: log
+                        }
                         finally 
                         {
                             _processCountLimiter.Stop(batch.Count);
@@ -221,6 +255,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             TimeSpan selectEmptyTimeout,
             int BatchLimit,
             TimeSpan BatchTimeout,
+            TimeSpan SelectorExceptionDelay,
             Func<IServiceProvider, IProcessAsyncProcessingSelectQuery<TId>> SelectFactory,
             Func<IServiceProvider, IProcessHandlerMiddleware<TId>> RootMiddlewareFactory
             );

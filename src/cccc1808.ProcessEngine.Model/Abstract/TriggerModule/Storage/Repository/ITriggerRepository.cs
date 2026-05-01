@@ -27,6 +27,18 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken);
 
         Task CreateTriggerAsync(
+            CreateTriggerDto createDto,
+            CancellationToken cancellationToken);
+
+        Task CreateTriggerRangeAsync(
+            ICollection<CreateTriggerDto> createDto,
+            CancellationToken cancellationToken);
+
+        Task SaveAsync(
+            ICollection<ITriggerComponent<TId>> triggers, 
+            CancellationToken cancellationToken);
+        
+        public readonly record struct CreateTriggerDto(
             string key,
             DateTimeOffset timerDate,
             TId processId,
@@ -35,13 +47,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             short priority,
             bool isActivated,
             int? counter,
-            StreamDto? stream,
-            CancellationToken cancellationToken);
-
-        Task SaveAsync(
-            ICollection<ITriggerComponent<TId>> triggers, 
-            CancellationToken cancellationToken);
-
+            StreamDto? stream);
 
         public class StreamDto
         {

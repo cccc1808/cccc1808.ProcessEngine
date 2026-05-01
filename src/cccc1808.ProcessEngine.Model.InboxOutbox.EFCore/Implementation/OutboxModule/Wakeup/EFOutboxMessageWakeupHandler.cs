@@ -35,11 +35,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             _messageStreamConditions = messageStreamConditions;
         }
 
-        public async ValueTask HandleRangeAsync(
+        public async ValueTask<IDictionary<TId, bool>> HandleRangeAsync(
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            var result = await _dbContext
+            var data = await _dbContext
                 .Set<OutboxMessageDbEntity<TId>>()
                 .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, processes.Select(e => e.Id).ToArray())
                 .ApplayQueryCondition(_messageStreamConditions.IsActiveMessages.Query)
@@ -47,19 +47,19 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 .Select(e => new { e.Key, Any = e.Any() })
                 .ToDictionaryAsync(e => e.Key, e => e.Any, cancellationToken);
 
+            var result = new Dictionary<TId, bool>(processes.Count);
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeupComponent>();
-
-                if (result.TryGetValue(elem.Id, out var haveMessage))
+                if (data.TryGetValue(elem.Id, out var haveMessage))
                 {
-                    component.HandlerResult = haveMessage;
+                    result.Add(elem.Id, haveMessage);
                 }
                 else 
                 {
-                    component.HandlerResult = false;
+                    result.Add(elem.Id, false);
                 }
             }
+            return result;
         }
     }
 }

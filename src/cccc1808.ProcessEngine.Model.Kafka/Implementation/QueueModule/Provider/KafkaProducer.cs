@@ -61,11 +61,12 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                 buffer.Add(produceResult);
             }
 
+            // TODO: низкий приоритет (тут можно отследить какие отправились а какие упали с Exception и веделить отдельный хендлер.
             try
             {
                 await Task.WhenAll(buffer);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw;
             }

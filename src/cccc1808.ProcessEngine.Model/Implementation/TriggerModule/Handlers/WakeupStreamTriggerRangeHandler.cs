@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
@@ -22,11 +23,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
         public const string Name = "WakeupStreamTriggerRangeHandler";
 
         private readonly IWakeupService<TId> _wakeUpService;
+        private readonly IDateTimeProvider _dateTimeProvider;
 
         public WakeupStreamTriggerRangeHandler(
-            IWakeupService<TId> wakeUpService)
+            IWakeupService<TId> wakeUpService, 
+            IDateTimeProvider dateTimeProvider)
         {
             _wakeUpService = wakeUpService;
+            _dateTimeProvider = dateTimeProvider;
         }
 
         public async ValueTask<IDictionary<string, ITriggerHandler.Result>> HandleAsync(
@@ -43,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                     NeedRepeat: true, 
                     IsActivated: false,
                     // TODO: параметр.
-                    DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2)));
+                    _dateTimeProvider.UtcNow + TimeSpan.FromSeconds(2)));
         }
     }
 }

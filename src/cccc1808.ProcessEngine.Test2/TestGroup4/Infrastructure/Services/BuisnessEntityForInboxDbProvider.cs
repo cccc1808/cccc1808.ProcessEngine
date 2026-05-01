@@ -86,16 +86,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services
                     elem2.BuisnessDbEntity = elem;
                 }
             }            
-        }
-        
-        public Task LoadProcessForAsyncProcessingAsync(
-            IDictionary<Guid, ProcessInstanceInfoDto<Guid>> notLoadedProcesses,
-            IDictionary<Guid, IProcessContainer<Guid>> loadBuffer,
-            IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex, 
-            CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
+        }        
 
         public Task UpdateAsync(
             ICollection<IProcessContainer<Guid>> processes, 

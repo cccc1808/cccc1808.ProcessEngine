@@ -46,38 +46,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
             }
         }
 
-        public Task LoadProcessForAsyncProcessingAsync(
-            IDictionary<Guid, ProcessInstanceInfoDto<Guid>> notLoadedProcesses, 
-            IDictionary<Guid, IProcessContainer<Guid>> loadBuffer,
-            IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex, 
-            CancellationToken cancellationToken)
-        {
-            // Без кастомного загрузчика.
-            return Task.CompletedTask;
-        }
-
-        public async Task LoadRangeAsync(
-            IDictionary<Guid, IProcessContainer<Guid>> processes,
-            IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,
-            bool withLock,
-            CancellationToken cancellationToken)
-        {
-            var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(4, 1), out var group)
-                ? group
-                    .Select(e => processes[e])
-                    .ToArray()
-                : [];
-
-            var data = await _efDbContext.Set<ChildProcessDbEntity>()
-                .Where(e => typedProcesses.Select(e => e.Id).Contains(e.ProcessId))
-                .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
-
-            foreach (var elem in typedProcesses)
-            {
-                elem.AddComponent(data[elem.Id]);
-            }
-        }
-
         public Task UpdateAsync(
             ICollection<IProcessContainer<Guid>> processes, 
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,

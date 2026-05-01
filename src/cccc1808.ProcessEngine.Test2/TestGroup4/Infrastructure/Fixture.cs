@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
@@ -56,15 +57,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 {
     [CollectionDefinition(Name, DisableParallelization = true)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
-    {       
+    {
         public const string Name = "FixtureCollection 4";
+        public const int TestTimeout = 10000;
         public const string TriggerQueue = "trigger_events";
         public const string InboxQueue = "inbox_test";
         public const string OutboxQueue = "outbox_test";
-
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
 
         public class Fixture : IAsyncLifetime
         {           
@@ -159,7 +157,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.Options() 
+                        new TriggerRunner<Guid>.OptionsDto() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -192,6 +190,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: 1,
                             BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectorExceptionDelay: TimeSpan.Zero,
                             SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                        
                             RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,
@@ -204,6 +203,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                 {
                                     return new ExecuteStepByStepGroupMiddleware<Guid>(
                                         s,
+                                        s.GetRequiredService<IDateTimeProvider>(),
                                         s.GetRequiredService<IIsolationService>(),
                                         s.GetRequiredService<IProcessSetter>(),
                                         s.GetRequiredService<IWakeupService<Guid>>(),
@@ -215,6 +215,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                 {
                                     return new ExecuteStepByStepGroupMiddleware<Guid>(
                                         s,
+                                        s.GetRequiredService<IDateTimeProvider>(),
                                         s.GetRequiredService<IIsolationService>(),
                                         s.GetRequiredService<IProcessSetter>(),
                                         s.GetRequiredService<IWakeupService<Guid>>(),
@@ -250,8 +251,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddInboxOutbox(
                         new InboxRunner<Guid>.OptionsDto() 
                         {
-                            ConsumeBatchSize = 100,
-                            ConsumeTimeout = TimeSpan.FromSeconds(2),
+                            ConsumeBatchLimit = 100,
+                            ConsumeBatchTimeout = TimeSpan.FromSeconds(2),
                             Queues = [InboxQueue],
                         },
                         new EFInboxConsumerService<Guid>.Options() 

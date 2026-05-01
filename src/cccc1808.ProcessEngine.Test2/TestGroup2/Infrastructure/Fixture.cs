@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
@@ -46,10 +47,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
     {       
         public const string Name = "FixtureCollection 2";
-
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
+        public const int TestTimeout = 115000;
 
         public class Fixture : IAsyncLifetime
         {           
@@ -151,7 +149,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.Options() 
+                        new TriggerRunner<Guid>.OptionsDto() 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -186,11 +184,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             selectEmptyTimeout: TimeSpan.FromSeconds(1),
                             BatchLimit: 1,
                             BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectorExceptionDelay: TimeSpan.Zero,
                             SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                       
                             RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,
                             (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                 s,
+                                s.GetRequiredService<IDateTimeProvider>(),
                                 s.GetRequiredService<IIsolationService>(),
                                 s.GetRequiredService<IProcessSetter>(),
                                 s.GetRequiredService<IWakeupService<Guid>>(),

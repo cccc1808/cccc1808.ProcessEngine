@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
@@ -16,6 +17,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 
@@ -29,14 +31,18 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
         : BaseRangeProcessHandler<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IOutboxSetter _outboxSetter;
+        private readonly IHeaderJsonSerializer _headerJsonSerializer;
 
         public OutboxRangeProcessHandler(
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
             IQueueProviderFactory queueProviderFactory,
+            IDateTimeProvider dateTimeProvider,
             IOutboxSetter outboxSetter,
+            IHeaderJsonSerializer headerJsonSerializer,
             ExecuteStepByStepGroupMiddleware<TId>.OptionsDto options)
             : base(
                   repository,
@@ -44,7 +50,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                   setter)
         {
             _queueProviderFactory = queueProviderFactory;
+            _dateTimeProvider = dateTimeProvider;
             _outboxSetter = outboxSetter;
+            _headerJsonSerializer = headerJsonSerializer;
             Options = options;
         }
 
@@ -81,7 +89,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             foreach (var elem in groupByQueue)
             {
                 // Soft timeout
-                if (softTimeoutDate < DateTimeOffset.UtcNow)
+                if (softTimeoutDate < _dateTimeProvider.UtcNow)
                 {
                     foreach (var elem2 in group.Group.Values)
                     {
@@ -127,25 +135,34 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                         throw;
                     }
 
-                    foreach (var elem2 in elem.Select(e => e.Process).Distinct())
+                    var uniqueProcesses = elem.Select(e => e.Process).Distinct().ToArray();
+                    var retryBuffer = new List<ITriggerRepository<TId>.CreateTriggerDto>(uniqueProcesses.Length);
+                    foreach (var elem2 in uniqueProcesses)
                     {
                         var errorResult = _processSetter.SetError(elem2, ex, allowRetry: true);
-                        
+
+                        // Retry trigger.
                         if (errorResult.IsRetry)
                         {
-                            // Retry trigger.
-                            await _triggerRepository.CreateTriggerAsync(
-                                key: Guid.NewGuid().ToString(),
-                                timerDate: errorResult.Timeout,
-                                processId: elem2.Id,
-                                handlerKey: WakeupTriggerRangeHandler<TId>.Name,
-                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                                priority: elem2.Process.Info.Priority,
-                                isActivated: true,
-                                counter: null,
-                                stream: null,
-                                cancellationToken);
+                            retryBuffer.Add(
+                                new ITriggerRepository<TId>.CreateTriggerDto(
+                                    key: Guid.NewGuid().ToString(),
+                                    timerDate: errorResult.Timeout,
+                                    processId: elem2.Id,
+                                    handlerKey: WakeupTriggerRangeHandler<TId>.Name,
+                                    kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                    priority: elem2.Process.Info.Priority,
+                                    isActivated: true,
+                                    counter: null,
+                                    stream: null));
                         }
+                    }
+
+                    if (retryBuffer.Any())
+                    {
+                        await _triggerRepository.CreateTriggerRangeAsync(
+                            retryBuffer,
+                            cancellationToken);
                     }
                 }
             }
@@ -159,7 +176,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             return new MessageDto(
                 messageComponent.Key,
                 outbox.Queue,
-                messageComponent.Headers.Deserialize<HeaderDto[]>() ?? Array.Empty<HeaderDto>(),
+                _headerJsonSerializer.Deserialize(messageComponent.Headers),
                 messageComponent.Body,
                 messageComponent.Partition
                 );

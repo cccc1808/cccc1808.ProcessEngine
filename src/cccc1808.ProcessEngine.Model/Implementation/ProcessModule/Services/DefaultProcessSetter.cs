@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
@@ -16,16 +17,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
     public class DefaultProcessSetter
         : IProcessSetter
     {
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly Func<short, Exception, DateTimeOffset> _retryDelayFunc;
-        private readonly Func<Exception, JsonElement> _formateExceptionFunc;
+        private readonly Func<Exception, JsonElement> _formateExceptionFunc;        
 
         public DefaultProcessSetter(
+            IDateTimeProvider dateTimeProvider,
             Func<short, Exception, DateTimeOffset>? retryDelayFunc,
             Func<Exception, JsonElement>? formateExceptionFunc = null)
         {
+            _dateTimeProvider = dateTimeProvider;
+
             _retryDelayFunc = retryDelayFunc
                 ?? (
-                (count, _) => DateTimeOffset.UtcNow.Add(count * TimeSpan.FromSeconds(10))
+                (count, _) => _dateTimeProvider.UtcNow.Add(count * TimeSpan.FromSeconds(10))
                 );
             _formateExceptionFunc = formateExceptionFunc 
                 ?? (
@@ -51,14 +56,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
         {
             process.Process.Status = status;
 
-            if (process.TryGetComponent<IWakeupComponent>(out var w))
+            if (process.UsingWakeup && !process.InAsyncExecuting)
             {
-                // Если не в асинхронном выполнении, то меняем также компонент (аккуратно с этим).
-                if (!w.InAsyncExecuting)
-                {
-                    w.IsAsyncExecuting = status == ProcessStatusEnum.AsyncExecute;
-                    w.NeedUpdate = true;
-                }
+                // Если не в асинхронном выполнении, то меняем также компонент.
+                var wakeupComponent = process.GetComponent<IWakeupComponent>();
+                wakeupComponent.IsAsyncExecuting = true;
+                wakeupComponent.NeedUpdate = true;
             }
         }
 
@@ -68,7 +71,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 process.CurrentSession.HaveErrorOnStart
                 || process.CurrentSession.CurrentSessionHaveError;
 
-            process.CurrentSession.CurrentSessionHaveError = false;
+            // process.CurrentSession.CurrentSessionHaveError = false;
             process.Process.RetryCount = null;
             process.Process.StoppedByError = false;
             process.Process.Error = null;
@@ -86,20 +89,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 && !process.Process.StoppedByError
                 )
             {
-                // Тут статус не трогаем.
-                process.Process.StoppedByError = false;
-                process.Process.RetryCount = (short)((process.Process.RetryCount ?? 0) + 1);
-
                 // Ждем retry триггер.
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
+
+                process.Process.StoppedByError = false;
+                process.Process.RetryCount = (short)((process.Process.RetryCount ?? 0) + 1);
+                
                 result = (true, _retryDelayFunc(process.Process.RetryCount.Value, ex));
             }
             else
             {
-                process.Process.StoppedByError = true;
-
                 // Останавливаем выполнение
                 SetStatus(process, ProcessStatusEnum.WaitEvent);
+
+                process.Process.StoppedByError = true;
+                
                 result = (false, DateTimeOffset.MinValue);
             }
 
@@ -109,7 +113,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             process.Process.Error = new IProcessComponent<TId>.ErrorDto(
                 _formateExceptionFunc(ex),
                 process.CurrentSession.SessionId,
-                DateTimeOffset.UtcNow
+                _dateTimeProvider.UtcNow
                 );            
 
             return result ;

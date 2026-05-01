@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -11,7 +12,6 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
@@ -22,7 +22,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -30,7 +29,6 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entit
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage
@@ -39,6 +37,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         : IProcessDbProvider<TId>
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
@@ -51,6 +50,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
         public EFInboxDbProvider(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
@@ -63,6 +63,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             )
         {
             _serviceProvider = serviceProvider;
+            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _inboxRegistryDto = inboxRegistryDto;
             _lockQueryHintStore = lockQueryHintStore;
@@ -80,6 +81,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
+            // TODO: !Критично. если это асинхронное выполнение и ReTry то будет перезагрузка после ошибки. Нужно проверить такой сценарий.
+
             if (isAsyncExecution)
             {
                 // Данные уже загружены в LoadProcessForAsyncProcessingAsync.
@@ -224,7 +227,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 // Так как мы уже считали с блокировкой,
                 // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
-                elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
                 var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
@@ -237,8 +240,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         stopAsyncProcessingSession: false,
                         needUpdateErrorData: false,
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue // TODO: condition                                                                                                   
-                        )
-                       );
+                        ),
+                    isAsyncExecuting: true,
+                    usingWakeup: false
+                    );
                 if (softTimeout.HasValue)
                 {
                     container.AddComponent<ISoftTimeoutComponent>(
@@ -273,6 +278,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
                         var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                         var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
+                        var messageStreamConditions = scope.ServiceProvider.GetRequiredService<IMessageStreamConditions<TId, InboxMessageDbEntity<TId>>>();
                         var triggerEventRaiser = scope.ServiceProvider.GetRequiredService<ITriggerEventRaiser>();
 
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
@@ -280,6 +286,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                             var haveChanges = false;
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
+                                var messageQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
+                                    .ApplayQueryCondition(messageStreamConditions.IsActiveMessages.Query);
+
                                 var activeWithoutMessages = await dbContext.Set<ProcessDbEntity<TId>>()
                                     .Join(
                                         dbContext.Set<ProcessWakeupDbEntity<TId>>(),
@@ -294,7 +303,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                         (e1, e2) => new { Process = e1.Process, Wakeup = e1.Wakeup, Data = e2 }
                                         )
                                     .Where(e => notProcessedInboxProcessesIds.Contains(e.Process.Id))
-                                    .Where(e => !_dbContext.Set<InboxMessageDbEntity<TId>>().Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
+                                    .Where( e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
                                     .ToArrayAsync(cancellationToken);
 
                                 if (activeWithoutMessages.Any())
@@ -304,7 +313,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                                            elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 

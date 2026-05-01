@@ -13,18 +13,17 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
         /// Хендлер, который необходимо вызвать в конце сессии асинхронной обработки.
         /// Логика проверки пробуждения (наличие сигнала пробуждения).
         /// </summary>
-        Task AfterAsyncSessionHandlerAsync(
+        Task<ICollection<IProcessContainer<TId>>> AfterAsyncSessionHandlerAsync(
             ICollection<IProcessContainer<TId>> processes,
-            Func<ICollection<IProcessContainer<TId>>, CancellationToken, ValueTask> saveHandler, 
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Гарантированное пробуждение процессов 
+        /// Гарантированное пробуждение процессов (извне, не из асинхронного выполнения)
         /// (берет блокировку до конца транзакции, поэтому лучше вызывать в конце транзакции).
         /// </summary>
-        /// <param name="data">Id процесса и дата таймера.</param>
+        /// <param name="data">Id процесса.</param>
         Task WakeupProcessHandlerAsync(
-            TId[] ids,
+            ICollection<TId> ids,
             CancellationToken cancellationToken);
     }
 }

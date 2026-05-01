@@ -23,7 +23,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
             _dbContext = dbContext;
         }
 
-        public async ValueTask HandleRangeAsync(
+        public async ValueTask<IDictionary<Guid, bool>> HandleRangeAsync(
             ICollection<IProcessContainer<Guid>> processes, 
             CancellationToken cancellationToken)
         {
@@ -39,19 +39,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
                 .Select(e => new { e.Key, Any = e.Any() })
                 .ToDictionaryAsync(e => e.Key, e => e.Any, cancellationToken);
 
+            var result = new Dictionary<Guid, bool>(processes.Count);
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeupComponent>();
-
                 if (activeChildExsist.TryGetValue(elem.Id, out var exsists))
                 {
-                    component.HandlerResult = !exsists;
+                    result.Add(elem.Id, !exsists);
                 }
                 else
                 {
-                    component.HandlerResult = true;
+                    result.Add(elem.Id, true);
                 }
             }
+            return result;
         }
     }
 }

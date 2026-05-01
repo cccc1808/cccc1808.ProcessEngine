@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Handlers;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
@@ -35,11 +34,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _messageStreamConditions = messageStreamConditions;
         }
 
-        public async ValueTask HandleRangeAsync(
+        public async ValueTask<IDictionary<TId, bool>> HandleRangeAsync(
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            var result = await _dbContext.Set<InboxMessageDbEntity<TId>>()
+            var data = await _dbContext.Set<InboxMessageDbEntity<TId>>()
                 .ApplayQueryCondition(
                     _processLinkedConditions.ProcessId.QueryRange,
                     processes.Select(e => e.Id).ToArray()
@@ -49,19 +48,20 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 .Select(e => new { e.Key, Any = e.Any() })
                 .ToDictionaryAsync(e => e.Key, e => e.Any, cancellationToken);
 
+            var result = new Dictionary<TId, bool>(processes.Count);
             foreach (var elem in processes)
             {
-                var component = elem.GetComponent<IWakeupComponent>();
-
-                if (result.TryGetValue(elem.Id, out var haveMessage))
+                if (data.TryGetValue(elem.Id, out var haveMessage))
                 {
-                    component.HandlerResult = haveMessage;
+                    result.Add(elem.Id, haveMessage);
                 }
                 else 
                 {
-                    component.HandlerResult = false;
+                    result.Add(elem.Id, false);
                 }
             }
+
+            return result;
         }
     }
 }

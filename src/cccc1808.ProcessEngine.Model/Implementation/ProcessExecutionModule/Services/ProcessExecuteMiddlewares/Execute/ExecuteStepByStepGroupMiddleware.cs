@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -32,9 +33,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         : IProcessHandlerMiddleware<TId>
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IIsolationService _isolationService;
         private readonly IProcessSetter _processSetter;
-        private readonly IWakeupService<TId> _wakeupService;
+        private readonly IWakeupService<TId> _wakeupService;        
 
         private readonly Func<IServiceProvider, ValueTask<IHandler>> _factory;
 
@@ -42,6 +44,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         public ExecuteStepByStepGroupMiddleware(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
             IIsolationService isolationService,
             IProcessSetter processSetter,
             IWakeupService<TId> wakeupService,
@@ -51,6 +54,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IProcessContainerConditions<TId> processContainerConditions)
         {
             _serviceProvider = serviceProvider;
+            _dateTimeProvider = dateTimeProvider;
             _isolationService = isolationService;
             _processSetter = processSetter;
             _wakeupService = wakeupService;
@@ -138,7 +142,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 }
 
                 // Soft timeout.
-                if (DateTimeOffset.UtcNow > softTimeoutDate)
+                if (_dateTimeProvider.UtcNow > softTimeoutDate)
                 {
                     break;
                 }
@@ -181,6 +185,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     if (!elem.CurrentSession.CurrentSessionHaveError)
                                     {
                                         // В сессии нет ошибок, тогда отчищаем ошибку.
+                                        // TODO: подумать нужно ли сбрасывать ошибку если это elem.CurrentSession.StopAsyncProcessingSession?
                                         p.This._processSetter.ClearError(elem);
                                     }
 
@@ -404,10 +409,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
 
             //// 4) Проверка засыпания процессов.
-            await _wakeupService.AfterAsyncSessionHandlerAsync(
+            var wakeupUpdate = await _wakeupService.AfterAsyncSessionHandlerAsync(
                 allProcesses.Data.Values,
-                saveHandler: async (p, t) => await handler.SaveWakeupRangeAsync(p, cancellationToken),
                 cancellationToken);
+            await handler.SaveWakeupRangeAsync(wakeupUpdate, cancellationToken);
         }
 
         private async Task<Dictionary<TId, IProcessContainer<TId>>> LoadAsync(

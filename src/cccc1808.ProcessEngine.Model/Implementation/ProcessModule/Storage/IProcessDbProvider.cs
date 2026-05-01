@@ -41,10 +41,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task LoadProcessForAsyncProcessingAsync(
-            IDictionary<TId, ProcessInstanceInfoDto<TId>> notLoadedProcesses,            
+            IDictionary<TId, ProcessInstanceInfoDto<TId>> notLoadedProcesses,
             IDictionary<TId, IProcessContainer<TId>> loadBuffer,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken) => Task.CompletedTask;
 
         /// <summary>
         /// Загрузить данные процесса.

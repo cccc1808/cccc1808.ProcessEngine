@@ -1,4 +1,5 @@
-﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
@@ -11,13 +12,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
     public class OutboxSetter 
         : IOutboxSetter
     {
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IProcessSetter _processSetter;
         private readonly OutboxRegistryDto _outboxRegistry;
 
         public OutboxSetter(
+            IDateTimeProvider dateTimeProvider,
             IProcessSetter processSetter,
             OutboxRegistryDto outboxRegistry)
         {
+            _dateTimeProvider = dateTimeProvider;
             _processSetter = processSetter;
             _outboxRegistry = outboxRegistry;
         }
@@ -33,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             }
 
             message.IsActive = false;
-            message.SendDate = DateTimeOffset.UtcNow;
+            message.SendDate = _dateTimeProvider.UtcNow;
             outboxComponent.ProcessedCount++;
 
             if (outboxComponent.ProcessedCount < outboxComponent.Messages.Count)

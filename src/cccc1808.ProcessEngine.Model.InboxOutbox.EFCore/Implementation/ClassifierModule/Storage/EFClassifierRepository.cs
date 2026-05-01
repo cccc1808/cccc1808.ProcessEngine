@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -70,6 +71,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                 await using (var scope = _serviceProvider.CreateAsyncScope())
                 {
                     var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                    var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                     var registry = scope.ServiceProvider.GetRequiredService<InboxRegistryDto>();
@@ -179,6 +181,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
+                        // TODO: INFO: наверное более адекватным будет добавить в ProcessDbEntity IdempotencyId (unique ProcessTypeId + IdempotencyId),
+                        // тогда можно будет делать (insert if not exists) в таблицу основного процесса (и получить sequence Id для заполнения ссылок ProcessId). 
                         var dbValues = await EFQueryHelper.GetOrInsertAsync<InboxProcessDataDbEntity<TId>, (AggregateDto Aggreagate, string Queue)>(
                             dbContext,
                             notFound,
@@ -213,6 +217,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                             // TODO: проблемный момент. Из-за того, что мы сначала втавляем ProcessData у нас пока нет processId.
                                             // Guid мы пожем сгенерировать и подставить, а вот если id генерируется на стороне БД,
                                             // То нужно будет либо запрашивать у БД, либо сначала сохранять ProcessDbEntity, а потом еще обновить InboxProcessDataDbEntity.
+                                            // Не будет проблемы см. [Метка 2].
                                             processId: await idGenerator.NextAsync(t),
                                             aggregateId: foundedAggreaget[elem.Aggreagate],
                                             queueId: foundedQueue[elem.Queue],
@@ -252,7 +257,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                     new TriggerDbEntity<TId>(
                                         id: await idGenerator.NextAsync(cancellationToken),
                                         key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: DateTimeOffset.UtcNow,
+                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
                                         handlerKey: NoWakeupStreamTriggerRangeHandler<TId>.Name,
                                         kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.StreamsTrigger,
@@ -268,7 +273,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                             }
 
                             await dbContext.SaveChangesAsync(cancellationToken);
-                            // TODO: Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.
+                            // TODO: [Метка 2] Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.
                         }
 
                         await transaction.CommitAsync(cancellationToken);
@@ -315,6 +320,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                 await using (var scope = _serviceProvider.CreateAsyncScope())
                 {
                     var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
+                    var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                     var registry = scope.ServiceProvider.GetRequiredService<OutboxRegistryDto>();
@@ -497,7 +503,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                     new TriggerDbEntity<TId>(
                                         id: await idGenerator.NextAsync(cancellationToken),
                                         key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: DateTimeOffset.UtcNow,
+                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
                                         handlerKey: NoWakeupStreamTriggerRangeHandler<TId>.Name,
                                         kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.StreamsTrigger,

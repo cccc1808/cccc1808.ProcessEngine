@@ -32,6 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             string name, 
             CancellationToken cancellationToken)
         {
+            // TODO: убрать _consumers и сделать отвественным за disconnect / dispoce потребителя.
             var container = _consumers.GetOrAdd(name, static (_) => new LockContainer<KafkaConsumer>());
 
             return await container.DoubleCheckPatternAsync(
@@ -102,18 +103,29 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
 
         public async ValueTask<bool> DisconnectConsumerAsync(string name, CancellationToken cancellationToken)
         {
-            if (_consumers.TryRemove(name, out var consumer))
+            if (_consumers.TryGetValue(name, out var consumer))
             {
+                var isExecuted = false;
+
                 await consumer.Write(
-                    consumer, 
-                    async static (p, consumer, t) => 
+                    (_consumers, consumer, name), 
+                    async (p, consumer, t) => 
                     {
-                        await consumer.DisposeAsync();
-                        return consumer;
+                        if (consumer == null)
+                        {
+                            isExecuted = false;
+                            return null!;
+                        }
+
+                        await consumer.DisposeAsync();                        
+                        //p._consumers.TryRemove(p.name, out _);
+                        isExecuted = true;
+
+                        return null!;
                     },
                     cancellationToken);
 
-                return true;
+                return isExecuted;
             }
 
             return false;

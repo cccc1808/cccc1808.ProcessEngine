@@ -42,7 +42,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact]
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
         public async Task RetryLimit()
         {
             var idGenerator = _fixture.ServiceProvider.GetRequiredService<IIdGenerator<Guid>>();
@@ -68,8 +68,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         null
                         )
                     );
-                //dbContext.Set<ProcessWakeUpDbEntity<Guid>>().Add(
-                //    new ProcessWakeUpDbEntity<Guid>());
                 await dbContext.SaveChangesAsync(default);
 
                 testState.StepRange = Handler;
@@ -168,6 +166,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     .AsNoTracking()
                     .ToArrayAsync();
 
+                // Error
                 processes.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Id.ShouldBe(processId),
