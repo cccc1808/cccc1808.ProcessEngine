@@ -365,7 +365,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         }
 
         public Task UpdateAsync(
-            ICollection<IProcessContainer<TId>> processes,
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {

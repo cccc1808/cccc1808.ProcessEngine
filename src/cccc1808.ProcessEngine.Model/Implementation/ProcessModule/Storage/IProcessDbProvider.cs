@@ -59,7 +59,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage
         /// Обновить данные процесса в хранилище.
         /// </summary>
         Task UpdateAsync(
-            ICollection<IProcessContainer<TId>> processes,
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken
             );
