@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -23,25 +24,31 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
     public class EFProcessSelectQuery<TId, TEntity> 
         : IProcessAsyncProcessingSelectQuery<TId>
         where TEntity : ProcessDbEntity<TId>
-    {
-        private readonly OptionsDto _options;
+    {        
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly ITransactionManager _transactionManager;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IProcessDbEntityConditions<TId, TEntity> _processDbEntityConditions;
 
+        private readonly OptionsDto _options;
+
         public EFProcessSelectQuery(
-            OptionsDto options,
+            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             ITransactionManager transactionManager,
             ILockQueryHintStore lockQueryHintStore,
-            IProcessDbEntityConditions<TId, TEntity> processDbEntityConditions)
+            IProcessDbEntityConditions<TId, TEntity> processDbEntityConditions,
+
+            OptionsDto options)
         {
-            _options = options;
+            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _transactionManager = transactionManager;
             _lockQueryHintStore = lockQueryHintStore;
-            _processDbEntityConditions = processDbEntityConditions;        
+            _processDbEntityConditions = processDbEntityConditions;
+
+            _options = options;
         }
 
         private static Queue<ProcessInstanceInfoDto<TId>> EmptyQueue { get; }
@@ -56,7 +63,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var now = DateTime.UtcNow;
+                var now = _dateTimeProvider.UtcNow;
                 var selectDate = now + _options.SelectoLockDelay;
 
                 ProcessInstanceInfoDto<TId>[] result;

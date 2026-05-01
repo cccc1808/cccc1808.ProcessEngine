@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -41,15 +42,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             // Пропускаем заблокированные.
             // Запускаем процессы.
 
-            var softTimeout = DateTimeOffset.UtcNow.Add(_options.SoftTimeout);
-            var stoppedProcessTimeout = DateTimeOffset.UtcNow.Add(-_options.TimeoutCondition);
+            var dateTimeProvider = _serviceProvider.GetRequiredService<IDateTimeProvider>();
+            var softTimeout = dateTimeProvider.UtcNow.Add(_options.SoftTimeout);
+            var stoppedProcessTimeout = dateTimeProvider.UtcNow.Add(-_options.TimeoutCondition);
 
             var offsetId = default(TId);
             var haveNotProcessed = true;
             while (haveNotProcessed)
             {
                 // soft timeout
-                if (DateTime.UtcNow > softTimeout)
+                if (dateTimeProvider.UtcNow > softTimeout)
                 {
                     break;
                 }
@@ -115,7 +117,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                 return new ITriggerHandler.Result(
                     true,
                     true,
-                    DateTimeOffset.UtcNow + _options.EmptyTimeout);
+                    dateTimeProvider.UtcNow + _options.EmptyTimeout);
             }
             else
             {

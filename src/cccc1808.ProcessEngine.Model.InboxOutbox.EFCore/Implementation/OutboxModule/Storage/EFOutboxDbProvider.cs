@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -34,6 +35,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         : IProcessDbProvider<TId>
     {       
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly OutboxRegistryDto _outboxRegistry;
         private readonly ILockQueryHintStore _lockQueryHintStore;
@@ -46,6 +48,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
         public EFOutboxDbProvider(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext, 
             OutboxRegistryDto outboxRegistry,
             ILockQueryHintStore lockQueryHintStore,
@@ -57,6 +60,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>> messageStreamConditions)
         {
             _serviceProvider = serviceProvider;
+            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _outboxRegistry = outboxRegistry;
             _lockQueryHintStore = lockQueryHintStore;
@@ -217,7 +221,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 // Так как мы уже считали с блокировкой,
                 // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
-                elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
 
                 var container = new ProcessContainer<TId>(
                     new EFProcessProxyComponent<TId>(elem.Process),
@@ -291,7 +295,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.SelectLockTimeout = DateTimeOffset.UtcNow;
+                                            elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 

@@ -17,7 +17,8 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
     {
         private readonly string _topic;
         private readonly IConsumer<string, JsonElement> _consumer;
-        private ConsumeResult<string, JsonElement>? _lastMessage;
+        private Dictionary<int, long> _lastMessagesByPartition
+            = new Dictionary<int, long>();
 
         public KafkaConsumer(
             string host, 
@@ -68,7 +69,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                             consumeResult.Partition.Value
                             ));
                     lastResult = consumeResult;
-                    _lastMessage = lastResult;
+                    _lastMessagesByPartition[lastResult.Partition.Value] = lastResult.Offset.Value;
                 }
             }
 
@@ -107,12 +108,22 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)
         {
-            var lastMessage = _lastMessage;
-            if (lastMessage == null)
+            if (!_lastMessagesByPartition.Any())
             {
                 throw new InvalidOperationException("Не обнаружено считанное сообщение для коммита.");
             }
-            _consumer.Commit(lastMessage);
+
+            _consumer.Commit();
+
+            //_consumer.Commit(
+            //    _lastMessagesByPartition
+            //        .Select(e => new TopicPartitionOffset(
+            //            _topic,
+            //            new Partition(e.Key), 
+            //            new Offset(e.Value + 1)))
+            //        .ToArray());
+            _lastMessagesByPartition.Clear();
+
             return ValueTask.CompletedTask;
         }
 
@@ -121,6 +132,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             try 
             {
                 _consumer.Close();
+                _lastMessagesByPartition.Clear();
             }
             catch(Exception ex)
             {

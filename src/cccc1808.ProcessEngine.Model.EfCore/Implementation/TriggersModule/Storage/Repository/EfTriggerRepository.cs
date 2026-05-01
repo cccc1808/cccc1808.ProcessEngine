@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -23,6 +24,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
     {
         private readonly IEFDbContext _efDbContext;
         private readonly IIdGenerator<TId> _idGenerator;
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ILockQueryHintStore _lockQueryHintStore;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
@@ -32,12 +34,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         public EfTriggerRepository(
             IEFDbContext efDbContext,
             IIdGenerator<TId> idGenerator,
+            IDateTimeProvider dateTimeProvider,
             ILockQueryHintStore lockQueryHintStore,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
         {
             _efDbContext = efDbContext;
             _idGenerator = idGenerator;
+            _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
@@ -63,7 +67,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             TimeSpan waitLockTimeout,
             CancellationToken cancellationToken)
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = _dateTimeProvider.UtcNow;
             var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                 (This: this, ids, now), 
                 waitLockTimeout,
