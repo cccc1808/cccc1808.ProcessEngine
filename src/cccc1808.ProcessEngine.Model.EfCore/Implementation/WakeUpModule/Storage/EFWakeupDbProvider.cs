@@ -11,9 +11,9 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             {
                 return;
             }
-
+            
             var ids = byTypeIndex
                 .Where(e => _wakeupRegistry.IsWakeupProcess(e.Key))
                 .SelectMany(e => e.Value)
@@ -60,20 +60,63 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             foreach (var elem in data)
             {
                 var process = processes[elem.ProcessId];
-                process.AddComponent<IWakeupComponent>(
-                    new EFWakeupProxyComponent<TId>(
-                        elem));
+                process.AddComponent<IWakeupComponent<TId>>(
+                    new WakeupComponent<TId>(
+                        elem.Id,
+                        elem.IsAsyncExecuting,
+                        needUpdate: false));
             }
         }
 
         public Task UpdateAsync(
-            ICollection<IProcessContainer<TId>> processes,
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            // [Hack]:
-            // Если мы в асинхронном выполнении, то будет использоваться IProcessRepository<TId>.UpdateWakeupAsync
-            // Инаече запись есть ChangeTracker и ничего дополнительно не требуется.
+            // Если это асинхронное выполнение, то компонент будет обновлен.
+            if (!processes.Any())
+            {
+                return Task.CompletedTask;
+            }
+
+            if (processes.Values.First().InAsyncExecuting)
+            {
+                return Task.CompletedTask;
+            }
+
+            // Иначе обновляем в ChangeTracker.
+            var ids = byTypeIndex
+                .Where(e => _wakeupRegistry.IsWakeupProcess(e.Key))
+                .SelectMany(e => e.Value)
+                .ToArray();
+
+            var set = _dbContext.Set<ProcessWakeupDbEntity<TId>>();
+            foreach (var elem in ids.Select(e => processes[e]))
+            {
+                if (!elem.TryGetComponent<IWakeupComponent<TId>>(out var component))
+                {
+                    continue;
+                }
+                
+                if (!component.NeedUpdate)
+                {
+                    continue;
+                }
+
+                var entry = set.Entry(
+                    new ProcessWakeupDbEntity<TId>(
+                        component.Id,
+                        elem.Id,
+                        component.IsAsyncExecuting));    
+                
+                if (entry.State == EntityState.Detached)
+                {
+                    entry = set.Attach(entry.Entity);
+                    entry.State = EntityState.Modified;
+                }
+
+                entry.Entity.IsAsyncExecuting = component.IsAsyncExecuting;
+            }
 
             return Task.CompletedTask;
         }

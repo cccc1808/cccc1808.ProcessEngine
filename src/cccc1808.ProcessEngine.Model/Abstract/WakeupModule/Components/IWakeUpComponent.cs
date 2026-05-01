@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
 {
-    public interface IWakeupComponent
+    public interface IWakeupComponent<TId>
     {
         #region persist
         
-        bool IsAsyncExecuting { get; set; }        
+        TId Id { get; }
+
+        bool IsAsyncExecuting { get; set; }
 
         #endregion
 

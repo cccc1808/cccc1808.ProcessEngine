@@ -298,6 +298,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
+            var processesDictionary = processes
+                .ToDictionary(e => e.Id, e => e);
+
             var byTypeIndex = processes
                 .GroupBy(e => e.Process.Info.ProcessType)
                 .ToDictionary(
@@ -308,7 +311,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             foreach (var elem in _processLoaders)
             {
                 await elem.UpdateAsync(
-                    processes, 
+                    processesDictionary, 
                     byTypeIndex,
                     cancellationToken);
             }
@@ -388,6 +391,25 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
+            var set = _dbContext.Set<ProcessWakeupDbEntity<TId>>();
+            foreach (var elem in processes)
+            {
+                var component = elem.GetComponent<IWakeupComponent<TId>>();
+
+                if (!component.NeedUpdate)
+                {
+                    continue;
+                }
+
+                var entry = set.Attach(
+                    new ProcessWakeupDbEntity<TId>(
+                        id: component.Id,
+                        processId: elem.Id,
+                        isAsyncExecuting: component.IsAsyncExecuting
+                        ));
+                entry.State = EntityState.Modified;
+            }            
+
             // Код вызывается после финального сохрания
             // (иначе нельзя было бы гарантировать актуальность проверки IWakeupCheckHandler).
             // Поэтому сохраняем еще раз.

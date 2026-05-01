@@ -89,7 +89,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services
         }        
 
         public Task UpdateAsync(
-            ICollection<IProcessContainer<Guid>> processes, 
+            IDictionary<Guid, IProcessContainer<Guid>> processes,
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex, 
             CancellationToken cancellationToken)
         {

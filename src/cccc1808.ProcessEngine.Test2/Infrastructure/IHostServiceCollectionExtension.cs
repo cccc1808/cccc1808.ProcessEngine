@@ -24,6 +24,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
@@ -41,7 +42,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditio
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Queries;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
@@ -148,12 +149,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             params WakeupRegistryDto[] registrations)
         {
             services
-                .AddScoped<IWakeupService<Guid>, EFWakeupService<Guid>>()
-                .AddSingleton(s => new EFWakeupService<Guid>.OptionsDto())
+                .AddScoped<IWakeupService<Guid>, WakeupService<Guid>>()
+                .AddSingleton(s => new WakeupService<Guid>.OptionsDto())
+                .AddScoped<IWakeupServiceQueries<Guid>, EFWakeupServiceQueries<Guid>>()
                 .AddSingleton<IWakeupRegistry<Guid>, WakeupRegistry<Guid>>()
                 
                 .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>()
-;
+                ;
 
             foreach (var elem in registrations)
             {
