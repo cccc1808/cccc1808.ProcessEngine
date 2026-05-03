@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             }
 
             // Обновляем смещение для триггера.
-            var streamComponent = process.GetComponent<IStreamTriggerComponent>();
+            var streamComponent = process.GetComponent<IOffsetStreamTriggerComponent>();
             streamComponent.UpdateMaxTimestamp(_inboxRegistry.TriggerChannelName, message.OrderId);
         }
     }

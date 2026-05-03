@@ -103,18 +103,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                     continue;
                 }
 
-                var entry = set.Entry(
+                var entry = _dbContext.AttachEntity(
                     new ProcessWakeupDbEntity<TId>(
                         component.Id,
                         elem.Id,
-                        component.IsAsyncExecuting));    
-                
-                if (entry.State == EntityState.Detached)
-                {
-                    entry = set.Attach(entry.Entity);
-                    entry.State = EntityState.Modified;
-                }
-
+                        component.IsAsyncExecuting),
+                        throwIfAttached: false);
                 entry.Entity.IsAsyncExecuting = component.IsAsyncExecuting;
             }
 

@@ -1,9 +1,9 @@
 ﻿namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events.Stream
 {
-    public interface ISignalStreamTriggerEvent : ITriggerEvent
+    public interface ISignalOffsetStreamTriggerEvent : ITriggerEvent
     {
         string ChannelName { get; }
 
-        long ChannelTimestamp { get; }
+        long ChannelOffset { get; }
     }
 }

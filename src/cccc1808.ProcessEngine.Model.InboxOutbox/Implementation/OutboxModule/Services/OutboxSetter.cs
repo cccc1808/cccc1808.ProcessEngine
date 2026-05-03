@@ -2,7 +2,7 @@
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
@@ -50,10 +50,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                 // Если в БД еще есть активные сообщения, то это обнаружит OutboxMessageWakeupHandler.
                 _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
-
-            // Обновляем смещение для триггера.
-            var streamComponent = process.GetComponent<IStreamTriggerComponent>();
-            streamComponent.UpdateMaxTimestamp(_outboxRegistry.TriggerChannelName, message.OrderId);
         }
     }
 }

@@ -49,37 +49,59 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         {
             get
             {
-                if (Kind == ITriggerComponent<TId>.TriggerKind.StreamsTrigger)
+                switch (Kind)
                 {
-                    using (var document = JsonSerializer.SerializeToDocument(
-                        new StreamDto(
-                            StreamsProcessIsWaiting!.Value,
-                            StreamsTimeStamp!,
-                            StreamProcessTimestamps!)))
-                    {
-                        return document.RootElement.Clone();
-                    }
-                }
+                    case ITriggerComponent<TId>.TriggerKind.SimpleStream: 
+                        {
+                            using (var document = JsonSerializer.SerializeToDocument(SimpleStreamState))
+                            {
+                                return document.RootElement.Clone();
+                            }
+                        }
 
-                return null;
+                    case ITriggerComponent<TId>.TriggerKind.OffsetStream: 
+                        {
+                            using (var document = JsonSerializer.SerializeToDocument(OffsetStreamState))
+                            {
+                                return document.RootElement.Clone();
+                            }
+                        }
+
+                    case ITriggerComponent<TId>.TriggerKind.Counter:
+                    case ITriggerComponent<TId>.TriggerKind.Timer: 
+                        return null;
+
+                    default: throw new NotImplementedException($"{Kind}.");
+                }
             }
             set
             {
-                if (value.HasValue)
+                switch (Kind)
                 {
-                    var state = JsonSerializer.Deserialize<StreamDto>(value.Value);
-                    StreamsProcessIsWaiting = state.StreamsProcessIsWaiting;
-                    StreamsTimeStamp = state.StreamsTimeStamp;
-                    StreamProcessTimestamps = state.StreamProcessTimestamps;
+                    case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                        {
+                            SimpleStreamState = JsonSerializer.Deserialize<SimpleStreamDto>(value.Value);
+                            break;
+                        }
+
+                    case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                        {
+                            OffsetStreamState = JsonSerializer.Deserialize<OffsetStreamDto>(value.Value);
+                            break;
+                        }
+
+                    case ITriggerComponent<TId>.TriggerKind.Counter:
+                    case ITriggerComponent<TId>.TriggerKind.Timer:
+                        break;
+
+                    default: throw new NotImplementedException($"{Kind}.");
                 }
             }
         }
 
-        public bool? StreamsProcessIsWaiting { get; set; }
+        public SimpleStreamDto? SimpleStreamState { get; private set; }
 
-        public Dictionary<string, long>? StreamsTimeStamp { get; set; }
-
-        public Dictionary<string, long>? StreamProcessTimestamps { get; set; }
+        public OffsetStreamDto? OffsetStreamState { get; private set; }
 
         [Obsolete("For entity framework")]
         public TriggerDbEntity() 
@@ -88,8 +110,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             Key = default!;
             ProcessId = default!;
             HandlerKey = default!;
-            StreamsTimeStamp = null;
-            StreamProcessTimestamps = null!;
+            SimpleStreamState = null;
+            OffsetStreamState = null!;
         }
 
         public TriggerDbEntity(
@@ -104,7 +126,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             bool isCompleted,
             TId processId, 
             int? counter,
-            StreamDto? stream)
+            (SimpleStreamDto? simpleStream, OffsetStreamDto? offsettampStream)? streamState
+            )
         {
             Id = id;
             Key = key;
@@ -117,34 +140,83 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsCompleted = isCompleted;
             ProcessId = processId;
             Counter = counter;
-            StreamsProcessIsWaiting = stream?.StreamsProcessIsWaiting;
-            StreamsTimeStamp = stream?.StreamsTimeStamp;
-            StreamProcessTimestamps = stream?.StreamProcessTimestamps;
-        }
 
-        public class StreamDto
+            switch (kind)
+            {
+                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                    {
+                        SimpleStreamState = streamState.Value.simpleStream;
+                        break;
+                    }
+
+                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                    {
+                        OffsetStreamState = streamState.Value.offsettampStream;
+                        break;
+                    }
+
+                case ITriggerComponent<TId>.TriggerKind.Timer:
+                case ITriggerComponent<TId>.TriggerKind.Counter:
+                    break;
+
+                default: throw new NotImplementedException($"{Kind}.");
+            }
+        }        
+
+        public class SimpleStreamDto 
         {
             public bool StreamsProcessIsWaiting { get; set; }
 
-            public Dictionary<string, long> StreamsTimeStamp { get; set; }
-
-            public Dictionary<string, long> StreamProcessTimestamps { get; set; }
+            public long NewSignalCounter { get; set; }
 
             [Obsolete("Serialization.")]
-            public StreamDto() 
-            {
-                StreamsTimeStamp = null!;
-                StreamProcessTimestamps = null!;
-            }
+            public SimpleStreamDto() { }
 
-            public StreamDto(
+            public SimpleStreamDto(
                 bool streamsProcessIsWaiting,
-                Dictionary<string, long> streamsTimeStamp, 
-                Dictionary<string, long> streamProcessTimestamps)
+                long newSignalCounter)
             {
                 StreamsProcessIsWaiting = streamsProcessIsWaiting;
-                StreamsTimeStamp = streamsTimeStamp;
-                StreamProcessTimestamps = streamProcessTimestamps;
+                NewSignalCounter = newSignalCounter;
+            }
+        }
+
+        public class OffsetStreamDto
+        {
+            public bool StreamsProcessIsWaiting { get; set; }
+
+            public Dictionary<string, OffsetEntry> ChannelsOffsets { get; set; }
+
+            [Obsolete("Serialization.")]
+            public OffsetStreamDto()
+            {
+                ChannelsOffsets = null!;
+            }
+
+            public OffsetStreamDto(
+                bool streamsProcessIsWaiting,
+                Dictionary<string, OffsetEntry> channelsOffsets)
+            {
+                StreamsProcessIsWaiting = streamsProcessIsWaiting;
+                ChannelsOffsets = channelsOffsets;
+            }
+
+            public class OffsetEntry 
+            {               
+
+                public long LastOffset { get; set; }
+
+                public long ProcessedOffset { get; set; }
+
+                [Obsolete("Serialization.")]
+                public OffsetEntry()
+                {}
+
+                public OffsetEntry(long lastOffset, long processedOffset)
+                {
+                    LastOffset = lastOffset;
+                    ProcessedOffset = processedOffset;
+                }
             }
         }
     }

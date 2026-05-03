@@ -260,15 +260,17 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
                                         handlerKey: NoWakeupStreamTriggerRangeHandler<TId>.Name,
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.StreamsTrigger,
+                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.OffsetStream,
                                         priority: 0,
                                         isActivated: false,
                                         isCompleted: false,
                                         processId: elem.Value.Entity.ProcessId,
-                                        stream: new TriggerDbEntity<TId>.StreamDto(
-                                            streamsProcessIsWaiting: true,
-                                            new Dictionary<string, long>(0),
-                                            new Dictionary<string, long>(0)),
+                                        streamState: (
+                                            null, 
+                                            new TriggerDbEntity<TId>.OffsetStreamDto(
+                                                streamsProcessIsWaiting: true, 
+                                                new Dictionary<string, TriggerDbEntity<TId>.OffsetStreamDto.OffsetEntry>())
+                                            ),
                                         counter: 0));
                             }
 
@@ -493,11 +495,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
 
-                                //dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
-                                //    new ProcessWakeupDbEntity<TId>(
-                                //        id: await idGenerator.NextAsync(cancellationToken),
-                                //        processId: elem.Value.Entity.ProcessId,
-                                //        isAsyncExecuting: false));
+                                dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
+                                    new ProcessWakeupDbEntity<TId>(
+                                        id: await idGenerator.NextAsync(cancellationToken),
+                                        processId: elem.Value.Entity.ProcessId,
+                                        isAsyncExecuting: false));
 
                                 dbContext.Set<TriggerDbEntity<TId>>().Add(
                                     new TriggerDbEntity<TId>(
@@ -505,18 +507,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         key: elem.Value.Entity.WakeupTriggerKey,
                                         selectLockTimeout: dateTimeDbProvider.UtcNow,
                                         timerDate: DateTimeOffset.MinValue,
-                                        handlerKey: NoWakeupStreamTriggerRangeHandler<TId>.Name,
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.StreamsTrigger,
+                                        handlerKey: WakeupStreamTriggerRangeHandler<TId>.Name,
+                                        // Тут используется этот тип т.к. для параллельных транзакций сложно гарантировать упорядоченную запись сообщений.
+                                        // (более поздняя транзакция может дописать сообщение с меньшим смещением и сигнал будет утерян).
+                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.SimpleStream,
                                         priority: 0,
                                         isActivated: false,
                                         isCompleted: false,
                                         processId: elem.Value.Entity.ProcessId,
                                         counter: 0,
-                                        stream: new TriggerDbEntity<TId>.StreamDto(
-                                            streamsProcessIsWaiting: true, 
-                                            new Dictionary<string, long>(0), 
-                                            new Dictionary<string, long>(0))
-                                        )
+                                        streamState: (
+                                            new TriggerDbEntity<TId>.SimpleStreamDto(
+                                                streamsProcessIsWaiting: true,
+                                                newSignalCounter: 0), 
+                                            null)
+                                            )
                                     );
                             }
 

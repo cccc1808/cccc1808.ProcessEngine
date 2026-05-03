@@ -4,19 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components
+namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
 {
-    public class StreamTriggerComponent 
-        : IStreamTriggerComponent
+    public class OffsetStreamTriggerComponent 
+        : IOffsetStreamTriggerComponent
     {
         public string TriggerKey { get; }
 
         public IDictionary<string, long> ProcessedChannels { get; } 
             = new Dictionary<string, long>(5);
 
-        public StreamTriggerComponent(string triggerKey)
+        public OffsetStreamTriggerComponent(string triggerKey)
         {
             TriggerKey = triggerKey;
         }

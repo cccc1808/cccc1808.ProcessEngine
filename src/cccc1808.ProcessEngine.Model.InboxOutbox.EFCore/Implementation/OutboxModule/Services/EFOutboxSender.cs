@@ -8,7 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
@@ -82,10 +82,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             // Для пробуждения outbox процесса
             await _triggerEventRaiser.RaiseAsync(
                 groups
-                    .Select(e => new SignalStreamTriggerEvent(
-                        outboxes[e.Key].TriggerKey,
-                        channelName: _outboxRegistry.TriggerChannelName,
-                        channelTimestamp: timestamps[e.Key]))
+                    .Select(e => new SignalSimpleStreamTriggerEvent(
+                        outboxes[e.Key].TriggerKey))
                     .ToArray(),
                 cancellationToken);
         }

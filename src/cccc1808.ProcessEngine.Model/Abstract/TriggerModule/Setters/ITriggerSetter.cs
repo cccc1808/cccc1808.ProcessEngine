@@ -11,17 +11,26 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
     public interface ITriggerSetter<TId>
     {
         void OneOf(
+            ITriggerComponent<TId>.TriggerKind kind,
+            Action counterHandler,
+            Action timerHandler,
+            Action simpleStreamHandler,
+            Action offsetStreamHanler);
+
+        void OneOf(
             ITriggerComponent<TId> trigger,
             Action<int> counterHandler,
             Action timerHandler,
-            Action<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>> streamHandler
+            Action<ITriggerComponent<TId>.ISimpleStreamDto> simpleStreamHandler,
+            Action<ITriggerComponent<TId>.IOffsetStreamDto> offsetStreamHanler
             );
 
         ValueTask OneOfAsync(
             ITriggerComponent<TId> trigger,
             Func<int, ValueTask> counterHandler,
             Func<ValueTask> timerHandler,
-            Func<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>, ValueTask> streamHandler);        
+            Func<ITriggerComponent<TId>.ISimpleStreamDto, ValueTask> simpleStreamHandler,
+            Func<ITriggerComponent<TId>.IOffsetStreamDto, ValueTask> offsetStreamHanler);        
 
         void ProcessCounter(ITriggerComponent<TId> trigger, int eventCount);
 
@@ -32,11 +41,5 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
         void SetCompleted(ITriggerComponent<TId> trigger, bool value);
 
         void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);
-
-        void SetStreamsState(
-            ITriggerComponent<TId> trigger,
-            bool processIsWaiting,
-            Dictionary<string, long> channels,
-            Dictionary<string, long> process);
     }
 }

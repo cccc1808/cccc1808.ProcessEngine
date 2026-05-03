@@ -27,8 +27,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .Property(e => e.HandlerKey)
                 .HasMaxLength(255);
 
-            builder.Property(e => e.StreamData);
-
             KeyIndex(builder);
             KeyNotCompleteIndex(builder);
             DbProcessingForSelectorIndex(builder);
@@ -93,9 +91,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         protected virtual PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
         {
-            builder.Ignore(e => e.StreamsProcessIsWaiting);
-            builder.Ignore(e => e.StreamsTimeStamp);
-            builder.Ignore(e => e.StreamProcessTimestamps);
+            builder.Ignore(e => e.SimpleStreamState);
+            builder.Ignore(e => e.OffsetStreamState);
 
             return builder.Property(e => e.StreamData);
         }

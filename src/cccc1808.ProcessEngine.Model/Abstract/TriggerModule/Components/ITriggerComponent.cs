@@ -11,6 +11,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 {
     public interface ITriggerComponent<TId>
     {
+        #region prop
+
         /// <summary>
         /// Ключ триггера.
         /// </summary>
@@ -58,29 +60,99 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         DateTimeOffset SelectLockTimeout { get; set; }
 
-        /// <summary>
-        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
-        /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
-        /// </summary>
-        bool? StreamsProcessIsWaiting { get; set; }
+        ISimpleStreamDto? SimpleStreamState { get; }
 
-        /// <summary>
-        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
-        /// Данные о последних (наибольших) timestamp поступивших в стримы.
-        /// </summary>
-        Dictionary<string, long>? StreamsTimeStamp { get; set; }
+        IOffsetStreamDto? OffsetStreamState { get; }
 
-        /// <summary>
-        /// Только для <see cref="TriggerKind.StreamsTrigger"/>.
-        /// Данные о последних (наибольших) timestamp, которые процесс обработал.
-        /// </summary>
-        Dictionary<string, long>? StreamProcessTimestamps { get; set; }
+        #endregion
 
-        public enum TriggerKind 
+        void StreamStateChanged();
+
+        #region types
+
+        public enum TriggerKind
         {
+            /// <summary>
+            /// Триггер со счетчиком (когда известно количество ожидаемых сигналов).
+            /// * Каждый сигнал уменьшает счетчик на 1. Триггер активируется при значении счетчика 0.
+            /// * Если в триггер при 0 поступает событие, то он оповторно атктивирует триггер.
+            /// У триггера можно использовать поле <see cref="TimerDate"/>.
+            /// </summary>
             Counter,
+
+            /// <summary>
+            /// Триггер таймер.
+            /// * Поступление события активирует триггер.
+            /// * Может использоваться без событий (сразу взведенным с задержкой).
+            /// </summary>
             Timer,
-            StreamsTrigger,
+
+            /// <summary>
+            /// Простой стрим триггер.
+            /// * Отслеживает статус засыпания процесса. Не активирует триггер пока процесс не удейт в ожидание.
+            /// Как только процесс засыпает сразу реактивирует его (без лишних задержек в отличии от решения на основе таймера).
+            /// * Гарантируе оповещение о новом сигнале.
+            /// * Используется только в сочетании с wakeup модулем у процесса (чтобы гарантировать, что все сигналы обработаны).
+            /// * Особенность: не нужен offset (не треубуется наличе поля упорядоченности у сигналов).
+            /// * Особенность: допустимы ложные срабатывания (т.к. тут не известно что процесс обработал, а что нет).
+            /// Процесс может уже обработать все сообщения, но все равно будет запущен (без нового сообщения). Должен снова уснуть.
+            /// Либо нужна специальаня реализация хендлера триггера, которая будет повторно проверять наличие необработанных сообщений для процесса перед пробуждением.
+            /// </summary>
+            SimpleStream,
+
+            /// <summary>
+            /// Стрим с отслеживанием смещения (по аналогии с kafka offset).
+            /// * Отслеживает статус засыпания процесса. Не активирует триггер пока процесс не удейт в ожидание.
+            /// Как только процесс засыпает сразу реактивирует его (без лишних задержек в отличии от решения на основе таймера).
+            /// * Оповещает если не все каналы обработаны.
+            /// * Может использоваться без wakeup модуля (процесс сработает 1 такт, отправит обработанное смещение и если есть новые то триггер оповестит).
+            /// * Особенность: необходима гарантия что сообщения записываются в пордяке нарастания (по offset), не допустима запись сообщения с offset меньше существующей позиции
+            /// Если поступит сигнал с меньшим смещение, то сигнал будет утерян т.к. будет считаться, что процесс его уже обработал.
+            /// </summary>
+            OffsetStream,
         }
+
+        public interface ISimpleStreamDto 
+        {
+            /// <summary>
+            /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
+            /// </summary>
+            bool StreamsProcessIsWaiting { get; set; }
+
+            /// <summary>
+            /// Счетчик новых сигналов (используется как флаг, счетчик для статистики).
+            /// Сбрасывается когда процесс запускается в обработку.
+            /// Взводится при поступлении сигнала.
+            /// </summary>
+            long NewSignalCounter { get; set; }
+        }
+
+        public interface IOffsetStreamDto 
+        {
+            /// <summary>
+            /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
+            /// </summary>
+            bool StreamsProcessIsWaiting { get; set; }
+
+            /// <summary>
+            /// Данные ою обработке смещения.
+            /// </summary>
+            IDictionary<string, IEntryDto> ChannelsOffsets { get; }
+
+            public interface IEntryDto 
+            {
+                /// <summary>
+                /// Наибольшее смещение сигнала.
+                /// </summary>
+                public long LastOffset { get; set; }
+
+                /// <summary>
+                /// Наибольшее обработанное процессом смещение.
+                /// </summary>
+                public long ProcessedOffset { get; set; }
+            }
+        }
+
+        #endregion
     }
 }

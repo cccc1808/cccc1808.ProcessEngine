@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
@@ -19,8 +20,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
             return commonEvent.Kind switch
             {
                 ITriggerEvent.KindEnum.WakeupSignalEvent => commonEvent,
-                ITriggerEvent.KindEnum.Stream_SignalEvent => JsonSerializer.Deserialize<SignalStreamTriggerEvent>(jsonElement),
-                ITriggerEvent.KindEnum.Stream_ProcessGoWaitEvent => JsonSerializer.Deserialize<ProcessGoWaitEvent>(jsonElement),
+
+                ITriggerEvent.KindEnum.SimpleStream_SignalEvent => JsonSerializer.Deserialize<SignalSimpleStreamTriggerEvent>(jsonElement)!,
+                ITriggerEvent.KindEnum.SimpleStream_ProcessGoWaitEvent => JsonSerializer.Deserialize<ProcessGoWaitSpleepSimpleStreamEvent>(jsonElement)!,
+
+                ITriggerEvent.KindEnum.OffsetStream_SignalEvent => JsonSerializer.Deserialize<SignalOffsetStreamTriggerEvent>(jsonElement)!,
+                ITriggerEvent.KindEnum.OffsetStream_ProcessGoWaitEvent => JsonSerializer.Deserialize<ProcessGoWaitSpleepOffsetStreamEvent>(jsonElement)!,
 
                 _ => throw new Exception($"[Bug] неподдерживаемое событие триггера {commonEvent.Kind}.")
             };

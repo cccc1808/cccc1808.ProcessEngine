@@ -10,8 +10,8 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
@@ -22,7 +22,9 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -96,13 +98,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 return;
             }
 
-            var inboxProcesses = byTypeIndex[_inboxRegistryDto.Registry.ProcessType];
+            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Registry.ProcessType, out var inboxProcessesIds))
+            {
+                return;
+            }
 
             // 1) Загружаем данные процесса.
             var inboxData = await _dbContext.Set<InboxProcessDataDbEntity<TId>>()
                 .Include(e => e.Queue)
                 .Include(e => e.Aggregate)
-                .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, inboxProcesses)
+                .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, inboxProcessesIds)
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
 
             // 2) Загружаем сообщения по процессам.
@@ -121,7 +126,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             //    .GroupBy(e => e.ProcessId)
             //    .ToDictionary(e => e.Key, e => e);
 
-            foreach (var elem in inboxProcesses)
+            foreach (var elem in inboxProcessesIds)
             {
                 var process = processes[elem];
 
@@ -263,8 +268,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         .ToArray()
                     );
                 container.AddComponent<IInboxComponent<TId>>(component);
-                container.AddComponent<IStreamTriggerComponent>(
-                    new StreamTriggerComponent(
+                container.AddComponent<IOffsetStreamTriggerComponent>(
+                    new OffsetStreamTriggerComponent(
                         processDataElem.WakeupTriggerKey));
 
                 loadBuffer.Add(container.Id, container);
@@ -336,7 +341,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);
 
                                             triggerEvents.Add(
-                                                new ProcessGoWaitEvent(
+                                                new ProcessGoWaitSpleepOffsetStreamEvent(
                                                     pd[elem.Process.Id].WakeupTriggerKey,
                                                     new Dictionary<string, long>(0)
                                                     ));                                            

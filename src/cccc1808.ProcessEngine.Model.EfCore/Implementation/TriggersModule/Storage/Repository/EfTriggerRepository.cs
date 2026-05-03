@@ -8,6 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
@@ -15,6 +16,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +27,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IEFDbContext _efDbContext;
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
@@ -35,6 +38,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             IEFDbContext efDbContext,
             IIdGenerator<TId> idGenerator,
             IDateTimeProvider dateTimeProvider,
+            ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
@@ -43,6 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _idGenerator = idGenerator;
             _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
+            _triggerSetter = triggerSetter;
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
 
@@ -57,7 +62,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ToArrayAsync(cancellationToken);
 
                 return data
-                    .Select(e => new EFTriggerProxyComponent<TId>(e))
+                    .Select(e => new EFTriggerProxyComponent<TId>(_triggerSetter, e))
                     .ToDictionary(e => e.Key, e => (ITriggerComponent<TId>)e);
             }
         }
@@ -85,7 +90,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                             .ToArrayAsync(cancellationToken);
 
                         return data
-                            .Select(e => (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(e))
+                            .Select(e => (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(p.This._triggerSetter, e))
                             .ToArray();
                     }
                 },
@@ -111,7 +116,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ToArrayAsync(cancellationToken);
 
                 return data
-                    .Select(e => (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(e))
+                    .Select(e => (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(_triggerSetter, e))
                     .ToArray();
             }
         }
@@ -153,13 +158,27 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     isCompleted: false,
                     processId: elem.processId,
                     counter: elem.counter,
-                    stream: elem.stream != null
-                        ? new TriggerDbEntity<TId>.StreamDto(
-                            elem.stream.StreamsProcessIsWaiting,
-                            elem.stream.StreamsTimeStamp,
-                            elem.stream.StreamProcessTimestamps
-                            )
-                        : null));
+                    streamState: elem.streamState.HasValue
+                        ? (
+                            elem.streamState.Value.simpleStream != null 
+                                ? new TriggerDbEntity<TId>.SimpleStreamDto(
+                                    elem.streamState.Value.simpleStream.StreamsProcessIsWaiting,
+                                    elem.streamState.Value.simpleStream.NewSignalCounter) 
+                                : null,
+                            elem.streamState.Value.offsettampStream != null 
+                                ? new TriggerDbEntity<TId>.OffsetStreamDto(
+                                    elem.streamState.Value.offsettampStream.StreamsProcessIsWaiting,
+                                    elem.streamState.Value.offsettampStream.ChannelsOffsets.ToDictionary(
+                                        e => e.Key, 
+                                        e => new TriggerDbEntity<TId>.OffsetStreamDto.OffsetEntry(
+                                            e.Value.LastOffset, 
+                                            e.Value.ProcessedOffset)
+                                        )
+                                    ) 
+                                : null
+                        )
+                        : null)
+                    );
             }
 
             Set.AddRange(create);

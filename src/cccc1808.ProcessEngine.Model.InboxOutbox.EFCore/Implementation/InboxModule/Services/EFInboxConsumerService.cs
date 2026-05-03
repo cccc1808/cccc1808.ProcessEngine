@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -105,7 +106,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         .Select(e => e.ProcessId)
                         .Distinct()
                         .Select(e => processData[e])
-                        .Select(e => new SignalStreamTriggerEvent(
+                        .Select(e => new SignalOffsetStreamTriggerEvent(
                             e.TriggerKey,
                             channelName: _inboxRegistry.TriggerChannelName,
                             channelTimestamp: result.Max(e => e.OrderId)

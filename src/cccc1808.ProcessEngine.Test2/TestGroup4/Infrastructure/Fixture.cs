@@ -142,7 +142,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
 
                     .AddWakeupServices(
-                        [],
+                        [
+                            new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), typeof(EFOutboxMessageWakeupHandler<Guid>))
+                        ],
                         [
                             new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
                             new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)),
@@ -163,7 +165,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
                             QueueConsumePackSize = 10,
-                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(0.5),
                         },
                         new TriggerOptions() 
                         {
@@ -269,7 +271,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             MessageLimitFunc = (m) => m * 10,
                         },
                         new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), "inbox"),
-                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), "outbox")
+                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1))
                     );
 
                 services

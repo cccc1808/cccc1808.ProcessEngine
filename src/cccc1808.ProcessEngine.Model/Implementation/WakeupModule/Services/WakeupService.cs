@@ -8,11 +8,13 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
@@ -87,13 +89,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                         continue;
                     }
 
-                    if (elem.TryGetComponent<IStreamTriggerComponent>(out var streamTriggerComponent))
+                    if (elem.TryGetComponent<ISimpleStreamTriggerComponent>(out var simpleStreamComponent))
                     {
                         // В текущей реализации stream trigger не используется проверку условия wakeup.
                         // Отчасти потому, что в таком случае есть шанс, что обработанное будет утеряно и не будет передано в StreamTrigger.
                         streamData.Add(
                             elem.Id,
-                            new ExecuteStreamContextItemDto(elem, streamTriggerComponent));
+                            new ExecuteStreamContextItemDto(elem, simpleStreamComponent, offsetStreamComponent: null));
+                    }
+                    else if (elem.TryGetComponent<IOffsetStreamTriggerComponent>(out var offsetStreamComponent))
+                    {
+                        // В текущей реализации stream trigger не используется проверку условия wakeup.
+                        // Отчасти потому, что в таком случае есть шанс, что обработанное будет утеряно и не будет передано в StreamTrigger.
+                        streamData.Add(
+                            elem.Id,
+                            new ExecuteStreamContextItemDto(elem, simpleStreamComponent: null, offsetStreamComponent));
                     }
 
                     if (elem.UsingWakeup)
@@ -212,9 +222,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             {
                 var processGoWaitTriggerEvents = streamData.Values
                     .Where(e => e.Process.Process.Status is ProcessStatusEnum.WaitEvent)
-                    .Select(e => new ProcessGoWaitEvent(
-                        e.StreamTriggerComponent.TriggerKey,
-                        e.StreamTriggerComponent.ProcessedChannels.ToDictionary()))
+                    .Select(e => 
+                        e.SimpleStreamComponent != null 
+                            ? (ITriggerEvent)new ProcessGoWaitSpleepSimpleStreamEvent(e.SimpleStreamComponent.TriggerKey)
+                            : (ITriggerEvent)new ProcessGoWaitSpleepOffsetStreamEvent(
+                                e.OffsetStreamComponent.TriggerKey,
+                                e.OffsetStreamComponent.ProcessedChannels.ToDictionary()
+                                ))
                     .ToArray();
 
                 // Для процессов, использующих stream trigger, публикуем событие о том, что процесс засыпает и данные о смещения каналов.
@@ -330,14 +344,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
         {
             public IProcessContainer<TId> Process { get; }
 
-            public IStreamTriggerComponent StreamTriggerComponent { get; }
+            public ISimpleStreamTriggerComponent SimpleStreamComponent { get; }
+
+            public IOffsetStreamTriggerComponent OffsetStreamComponent { get; }
 
             public ExecuteStreamContextItemDto(
                 IProcessContainer<TId> process,
-                IStreamTriggerComponent streamTriggerComponent)
+                ISimpleStreamTriggerComponent simpleStreamComponent,
+                IOffsetStreamTriggerComponent offsetStreamComponent)
             {
                 Process = process;
-                StreamTriggerComponent = streamTriggerComponent;
+                SimpleStreamComponent = simpleStreamComponent;
+                OffsetStreamComponent = offsetStreamComponent;
             }
         }
 

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
 {
@@ -47,7 +48,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             short priority,
             bool isActivated,
             int? counter,
-            StreamDto? stream);
+            (
+                DefaultTriggerComponent.SimpleStreamDto<TId>? simpleStream,
+                DefaultTriggerComponent.OffsetStreamDto<TId>? offsettampStream)? streamState);
 
         public class StreamDto
         {

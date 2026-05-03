@@ -10,9 +10,8 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
@@ -23,8 +22,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
@@ -43,6 +42,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         private readonly IEFDbContext _dbContext;
         private readonly OutboxRegistryDto _outboxRegistry;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerEventRaiser _triggerEventRaiser;
+
         private readonly Options _options;
         private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;
 
@@ -56,6 +57,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             IEFDbContext dbContext, 
             OutboxRegistryDto outboxRegistry,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerEventRaiser triggerEventRaiser,
+
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
 
@@ -68,6 +71,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             _dbContext = dbContext;
             _outboxRegistry = outboxRegistry;
             _lockQueryHintStore = lockQueryHintStore;
+            _triggerEventRaiser = triggerEventRaiser;
+
             _options = options;
             _repositoryOptions = repositoryOptions;
 
@@ -254,8 +259,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         .ToArray()
                     );
                 container.AddComponent<IOutboxComponent<TId>>(component);
-                container.AddComponent<IStreamTriggerComponent>(
-                    new StreamTriggerComponent(
+                container.AddComponent<ISimpleStreamTriggerComponent>(
+                    new SimpleStreamTriggerComponent(
                         processDataElem.WakeupTriggerKey));
 
                 loadBuffer.Add(container.Id, container);
@@ -281,6 +286,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
+                            var triggerEvents = new List<ITriggerEvent>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
@@ -306,6 +312,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                 if (activeWithoutMessages.Any())
                                 {
                                     haveChanges = true;
+                                    triggerEvents.Capacity = activeWithoutMessages.Length;
+
+                                    var pd = await dbContext.Set<OutboxProcessDataDbEntity<TId>>()
+                                        .Where(e => activeWithoutMessages.Select(e => e.Process.Id)
+                                        .Contains(e.ProcessId))
+                                        .ToDictionaryAsync(e => e.ProcessId, e => e);
+
                                     foreach (var elem in activeWithoutMessages)
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
@@ -316,6 +329,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedOutboxProcessesIds.Remove(elem.Process.Id);
+
+                                            triggerEvents.Add(
+                                                new ProcessGoWaitSpleepSimpleStreamEvent(
+                                                    pd[elem.Process.Id].WakeupTriggerKey
+                                                    ));
                                         }
                                     }
                                 }
@@ -324,6 +342,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
                             if (haveChanges)
                             {
+                                await _triggerEventRaiser.RaiseAsync(
+                                    triggerEvents,
+                                    cancellationToken
+                                    );
+
                                 await dbContext.SaveChangesAsync(cancellationToken);
                             }
 

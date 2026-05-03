@@ -26,17 +26,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             trigger.IsActivated = value;
         }
 
-        public void SetStreamsState(
-            ITriggerComponent<TId> trigger, 
-            bool processIsWaiting,
-            Dictionary<string, long> channels,
-            Dictionary<string, long> process)
-        {
-            trigger.StreamsProcessIsWaiting = processIsWaiting;
-            trigger.StreamsTimeStamp = channels;
-            trigger.StreamProcessTimestamps = process;
-        }
-
         public void SetCompleted(ITriggerComponent<TId> trigger, bool value)
         {
             trigger.IsCompleted = value;
@@ -48,35 +37,76 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         }
 
         public void OneOf(
-            ITriggerComponent<TId> trigger,
-            Action<int> counterHandler, 
-            Action timerHandler, 
-            Action<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>> streamHandler
-            )
+            ITriggerComponent<TId>.TriggerKind kind,
+            Action counterHandler,
+            Action timerHandler,
+            Action simpleStreamHandler,
+            Action offsetStreamHanler)
         {
+            switch (kind)
             {
-                switch (trigger.Kind)
-                {
-                    case ITriggerComponent<TId>.TriggerKind.Counter:
-                        {
-                            counterHandler(trigger.Counter!.Value);
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.Counter:
+                    {
+                        counterHandler();
+                        break;
+                    }
 
-                    case ITriggerComponent<TId>.TriggerKind.Timer:
-                        {
-                            timerHandler();
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.Timer:
+                    {
+                        timerHandler();
+                        break;
+                    }
 
-                    case ITriggerComponent<TId>.TriggerKind.StreamsTrigger:
-                        {
-                            streamHandler(trigger.StreamsProcessIsWaiting.Value, trigger.StreamsTimeStamp, trigger.StreamProcessTimestamps);
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                    {
+                        simpleStreamHandler();
+                        break;
+                    }
 
-                    default: throw new NotImplementedException("[Bug]");
-                }
+                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                    {
+                        offsetStreamHanler();
+                        break;
+                    }
+
+                default: throw new NotImplementedException("[Bug]");
+            }
+        }
+
+        public void OneOf(
+            ITriggerComponent<TId> trigger, 
+            Action<int> counterHandler,
+            Action timerHandler, 
+            Action<ITriggerComponent<TId>.ISimpleStreamDto> simpleStreamHandler,
+            Action<ITriggerComponent<TId>.IOffsetStreamDto> offsetStreamHanler)
+        {
+            switch (trigger.Kind)
+            {
+                case ITriggerComponent<TId>.TriggerKind.Counter:
+                    {
+                        counterHandler(trigger.Counter!.Value);
+                        break;
+                    }
+
+                case ITriggerComponent<TId>.TriggerKind.Timer:
+                    {
+                        timerHandler();
+                        break;
+                    }
+
+                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                    {
+                        simpleStreamHandler(trigger.SimpleStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        break;
+                    }
+
+                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                    {
+                        offsetStreamHanler(trigger.OffsetStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        break;
+                    }
+
+                default: throw new NotImplementedException("[Bug]");
             }
         }
 
@@ -84,32 +114,38 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             ITriggerComponent<TId> trigger,
             Func<int, ValueTask> counterHandler,
             Func<ValueTask> timerHandler,
-            Func<bool, IReadOnlyDictionary<string, long>, IReadOnlyDictionary<string, long>, ValueTask> streamHandler)
+            Func<ITriggerComponent<TId>.ISimpleStreamDto, ValueTask> simpleStreamHandler,
+            Func<ITriggerComponent<TId>.IOffsetStreamDto, ValueTask> offsetStreamHanler)
         {
+            switch (trigger.Kind)
             {
-                switch (trigger.Kind)
-                {
-                    case ITriggerComponent<TId>.TriggerKind.Counter:
-                        {
-                            await counterHandler(trigger.Counter!.Value);
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.Counter:
+                    {
+                        await counterHandler(trigger.Counter!.Value);
+                        break;
+                    }
 
-                    case ITriggerComponent<TId>.TriggerKind.Timer:
-                        {
-                            await timerHandler();
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.Timer:
+                    {
+                        await timerHandler();
+                        break;
+                    }
 
-                    case ITriggerComponent<TId>.TriggerKind.StreamsTrigger:
-                        {
-                            streamHandler(trigger.StreamsProcessIsWaiting.Value, trigger.StreamsTimeStamp, trigger.StreamProcessTimestamps);
-                            break;
-                        }
+                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                    {
+                        await simpleStreamHandler(trigger.SimpleStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        break;
+                    }
 
-                    default: throw new NotImplementedException("[Bug]");
-                }
+                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                    {
+                        await offsetStreamHanler(trigger.OffsetStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        break;
+                    }
+
+                default: throw new NotImplementedException("[Bug]");
             }
         }
+        
     }
 }

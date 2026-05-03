@@ -23,8 +23,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
         public enum KindEnum 
         {
             WakeupSignalEvent,
-            Stream_SignalEvent,
-            Stream_ProcessGoWaitEvent,
+
+            SimpleStream_SignalEvent,
+            SimpleStream_ProcessGoWaitEvent,
+
+            OffsetStream_SignalEvent,
+            OffsetStream_ProcessGoWaitEvent,
         }
     }
 }

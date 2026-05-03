@@ -20,6 +20,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -97,37 +98,100 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
                             },
                             timerHandler: () => triggerSetter.SetActivated(trigger, true),
-                            streamHandler: (processIsWaiting, channelsTimeStamps, processTimestamps) =>
+                            simpleStreamHandler: (state) => 
                             {
-                                var streamsMaxTimestamps = new Dictionary<string, long>(channelsTimeStamps);
-                                var processMaxTimestamps = new Dictionary<string, long>(processTimestamps);
-
                                 foreach (var elem2 in elem.Value)
                                 {
                                     switch (elem2.Kind)
                                     {
-                                        case ITriggerEvent.KindEnum.Stream_SignalEvent:
+                                        case ITriggerEvent.KindEnum.SimpleStream_SignalEvent:
                                             {
-                                                var typedEvent = (ISignalStreamTriggerEvent)elem2;
-                                                streamsMaxTimestamps[typedEvent.ChannelName] = Math.Max(
-                                                    streamsMaxTimestamps.TryGetValue(typedEvent.ChannelName, out var c) ? c : -1,
-                                                    typedEvent.ChannelTimestamp);
+                                                var typedEvent = (ISignalSimpleStreamTriggerEvent)elem2;
+                                                state.NewSignalCounter++;
+                                                break;
+                                            }
+
+                                        case ITriggerEvent.KindEnum.SimpleStream_ProcessGoWaitEvent:
+                                            {
+                                                var typedEvent = (IProcessGoWaitSpleepSimpleStreamEvent)elem2;
+                                                state.StreamsProcessIsWaiting = true;
+                                                break;
+                                            }
+
+                                        default: throw new Exception($"[Bug]. Триггер не поддерживает тип события {elem2.Kind}.");
+                                    }
+                                }
+
+                                if (state.NewSignalCounter != 0 && state.StreamsProcessIsWaiting)
+                                {
+                                    // Процесс на пробуждение, счетчик сбрасывается.
+                                    triggerSetter.SetActivated(trigger, true);                                    
+                                    state.StreamsProcessIsWaiting = false;
+                                    state.NewSignalCounter = 0;
+                                }
+
+                                trigger.StreamStateChanged();
+                            },
+                            offsetStreamHanler: (state) => 
+                            {
+                                foreach (var elem2 in elem.Value)
+                                {
+                                    switch (elem2.Kind)
+                                    {
+                                        case ITriggerEvent.KindEnum.OffsetStream_SignalEvent:
+                                            {
+                                                var typedEvent = (ISignalOffsetStreamTriggerEvent)elem2;
+
+                                                if (state.ChannelsOffsets.TryGetValue(typedEvent.ChannelName, out var entry))
+                                                {
+                                                    if (entry.LastOffset < typedEvent.ChannelOffset)
+                                                    {
+                                                        entry.LastOffset = typedEvent.ChannelOffset;
+                                                    }
+                                                    else 
+                                                    {
+                                                        // TODO: log warnig событие с меньшим смещением.
+                                                    }
+                                                }
+                                                else 
+                                                {
+                                                    state.ChannelsOffsets.Add(
+                                                        typedEvent.ChannelName, 
+                                                        new DefaultTriggerComponent.OffsetStreamDto<TId>.EntryDto(
+                                                            typedEvent.ChannelOffset, 
+                                                            -1));
+                                                }
 
                                                 break;
                                             }
 
-                                        case ITriggerEvent.KindEnum.Stream_ProcessGoWaitEvent:
+                                        case ITriggerEvent.KindEnum.OffsetStream_ProcessGoWaitEvent:
                                             {
-                                                var typedEvent = (IProcessGoWaitSpleepEvent)elem2;
-                                                foreach (var elem in typedEvent.ChannelsTimestampOffsets)
+                                                var typedEvent = (IProcessGoWaitSpleepOffsetStreamEvent)elem2;
+                                                foreach (var elem in typedEvent.ProcessedChannelsOffsets)
                                                 {
-                                                    processMaxTimestamps[elem.Key] = Math.Max(
-                                                        processMaxTimestamps.TryGetValue(elem.Key, out var c) ? c : -1,
-                                                        elem.Value
-                                                        );
+                                                    if (state.ChannelsOffsets.TryGetValue(elem.Key, out var entry))
+                                                    {
+                                                        if (entry.LastOffset < elem.Value)
+                                                        {
+                                                            entry.LastOffset = elem.Value;
+                                                        }
+                                                        else
+                                                        {
+                                                            // TODO: log warnig событие с меньшим смещением.
+                                                        }
+                                                    }
+                                                    else 
+                                                    {
+                                                        state.ChannelsOffsets.Add(
+                                                            elem.Key,
+                                                            new DefaultTriggerComponent.OffsetStreamDto<TId>.EntryDto(
+                                                                -1,
+                                                                elem.Value));
+                                                    }
                                                 }
 
-                                                processIsWaiting = true;
+                                                state.StreamsProcessIsWaiting = true;
                                                 break;
                                             }
 
@@ -136,29 +200,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
 
                                 // Есть ли каналы, по которым процесс не обработал последний сигнал.
-                                var haveNotProcessedSignals = streamsMaxTimestamps.Any(
-                                    e => processMaxTimestamps.TryGetValue(e.Key, out var p)
-                                        ? e.Value > p
-                                        : true);
+                                var haveNotProcessedSignals = state.ChannelsOffsets.Any(
+                                    e => e.Value.ProcessedOffset < e.Value.LastOffset);
 
                                 // Если процесс уснул и не обработал все сигналы.
-                                if (processIsWaiting && haveNotProcessedSignals)
+                                if (state.StreamsProcessIsWaiting && haveNotProcessedSignals)
                                 {
                                     // Взводим триггер на пробуждение.
                                     triggerSetter.SetActivated(trigger, true);
-                                    processIsWaiting = false;
+                                    state.StreamsProcessIsWaiting = false;
                                 }
 
-                                triggerSetter.SetStreamsState(
-                                    trigger,
-                                    processIsWaiting,
-                                    streamsMaxTimestamps,
-                                    processMaxTimestamps);
-                            }
-                            );
+                                trigger.StreamStateChanged();
+                            });
                     }
-
-                    // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                    
                     await repository.SaveAsync(triggers.Values, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
@@ -357,6 +413,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             WriteHandlerResult(triggerSetter, elem, elemResult);
                         }
 
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -390,6 +447,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         WriteHandlerResult(triggerSetter, trigger, result);
 
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync([trigger], cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }

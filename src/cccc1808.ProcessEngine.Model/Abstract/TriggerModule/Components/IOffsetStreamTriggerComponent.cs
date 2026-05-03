@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
+namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 {
     /// <summary>
     /// Процесс при обработке сообщений стрима фиксирует последнее обработанное сообщение.
     /// При засыпании процесса, данные о смещении будут опубликованы в событии засыпания.
     /// </summary>
-    public interface IStreamTriggerComponent
+    public interface IOffsetStreamTriggerComponent
     {
         string TriggerKey { get; }
 

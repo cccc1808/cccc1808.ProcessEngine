@@ -6,19 +6,18 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components
 {
     public class EFTriggerProxyComponent<TId>
         : ITriggerComponent<TId>
     {
-        private readonly TriggerDbEntity<TId> _entity;
-
-        public EFTriggerProxyComponent(TriggerDbEntity<TId> entity)
-        {
-            _entity = entity;
-        }
+        private readonly ITriggerSetter<TId> _triggerSetter;
+        private readonly TriggerDbEntity<TId> _entity;        
 
         public int? Counter { get => _entity.Counter; set => _entity.Counter = value; }
 
@@ -38,10 +37,55 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public DateTimeOffset SelectLockTimeout { get => _entity.SelectLockTimeout; set => _entity.SelectLockTimeout = value; }
         
-        public bool? StreamsProcessIsWaiting { get => _entity.StreamsProcessIsWaiting; set => _entity.StreamsProcessIsWaiting = value; }
+        public ITriggerComponent<TId>.ISimpleStreamDto? SimpleStreamState { get; private set; }
 
-        public Dictionary<string, long>? StreamsTimeStamp { get => _entity.StreamsTimeStamp; set => _entity.StreamsTimeStamp = value; }
+        public ITriggerComponent<TId>.IOffsetStreamDto? OffsetStreamState { get; private set; }
 
-        public Dictionary<string, long>? StreamProcessTimestamps { get => _entity.StreamProcessTimestamps; set => _entity.StreamProcessTimestamps = value; }
+        public EFTriggerProxyComponent(
+            ITriggerSetter<TId> triggerSetter, 
+            TriggerDbEntity<TId> entity)
+        {
+            _triggerSetter = triggerSetter;
+            _entity = entity;
+
+            _triggerSetter.OneOf(
+                Kind,
+                counterHandler: () => { },
+                timerHandler: () => { },
+                simpleStreamHandler: () => 
+                {
+                    SimpleStreamState = new DefaultTriggerComponent.SimpleStreamDto<TId>(
+                        _entity.SimpleStreamState.StreamsProcessIsWaiting,
+                        _entity.SimpleStreamState.NewSignalCounter);
+                },
+                offsetStreamHanler: () => 
+                {
+                    OffsetStreamState = new DefaultTriggerComponent.OffsetStreamDto<TId>(
+                        _entity.OffsetStreamState.StreamsProcessIsWaiting,
+                        _entity.OffsetStreamState.ChannelsOffsets.ToDictionary(
+                            e => e.Key,
+                            e => (ITriggerComponent<TId>.IOffsetStreamDto.IEntryDto)new DefaultTriggerComponent.OffsetStreamDto<TId>.EntryDto(e.Value.LastOffset, e.Value.ProcessedOffset)));
+                });
+        }
+
+        public void StreamStateChanged()
+        {
+            _triggerSetter.OneOf(
+                this,
+                counterHandler: (_) => { },
+                timerHandler: () => { },
+                simpleStreamHandler: (state) =>
+                {
+                    _entity.SimpleStreamState.StreamsProcessIsWaiting = state.StreamsProcessIsWaiting;
+                    _entity.SimpleStreamState.NewSignalCounter = state.NewSignalCounter;
+                },
+                offsetStreamHanler: (state) =>
+                {
+                    _entity.OffsetStreamState.StreamsProcessIsWaiting = state.StreamsProcessIsWaiting;
+                    _entity.OffsetStreamState.ChannelsOffsets = state.ChannelsOffsets.ToDictionary(
+                        e => e.Key,
+                        e => new TriggerDbEntity<TId>.OffsetStreamDto.OffsetEntry(e.Value.LastOffset, e.Value.ProcessedOffset));
+                });
+        }
     }
 }
