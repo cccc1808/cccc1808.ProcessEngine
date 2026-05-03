@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Handlers;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
@@ -21,7 +22,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
         /// </summary>
         /// <param name="processType"></param>
         /// <returns></returns>
-        bool IsWakeupProcess(ProcessTypeDto processType);
+        WakeupStateEnum CheckWakeup(ProcessTypeDto processType);
 
         /// <summary>
         /// Получить реализацию хендлера для процесса.

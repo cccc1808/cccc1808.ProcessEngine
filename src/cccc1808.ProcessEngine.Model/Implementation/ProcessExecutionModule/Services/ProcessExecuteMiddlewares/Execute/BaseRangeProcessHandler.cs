@@ -10,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute
@@ -68,7 +69,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 // Retry trigger.
                 if (errorResult.IsRetry)
                 {
-                    if (elem.UsingWakeup)
+                    if (elem.WakeupState == WakeupStateEnum.WakeupWithState)
                     {
                         retryTriggers.Add(
                             new ITriggerRepository<TId>.CreateTriggerDto(
@@ -80,8 +81,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 priority: elem.Process.Info.Priority,
                                 isActivated: true,
                                 counter: null,
-                                streamState: null)
-                            );                        
+                                streamState: null));                        
                     }
                     else 
                     {

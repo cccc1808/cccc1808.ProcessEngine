@@ -495,11 +495,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
 
-                                dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
-                                    new ProcessWakeupDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        processId: elem.Value.Entity.ProcessId,
-                                        isAsyncExecuting: false));
+                                //dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
+                                //    new ProcessWakeupDbEntity<TId>(
+                                //        id: await idGenerator.NextAsync(cancellationToken),
+                                //        processId: elem.Value.Entity.ProcessId,
+                                //        isAsyncExecuting: false));
 
                                 dbContext.Set<TriggerDbEntity<TId>>().Add(
                                     new TriggerDbEntity<TId>(

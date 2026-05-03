@@ -31,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             _processSetter = processSetter;
         }
 
-        public async ValueTask<IDictionary<string, ITriggerHandler.Result>> HandleAsync(
+        public virtual async ValueTask<IDictionary<string, ITriggerHandler.Result>> HandleAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {

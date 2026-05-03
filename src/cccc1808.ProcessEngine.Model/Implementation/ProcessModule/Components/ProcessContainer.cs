@@ -1,4 +1,5 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 {
@@ -16,13 +17,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public bool InAsyncExecuting { get; }
 
-        public bool UsingWakeup { get; }
+        public WakeupStateEnum WakeupState { get; }
 
         public ProcessContainer(
             IProcessComponent<TId> process,
             IAsyncSessionComponent currentSession,
             bool isAsyncExecuting,
-            bool usingWakeup)
+            WakeupStateEnum wakeupState)
         {
             Process = process;
             AddComponent(process);
@@ -30,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
             CurrentSession = currentSession;
             AddComponent(currentSession);
             InAsyncExecuting = isAsyncExecuting;
-            UsingWakeup = usingWakeup;
+            WakeupState = wakeupState;
         }
 
         public T GetComponent<T>()

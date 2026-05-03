@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
@@ -20,7 +22,7 @@ using Microsoft.EntityFrameworkCore;
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup
 {
     public class EFOutboxTriggerWakeupHandler<TId>
-        : WakeupStreamTriggerRangeHandler<TId>
+        : NoWakeupStreamTriggerRangeHandler<TId>
     {
         public new const string Name = "EFOutboxTriggerWakeupHandler";
 
@@ -31,11 +33,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
         public EFOutboxTriggerWakeupHandler(
             IEFDbContext dbContext,
-            IWakeupService<TId> wakeUpService,
+            IProcessRepository<TId> processRepository,
+            IProcessSetter processSetter,
 
             IProcessLinkedConditions<TId, OutboxMessageDbEntity<TId>> processLinkedConditions,
             IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>> messageStreamConditions)
-            : base(wakeUpService)
+            : base(
+                  processRepository,
+                  processSetter)
         {
             _dbContext = dbContext;
             _processLinkedConditions = processLinkedConditions;

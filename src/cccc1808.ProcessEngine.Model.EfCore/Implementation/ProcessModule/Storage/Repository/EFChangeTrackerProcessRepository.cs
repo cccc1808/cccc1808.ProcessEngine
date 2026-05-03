@@ -210,7 +210,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                 haveErrorOnStart: elem.StoppedByError || elem.RetryCount.HasValue // TODO: condition                                                                                                   
                                 ),
                             isAsyncExecuting: true,
-                            usingWakeup: _wakeupRegistry.IsWakeupProcess(new ProcessTypeDto(elem.ProcessTypeId, elem.ProcessVersion))
+                            wakeupState: _wakeupRegistry.CheckWakeup(new ProcessTypeDto(elem.ProcessTypeId, elem.ProcessVersion))
                             );
 
                         if (softTimeout.HasValue)
@@ -268,7 +268,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                     haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue // TODO: condition                                                                                                   
                                     ),
                                 isAsyncExecuting: false,
-                                usingWakeup: _wakeupRegistry.IsWakeupProcess(new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion))                                
+                                wakeupState: _wakeupRegistry.CheckWakeup(new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion))                                
                                 );
                         }
                         )
@@ -396,6 +396,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             foreach (var elem in processes)
             {
                 var component = elem.GetComponent<IWakeupComponent<TId>>();
+
+                if (!component.HaveWakeupEntity)
+                {
+                    continue;
+                }
 
                 if (!component.NeedUpdate)
                 {

@@ -143,7 +143,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 
                     .AddWakeupServices(
                         [
-                            new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), typeof(EFOutboxMessageWakeupHandler<Guid>))
+                            new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), WakeupStateEnum.WakeupWithoutState, typeof(EFOutboxMessageWakeupHandler<Guid>))
                         ],
                         [
                             new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),

@@ -16,6 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto
     /// <param name="CheckWakeupHandlerType"><see cref="IWakeupCheckHandler{TId}"/>Тип хендлера.</param>
     public record WakeupRegistryDto(
         ProcessRegistryDto ProcessRegistry,
+        WakeupStateEnum WakeupState,
         Type CheckWakeupHandlerType)
     {
     }

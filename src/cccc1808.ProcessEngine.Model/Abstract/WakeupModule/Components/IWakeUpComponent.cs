@@ -12,6 +12,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components
         
         TId Id { get; }
 
+        bool HaveWakeupEntity { get; set; }
+
         bool IsAsyncExecuting { get; set; }
 
         #endregion
