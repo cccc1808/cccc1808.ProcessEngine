@@ -22,6 +22,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -41,8 +42,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerEventRaiser _triggerEventRaiser;
+
         private readonly Options _options;
-        private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;
+        private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;        
 
         private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
         private readonly IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> _processLinkedConditions;
@@ -54,6 +57,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerEventRaiser triggerEventRaiser,
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
 
@@ -67,6 +71,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _dbContext = dbContext;
             _inboxRegistryDto = inboxRegistryDto;
             _lockQueryHintStore = lockQueryHintStore;
+
+            _triggerEventRaiser = triggerEventRaiser;
+
             _options = options;
             _repositoryOptions = repositoryOptions;
 
@@ -284,6 +291,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
+                            var triggerEvents = new List<ITriggerEvent>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
@@ -308,6 +316,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                                 if (activeWithoutMessages.Any())
                                 {
+                                    triggerEvents.Capacity = activeWithoutMessages.Length;
+
+                                    var pd = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
+                                        .Where(e => activeWithoutMessages.Select(e => e.Process.Id)
+                                        .Contains(e.ProcessId))
+                                        .ToDictionaryAsync(e => e.ProcessId, e => e);
+
                                     haveChanges = true;
                                     foreach (var elem in activeWithoutMessages)
                                     {
@@ -319,6 +334,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);
+
+                                            triggerEvents.Add(
+                                                new ProcessGoWaitEvent(
+                                                    pd[elem.Process.Id].WakeupTriggerKey,
+                                                    new Dictionary<string, long>(0)
+                                                    ));                                            
                                         }
                                     }
                                 }
@@ -326,6 +347,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                             if (haveChanges)
                             {
+                                await _triggerEventRaiser.RaiseAsync(
+                                    triggerEvents,
+                                    cancellationToken
+                                    );
+
                                 await dbContext.SaveChangesAsync(cancellationToken);
                             }
 
