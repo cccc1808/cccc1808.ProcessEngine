@@ -10,33 +10,45 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query
 {
     public interface IWakeupServiceQueries<TId>
     {
-        Task<IDictionary<TId, WakeupDto>> AfterSession_LoadStateWithLockAsync(
+        Task<IDictionary<TId, IWakeupInfoDto>> AfterSession_LoadStateWithLockAsync(
             ICollection<TId> ids,
             CancellationToken cancellationToken);
 
-        Task<IDictionary<TId, TId>> Wakeup_LoadStateAsync(
+        Task<IWakeupContext> Wakeup_LoadStateAsync(
             ICollection<TId> ids,
             TimeSpan wakeupTryUpdatelockTimeout,
             CancellationToken cancellationToken);
 
-        Task<ICollection<ProcessInfoDto>> Wakeup_LoadProcessesAsync(
-            ICollection<TId> ids,
+        Task Wakeup_LoadProcessesWithLockAsync(
+            IWakeupContext context,
             CancellationToken cancellationToken);
 
         Task Wakeup_ExecuteAsync(
-            ICollection<WakeupDto> processes,
+            IWakeupContext context,
             CancellationToken cancellationToken);
 
-        public readonly record struct ProcessInfoDto(
-            TId Id,
-            bool StoppedByError,
-            short? RetryCount,
-            ProcessStatusEnum Status
-            );
 
-        public readonly record struct WakeupDto(
-            TId Id,
-            TId ProcessId,
-            bool IsAsyncExecuting);
+        public interface IWakeupInfoDto 
+        {
+            TId Id { get; }
+
+            TId ProcessId { get; }
+
+            bool IsAsyncExecuting { get; }
+        }
+
+        public interface IWakeupContext 
+        {
+            IDictionary<TId, IContextEntryDto> Data { get; }
+
+            ICollection<IContextEntryDto> ToWakeupData { get; }
+        }
+
+        public interface IContextEntryDto 
+        {
+            (TId Id, TId ProcessId, bool IsAsyncExecuting) WakeupState { get; }
+
+            (bool StoppedByError, short? RetryCount, ProcessStatusEnum Status)? ProcessState { get; }
+        }
     }
 }

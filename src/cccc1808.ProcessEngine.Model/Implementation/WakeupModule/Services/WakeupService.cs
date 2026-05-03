@@ -252,44 +252,40 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 return;
             }
 
-            var updateBuffer = await _wakeupServiceQueries.Wakeup_LoadStateAsync(
+            var wakeupContext = await _wakeupServiceQueries.Wakeup_LoadStateAsync(
                 ids, 
                 _optionsDto.WakeupTryUpdatelockTimeout,
-                cancellationToken);            
+                cancellationToken);
+
+            // Процессы не в состоянии обработки т.к. мы получили updatelock на wakeup и увидели статус WaitEvent.
+            await _wakeupServiceQueries.Wakeup_LoadProcessesWithLockAsync(
+                wakeupContext,
+                cancellationToken);
 
             // 3) Обновляем wakeup и process
+            foreach (var elem in wakeupContext.Data.Values)
             {
-                // Процессы не в состоянии обработки т.к. мы получили updatelock на wakeup и увидели статус WaitEvent.
-                var processes = await _wakeupServiceQueries.Wakeup_LoadProcessesAsync(
-                    updateBuffer.Keys,
-                    cancellationToken);
+                var processState = elem.ProcessState 
+                    ?? throw new InvalidOperationException($"[Bug]. Ожидается наличие {nameof(elem.ProcessState)}.");
 
-                var forUpdate = new List<IWakeupServiceQueries<TId>.WakeupDto>();
-                foreach (var elem in processes)
+                if (processState.StoppedByError || processState.RetryCount.HasValue) // TODO: condition
                 {
-                    if (elem.StoppedByError || elem.RetryCount.HasValue) // TODO: condition
-                    {
-                        // Если процесс в ошибке, то не трогаем его.
-                        continue;
-                    }
-
-                    if (elem.Status == ProcessStatusEnum.Complete) // TODO: condition
-                    {
-                        // Если процес завершился, то не трогам.
-                        continue;
-                    }
-
-                    var wakeupId = updateBuffer[elem.Id];
-                    forUpdate.Add(new IWakeupServiceQueries<TId>.WakeupDto(
-                        Id: wakeupId,
-                        ProcessId: elem.Id,
-                        IsAsyncExecuting: true));                                      
+                    // Если процесс в ошибке, то не трогаем его.
+                    continue;
                 }
 
-                await _wakeupServiceQueries.Wakeup_ExecuteAsync(
-                    forUpdate, 
-                    cancellationToken);
+                if (processState.Status == ProcessStatusEnum.Complete) // TODO: condition
+                {
+                    // Если процес завершился, то не трогам.
+                    continue;
+                }
+
+                wakeupContext.ToWakeupData.Add(elem);
             }
+
+            await _wakeupServiceQueries.Wakeup_ExecuteAsync(
+                wakeupContext, 
+                cancellationToken);
         }
 
         #endregion
