@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             _processWakeUpDbEntityConditions = processWakeUpDbEntityConditions;
         }
 
-        public async Task<IDictionary<TId, IWakeupServiceQueries<TId>.WakeupDto>> AfterSession_LoadStateWithLockAsync(
+        public async Task<IDictionary<TId, IWakeupServiceQueries<TId>.IWakeupInfoDto>> AfterSession_LoadStateWithLockAsync(
             ICollection<TId> ids,
             CancellationToken cancellationToken)
         {
@@ -63,17 +63,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
                 return data.ToDictionary(
                     e => e.ProcessId,
-                    e => new IWakeupServiceQueries<TId>.WakeupDto(e.Id, e.ProcessId, e.IsAsyncExecuting));
+                    e => (IWakeupServiceQueries<TId>.IWakeupInfoDto)new WakeupInfoDto(e.Id, e.ProcessId, e.IsAsyncExecuting));
             }
         }        
 
-        public async Task<IDictionary<TId, TId>> Wakeup_LoadStateAsync(
+        public async Task<IWakeupServiceQueries<TId>.IWakeupContext> Wakeup_LoadStateAsync(
             ICollection<TId> ids,
             TimeSpan wakeupTryUpdatelockTimeout,
             CancellationToken cancellationToken)
         {
             var checkBuffer = ids.ToHashSet();
-            var updateBuffer = new Dictionary<TId, ProcessWakeupDbEntity<TId>>(ids.Count);
+            var updateBuffer = new Dictionary<TId, IWakeupServiceQueries<TId>.IContextEntryDto>(ids.Count);
 
             while (true)
             {
@@ -83,7 +83,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                 using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                 {
                     var wakeups = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
-                        // .AsNoTracking()
+                        .AsNoTracking()
                         .ApplayQueryCondition(
                             _processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
                             ids
@@ -109,7 +109,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                         using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                         {
                             var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
-                                // .AsNoTracking()
+                                .AsNoTracking()
                                 .ApplayQueryCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer)
                                 .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
                                 .ToArrayAsync(t);
@@ -125,7 +125,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                                 else
                                 {
                                     // Пробуждение нужно.
-                                    p.updateBuffer.Add(elem.ProcessId, elem);
+                                    p.updateBuffer.Add(elem.ProcessId, new EFProxyContextEntryDto(elem));
                                     p.checkBuffer.Remove(elem.ProcessId);
                                 }
                             }
@@ -140,61 +140,113 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                 }
             }
 
-            return updateBuffer.ToDictionary(
-                e => e.Value.ProcessId,
-                e => e.Value.Id);
+            return new EFWakeupContext(updateBuffer);
         }
 
-        public async Task<ICollection<IWakeupServiceQueries<TId>.ProcessInfoDto>> Wakeup_LoadProcessesAsync(
-            ICollection<TId> ids,
+        public async Task Wakeup_LoadProcessesWithLockAsync(
+            IWakeupServiceQueries<TId>.IWakeupContext context,
             CancellationToken cancellationToken)
         {
             // Процессы не в состоянии обработки т.к. мы получили updatelock на wakeup и увидели статус WaitEvent.
-            ProcessDbEntity<TId>[] processes;
             using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
             {
-                processes = await _dbContext.Set<ProcessDbEntity<TId>>()
-                    // .AsNoTracking()
-                    .ApplayQueryCondition(_processDbEntityConditions.Id.QueryRange, ids)
-                    .ToArrayAsync(cancellationToken);
+                var processes = await _dbContext.Set<ProcessDbEntity<TId>>()
+                    .AsNoTracking()
+                    .ApplayQueryCondition(_processDbEntityConditions.Id.QueryRange, context.Data.Keys)
+                    .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
-                return processes
-                    .Select(e => new IWakeupServiceQueries<TId>.ProcessInfoDto(
-                        e.Id, 
-                        e.StoppedByError, 
-                        e.RetryCount,
-                        e.Status))
-                    .ToArray();
+                foreach (var elem in context.Data.Values)
+                {
+                    if (elem is not EFProxyContextEntryDto entryProxy)
+                    {
+                        throw new ArgumentException($"[Bug]. Ожидается {typeof(EFProxyContextEntryDto)}.");
+                    }
+
+                    entryProxy.ProcessEntity = processes[elem.WakeupState.ProcessId];
+                }
             }
         }
 
         public Task Wakeup_ExecuteAsync(
-            ICollection<IWakeupServiceQueries<TId>.WakeupDto> data,
+            IWakeupServiceQueries<TId>.IWakeupContext context,
             CancellationToken cancellationToken)
         {
-            // Загружены в вышестоящих методах, берем из ChangeTracker.
-            var wakeupEntityDictionary = _dbContext.DbContext.ChangeTracker
-                .Entries<ProcessWakeupDbEntity<TId>>()
-                .ToDictionary(e => e.Entity.ProcessId, e => e.Entity);
-
-            var trackedProcessesDictionary = _dbContext.DbContext.ChangeTracker
-                .Entries<ProcessDbEntity<TId>>()
-                .ToDictionary(e => e.Entity.Id, e => e.Entity);
-
-            var set = _dbContext.Set<ProcessWakeupDbEntity<TId>>();
-            foreach (var elem in data)
+            foreach (var elem in context.ToWakeupData)
             {
-                if (elem.IsAsyncExecuting)
+                if (elem is not EFProxyContextEntryDto entryProxy)
                 {
-                    var process = trackedProcessesDictionary[elem.ProcessId];
-                    process.Status = ProcessStatusEnum.AsyncExecute;
-
-                    var wakeup = wakeupEntityDictionary[elem.ProcessId];
-                    wakeup.IsAsyncExecuting = true;
+                    throw new ArgumentException($"[Bug]. Ожидается {typeof(EFProxyContextEntryDto)}.");
                 }
+
+                if (entryProxy.ProcessEntity is null)
+                {
+                    throw new ArgumentException($"[Bug]. Процесс должен быть загружен на шаге {nameof(Wakeup_LoadProcessesWithLockAsync)}.");
+                }
+
+                _dbContext.AttachEntity(entryProxy.WakeupEntity, throwIfAttached: false);
+                _dbContext.AttachEntity(entryProxy.ProcessEntity, throwIfAttached: false);
+
+                entryProxy.WakeupEntity.IsAsyncExecuting = true;
+                entryProxy.ProcessEntity.Status = ProcessStatusEnum.AsyncExecute;
             }
 
             return Task.CompletedTask;
+        }
+
+        public record WakeupInfoDto : IWakeupServiceQueries<TId>.IWakeupInfoDto
+        {
+            public TId Id { get; }
+
+            public TId ProcessId { get; }
+
+            public bool IsAsyncExecuting { get; }
+
+            public WakeupInfoDto(
+                TId id, 
+                TId processId, 
+                bool isAsyncExecuting)
+            {
+                Id = id;
+                ProcessId = processId;
+                IsAsyncExecuting = isAsyncExecuting;
+            }
+        }
+
+        public class EFWakeupContext 
+            : IWakeupServiceQueries<TId>.IWakeupContext
+        {
+            public IDictionary<TId, IWakeupServiceQueries<TId>.IContextEntryDto> Data { get; }
+
+            public ICollection<IWakeupServiceQueries<TId>.IContextEntryDto> ToWakeupData { get; }
+
+            public EFWakeupContext(
+                IDictionary<TId, IWakeupServiceQueries<TId>.IContextEntryDto> data)
+            {
+                Data = data;
+                ToWakeupData = new List<IWakeupServiceQueries<TId>.IContextEntryDto>(data.Count);
+            }
+        }
+
+        public class EFProxyContextEntryDto
+            : IWakeupServiceQueries<TId>.IContextEntryDto
+        {
+            public ProcessWakeupDbEntity<TId> WakeupEntity { get; }
+
+            public ProcessDbEntity<TId>? ProcessEntity { get; internal set; }
+
+            public (TId Id, TId ProcessId, bool IsAsyncExecuting) WakeupState 
+                => (WakeupEntity.Id, WakeupEntity.ProcessId, WakeupEntity.IsAsyncExecuting);
+
+            public (bool StoppedByError, short? RetryCount, ProcessStatusEnum Status)? ProcessState 
+                => ProcessEntity != null 
+                ? (ProcessEntity.StoppedByError, ProcessEntity.RetryCount, ProcessEntity.Status)
+                : null;
+
+            public EFProxyContextEntryDto(
+                ProcessWakeupDbEntity<TId> wakeupEntity)
+            {
+                WakeupEntity = wakeupEntity;
+            }
         }
     }
 }

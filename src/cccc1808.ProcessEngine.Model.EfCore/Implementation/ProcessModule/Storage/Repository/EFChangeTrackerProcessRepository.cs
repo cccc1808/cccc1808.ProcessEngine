@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
@@ -18,7 +17,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
@@ -347,7 +345,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                     elem.Process.Error?.Date,
                                     elem.Process.Error?.SessionId);
 
-                                var entry = errorSet.Attach(updateEntity);
+                                var entry = _dbContext.AttachEntity(
+                                    updateEntity, 
+                                    throwIfAttached: true);
                                 entry.State = EntityState.Modified;
                                 errorEntries.Add(entry);
                             }
@@ -360,7 +360,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                     elem.Process.Error?.Date,
                                     elem.Process.Error?.SessionId);
 
-                                var entry = errorSet.Attach(createEntity);
+                                var entry = _dbContext.AttachEntity(
+                                    createEntity,
+                                    throwIfAttached: true);
                                 entry.State = EntityState.Added;
                                 errorEntries.Add(entry);
                             }
@@ -373,7 +375,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 {
                     foreach (var elem in errorEntries)
                     {
-                        elem.State = EntityState.Detached;
+                        _dbContext.Detach(elem);
                     }
                 }
 
@@ -391,7 +393,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            var set = _dbContext.Set<ProcessWakeupDbEntity<TId>>();
             foreach (var elem in processes)
             {
                 var component = elem.GetComponent<IWakeupComponent<TId>>();
@@ -401,15 +402,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     continue;
                 }
 
-                var entry = set.Attach(
+                var entry = _dbContext.AttachEntity(
                     new ProcessWakeupDbEntity<TId>(
                         id: component.Id,
                         processId: elem.Id,
                         isAsyncExecuting: component.IsAsyncExecuting
-                        ));
+                        ),
+                    throwIfAttached: true);
                 entry.State = EntityState.Modified;
-            }            
-
+            }
+            
             // Код вызывается после финального сохрания
             // (иначе нельзя было бы гарантировать актуальность проверки IWakeupCheckHandler).
             // Поэтому сохраняем еще раз.
