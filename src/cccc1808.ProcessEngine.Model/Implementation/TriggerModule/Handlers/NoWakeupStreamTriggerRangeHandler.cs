@@ -12,8 +12,8 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 {
     /// <summary>
-    /// Стрим триггер.
-    /// Пробуждает, не выключается, без задержки т.к. управляется стримом.
+    ///  Хендлер пробуждения процессов-стримов.
+    /// <see cref="ITriggerComponent{TId}.TriggerKind.OffsetStream"/>.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public class NoWakeupStreamTriggerRangeHandler<TId>

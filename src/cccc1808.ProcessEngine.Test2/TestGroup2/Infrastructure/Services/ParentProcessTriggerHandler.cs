@@ -46,7 +46,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
             {
                 // Все дочерние процессы завершились.
 
-                await _wakeupService.WakeupProcessHandlerAsync([trigger.ProcessId], cancellationToken);
+                await _wakeupService.WakeupProcessHandlerAsync(
+                    [trigger.ProcessId],
+                    useShareLock: false,
+                    cancellationToken);
                 return new ITriggerHandler.Result(false, false, DateTimeOffset.MinValue);
             }
             else 

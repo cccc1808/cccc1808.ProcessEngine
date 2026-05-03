@@ -85,6 +85,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.Services.Triggers
 
                             await wakeUpService.WakeupProcessHandlerAsync(
                                 stoppedProcessIds,
+                                useShareLock: true,
                                 cancellationToken);
 
                             await transaction.CommitAsync(cancellationToken);

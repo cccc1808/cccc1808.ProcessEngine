@@ -155,7 +155,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>))
+                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(EFOutboxTriggerWakeupHandler<Guid>.Name, typeof(EFOutboxTriggerWakeupHandler<Guid>))
                     )
 
                     .AddTriggerEngineServices(

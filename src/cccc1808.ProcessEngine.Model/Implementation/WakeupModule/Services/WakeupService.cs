@@ -259,6 +259,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
         public async Task WakeupProcessHandlerAsync(
             ICollection<TId> ids,
+            bool useShareLock,
             CancellationToken cancellationToken)
         {
             if (ids.Count == 0)
@@ -268,6 +269,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
             var wakeupContext = await _wakeupServiceQueries.Wakeup_LoadStateAsync(
                 ids, 
+                useShareLock,
                 _optionsDto.WakeupTryUpdatelockTimeout,
                 cancellationToken);
 
