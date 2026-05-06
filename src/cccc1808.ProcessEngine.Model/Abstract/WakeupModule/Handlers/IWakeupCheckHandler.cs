@@ -12,6 +12,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Handlers
     {
         /// <summary>
         /// Проверка условия в конце сессии асинхронной обработки.
+        /// * Проверить наличие необработанныъ сигналов, сообщений.
+        /// * Проверить наличие завершенных таймеров.
         /// </summary>
         /// <param name="processes">Список процессов для проверки.</param>
         /// <param name="cancellationToken"></param>
