@@ -157,9 +157,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             QueueConsumePackSize = 10,
                             QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
                         },
-                        new TriggerOptions() 
+                        new TriggerOptions<Guid>() 
                         {
                             TriggerEventQueueName = "trigger_events",
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
 

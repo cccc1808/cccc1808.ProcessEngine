@@ -108,7 +108,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         // e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(FixtureCollection.RangeConst),
+                        e => e.SignalCounter1.ShouldBe(FixtureCollection.RangeConst),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -143,7 +143,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         // e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(FixtureCollection.RangeConst),
+                        e => e.SignalCounter1.ShouldBe(FixtureCollection.RangeConst),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -151,7 +151,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<Guid>>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
@@ -162,7 +162,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         // e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(0),
+                        e => e.SignalCounter1.ShouldBe(0),
                         e => e.IsActivated.ShouldBeTrue(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -189,7 +189,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         // e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(0),
+                        e => e.SignalCounter1.ShouldBe(0),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeTrue()));
             }

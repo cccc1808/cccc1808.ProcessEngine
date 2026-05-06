@@ -8,14 +8,14 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
 {
-    public class SimpleStreamTriggerComponent
-        : ISimpleStreamTriggerComponent
+    public class StreamTriggerComponent
+        : IStreamTriggerComponent
     {
-        public string TriggerKey { get; }
+        public string[] TriggersKeys { get; }
 
-        public SimpleStreamTriggerComponent(string triggerKey)
+        public StreamTriggerComponent(string[] triggerKeys)
         {
-            TriggerKey = triggerKey;
+            TriggersKeys = triggerKeys;
         }
     }
 }

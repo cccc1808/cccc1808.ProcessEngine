@@ -57,8 +57,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
             }
 
             // Обновляем смещение для триггера.
-            var streamComponent = process.GetComponent<IOffsetStreamTriggerComponent>();
-            streamComponent.UpdateMaxTimestamp(_inboxRegistry.TriggerChannelName, message.OrderId);
+            var streamComponent = process.GetComponent<IOffsetTriggerComponent>();
+            streamComponent.UpdateMaxTimestamp(inboxComponent.WakeupTriggerKey, message.OrderId);
         }
     }
 }

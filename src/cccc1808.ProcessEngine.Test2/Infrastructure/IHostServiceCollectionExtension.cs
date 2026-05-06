@@ -17,8 +17,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -54,8 +54,8 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -247,7 +247,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
-            TriggerOptions triggerOptions)
+            TriggerOptions<Guid> triggerOptions)
         {
             services
                 .AddScoped<ITriggerRunner, TriggerRunner<Guid>>()
@@ -255,10 +255,10 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
 
-                .AddScoped<ITriggerEventRaiser, TriggerEventRaiser>()
-                .Decorate<ITriggerEventRaiser, TriggerEventRaiserAfterTransactionCompleteDecorator>()
+                .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
                 .AddSingleton(triggerOptions)
-                .AddScoped<IEventJsonSerializer, EventJsonSerializer>()
+                .AddScoped<IEventJsonSerializer<Guid>, EventJsonSerializer<Guid>>()
                 ;
 
             return services;

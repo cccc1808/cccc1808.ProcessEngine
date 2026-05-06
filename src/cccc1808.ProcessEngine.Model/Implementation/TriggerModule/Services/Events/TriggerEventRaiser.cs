@@ -7,19 +7,21 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
+namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
 {
-    public class TriggerEventRaiser : ITriggerEventRaiser
+    public class TriggerEventRaiser<TId> 
+        : ITriggerEventRaiser<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
-        private readonly TriggerOptions _triggerOptions;
-        private readonly IEventJsonSerializer _eventJsonSerializer;
+        private readonly TriggerOptions<TId> _triggerOptions;
+        private readonly IEventJsonSerializer<TId> _eventJsonSerializer;
 
         public TriggerEventRaiser(
             IQueueProviderFactory queueProviderFactory, 
-            TriggerOptions triggerOptions, 
-            IEventJsonSerializer eventJsonSerializer)
+            TriggerOptions<TId> triggerOptions, 
+            IEventJsonSerializer<TId> eventJsonSerializer)
         {
             _queueProviderFactory = queueProviderFactory;
             _triggerOptions = triggerOptions;
@@ -27,7 +29,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         }
 
         public async ValueTask RaiseAsync(
-            ICollection<ITriggerEvent> events, 
+            ICollection<ITriggerEvent<TId>> events, 
             CancellationToken cancellationToken)
         {
             var producer = await _queueProviderFactory.GetProducerAsync(_triggerOptions.TriggerEventQueueName, cancellationToken);
@@ -39,7 +41,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
                         Queue: _triggerOptions.TriggerEventQueueName,
                         Headers: [],
                         Body: _eventJsonSerializer.Serialize(e),
-                        Partition: -1
+                        Partition: _triggerOptions.PartitionSelector(e) ?? - 1
                         ))
                     .ToArray(),
                 cancellationToken);

@@ -8,37 +8,39 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class TriggerEvent : ITriggerEvent
+    public class TriggerEvent<TId> : ITriggerEvent<TId>
     {
+        public TId ProcessId { get; set; }
+
         public string TriggerKey { get; set; }
 
-        public bool IgnoreDelay { get; set; }
-
-        public ITriggerEvent.KindEnum Kind { get; set; }
+        public ITriggerEvent.KindEnum Kind { get; set; }        
 
         [Obsolete("Сериализатор.")]
-        public TriggerEvent() 
+        public TriggerEvent()
         {
+            ProcessId = default!;
             TriggerKey = null!;
-            IgnoreDelay = false;
         }
 
-        public TriggerEvent(
-            string triggerKey,
-            bool ignoreDelay) 
-            : this(
-                  triggerKey,
-                  ignoreDelay,
-                  ITriggerEvent.KindEnum.WakeupSignalEvent)
-        {}
+        //public TriggerEvent(
+        //    TId processId,
+        //    string triggerKey,
+        //    bool ignoreDelay) 
+        //    : this(
+        //          processId,
+        //          triggerKey,
+        //          ignoreDelay,
+        //          ITriggerEvent.KindEnum.SimpleEvent)
+        //{}
 
         protected TriggerEvent(
+            TId processId,
             string triggerKey,
-            bool ignoreDelay,
             ITriggerEvent.KindEnum kind)
         {
+            ProcessId = processId;
             TriggerKey = triggerKey;
-            IgnoreDelay = ignoreDelay;
             Kind = kind;
         }
     }

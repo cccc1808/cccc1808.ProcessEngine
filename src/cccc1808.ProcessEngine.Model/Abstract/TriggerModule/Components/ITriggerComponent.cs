@@ -21,12 +21,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// <summary>
         /// Тип.
         /// </summary>
-        TriggerKind Kind { get; }
-
-        /// <summary>
-        /// Счетчик.
-        /// </summary>
-        int? Counter { get; set; }
+        ITriggerComponent.TriggerKind Kind { get; }        
 
         /// <summary>
         /// Ключ процесса.
@@ -60,14 +55,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         DateTimeOffset SelectLockTimeout { get; set; }
 
-        ISimpleStreamDto? SimpleStreamState { get; }
-
-        IOffsetStreamDto? OffsetStreamState { get; }
+        object State { get; }
 
         #endregion
+    }
 
-        void StreamStateChanged();
-
+    public interface ITriggerComponent
+    {
         #region types
 
         public enum TriggerKind
@@ -112,7 +106,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             OffsetStream,
         }
 
-        public interface ISimpleStreamDto 
+        public interface ICounterDto
+        {
+            /// <summary>
+            /// Счетчик.
+            /// </summary>
+            long Counter { get; set; }
+        }
+
+        public interface ISimpleStreamDto
         {
             /// <summary>
             /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
@@ -127,7 +129,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             long NewSignalCounter { get; set; }
         }
 
-        public interface IOffsetStreamDto 
+        public interface IOffsetStreamDto
         {
             /// <summary>
             /// Стрим находится в состоянии <see cref="ProcessStatusEnum.AsyncExecute"/> или <see cref="ProcessStatusEnum.WaitEvent"/>.
@@ -135,22 +137,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             bool StreamsProcessIsWaiting { get; set; }
 
             /// <summary>
-            /// Данные ою обработке смещения.
+            /// Наибольшее смещение сигнала.
             /// </summary>
-            IDictionary<string, IEntryDto> ChannelsOffsets { get; }
+            public long LastOffset { get; set; }
 
-            public interface IEntryDto 
-            {
-                /// <summary>
-                /// Наибольшее смещение сигнала.
-                /// </summary>
-                public long LastOffset { get; set; }
-
-                /// <summary>
-                /// Наибольшее обработанное процессом смещение.
-                /// </summary>
-                public long ProcessedOffset { get; set; }
-            }
+            /// <summary>
+            /// Наибольшее обработанное процессом смещение.
+            /// </summary>
+            public long ProcessedOffset { get; set; }
         }
 
         #endregion

@@ -12,9 +12,9 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
@@ -154,21 +154,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Создаем экстренный триггер для проверки его работы.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
+                var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                dbContext.Set<TriggerDbEntity<Guid>>().Add(new TriggerDbEntity<Guid>(
-                    await idGenerator.NextAsync(default),
-                    Guid.NewGuid().ToString(),
-                    DateTimeOffset.MinValue,
-                    DateTimeOffset.MinValue,
-                    ParentProcessEmegencyTriggerHandler.Name,
-                    ITriggerComponent<Guid>.TriggerKind.Timer,
-                    1,
-                    true,
-                    false,
-                    processId,
-                    null,
-                    streamState: null));
+                await triggerRepository.CreateTriggerAsync(
+                    ITriggerRepository<Guid>.CreateTriggerDto.TimerTrigger(
+                        Guid.NewGuid().ToString(),
+                        DateTimeOffset.MinValue,
+                        Guid.Empty,
+                        ParentProcessEmegencyTriggerHandler.Name,
+                        1,
+                        isActivated: true),
+                    CancellationToken.None);
 
                 await dbContext.SaveChangesAsync(default);
             }
@@ -177,7 +174,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<Guid>>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
@@ -187,7 +184,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         // e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBeNull(),
+                        e => e.SignalCounter1.ShouldBeNull(),
                         e => e.IsActivated.ShouldBeTrue(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -319,13 +316,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 case 4:
                     {
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
-                        var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser>();
+                        var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                         var component = process.GetComponent<ChildProcessDbEntity>();
 
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
-                            [new TriggerEvent(component.ParentTriggerKey, ignoreDelay: false)],
+                            [new CounterTriggerEvent<Guid>(component.ParentProcessId, component.ParentTriggerKey, value: -1)],
                             default);
 
                         setter.SetStatus(

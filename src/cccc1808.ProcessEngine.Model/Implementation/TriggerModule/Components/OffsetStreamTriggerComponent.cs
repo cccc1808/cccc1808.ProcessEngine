@@ -9,27 +9,23 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
 {
     public class OffsetStreamTriggerComponent 
-        : IOffsetStreamTriggerComponent
+        : IOffsetTriggerComponent
     {
-        public string TriggerKey { get; }
-
-        public IDictionary<string, long> ProcessedChannels { get; } 
+        public IDictionary<string, long> ProcessedOffsets { get; } 
             = new Dictionary<string, long>(5);
 
-        public OffsetStreamTriggerComponent(string triggerKey)
-        {
-            TriggerKey = triggerKey;
-        }
+        public OffsetStreamTriggerComponent()
+        {}
 
-        public void UpdateMaxTimestamp(string channelName, long timestamp)
+        public void UpdateMaxTimestamp(string triggerKey, long offset)
         {
-            if (ProcessedChannels.TryGetValue(channelName, out var exsist))
+            if (ProcessedOffsets.TryGetValue(triggerKey, out var exsist))
             {
-                ProcessedChannels[channelName] = Math.Max(timestamp, exsist);
+                ProcessedOffsets[triggerKey] = Math.Max(offset, exsist);
             }
             else 
             {
-                ProcessedChannels.Add(channelName, timestamp);
+                ProcessedOffsets.Add(triggerKey, offset);
             }
         }
     }

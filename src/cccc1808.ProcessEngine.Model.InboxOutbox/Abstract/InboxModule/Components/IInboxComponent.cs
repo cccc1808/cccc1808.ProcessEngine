@@ -10,6 +10,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Componen
     {
         string Queue { get; }
 
+        string WakeupTriggerKey { get; }
+
         IList<IInboxMessageComponent<TId>> Messages { get; }
 
         #region InMemory

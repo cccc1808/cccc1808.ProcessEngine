@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// </summary>
         public string HandlerKey { get; set; }
 
-        public ITriggerComponent<TId>.TriggerKind Kind { get; set; }
+        public ITriggerComponent.TriggerKind Kind { get; set; }
 
         public short Priority { get; set; }
 
@@ -43,65 +43,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public TId ProcessId { get; set; }
 
-        public int? Counter { get; set; }
+        public bool? StreamProcessIsWaiting { get; set; }
 
-        public JsonElement? StreamData
-        {
-            get
-            {
-                switch (Kind)
-                {
-                    case ITriggerComponent<TId>.TriggerKind.SimpleStream: 
-                        {
-                            using (var document = JsonSerializer.SerializeToDocument(SimpleStreamState))
-                            {
-                                return document.RootElement.Clone();
-                            }
-                        }
+        public long? SignalCounter1 { get; set; }
 
-                    case ITriggerComponent<TId>.TriggerKind.OffsetStream: 
-                        {
-                            using (var document = JsonSerializer.SerializeToDocument(OffsetStreamState))
-                            {
-                                return document.RootElement.Clone();
-                            }
-                        }
+        public long? SignalCounter2 { get; set; }
 
-                    case ITriggerComponent<TId>.TriggerKind.Counter:
-                    case ITriggerComponent<TId>.TriggerKind.Timer: 
-                        return null;
-
-                    default: throw new NotImplementedException($"{Kind}.");
-                }
-            }
-            set
-            {
-                switch (Kind)
-                {
-                    case ITriggerComponent<TId>.TriggerKind.SimpleStream:
-                        {
-                            SimpleStreamState = JsonSerializer.Deserialize<SimpleStreamDto>(value.Value);
-                            break;
-                        }
-
-                    case ITriggerComponent<TId>.TriggerKind.OffsetStream:
-                        {
-                            OffsetStreamState = JsonSerializer.Deserialize<OffsetStreamDto>(value.Value);
-                            break;
-                        }
-
-                    case ITriggerComponent<TId>.TriggerKind.Counter:
-                    case ITriggerComponent<TId>.TriggerKind.Timer:
-                        break;
-
-                    default: throw new NotImplementedException($"{Kind}.");
-                }
-            }
-        }
-
-        public SimpleStreamDto? SimpleStreamState { get; private set; }
-
-        public OffsetStreamDto? OffsetStreamState { get; private set; }
 
         [Obsolete("For entity framework")]
         public TriggerDbEntity() 
@@ -110,24 +57,22 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             Key = default!;
             ProcessId = default!;
             HandlerKey = default!;
-            SimpleStreamState = null;
-            OffsetStreamState = null!;
         }
 
         public TriggerDbEntity(
-            TId id, 
-            string key, 
-            DateTimeOffset selectLockTimeout, 
+            TId id,
+            string key,
+            DateTimeOffset selectLockTimeout,
             DateTimeOffset timerDate,
             string handlerKey,
-            ITriggerComponent<TId>.TriggerKind kind,
-            short priority, 
-            bool isActivated, 
+            ITriggerComponent.TriggerKind kind,
+            short priority,
+            bool isActivated,
             bool isCompleted,
-            TId processId, 
-            int? counter,
-            (SimpleStreamDto? simpleStream, OffsetStreamDto? offsettampStream)? streamState
-            )
+            TId processId,
+            bool? streamProcessIsWaiting,
+            long? signalCounter1,
+            long? signalCounter2)
         {
             Id = id;
             Key = key;
@@ -139,29 +84,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsActivated = isActivated;
             IsCompleted = isCompleted;
             ProcessId = processId;
-            Counter = counter;
 
             switch (kind)
             {
-                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                case ITriggerComponent.TriggerKind.Counter:
                     {
-                        SimpleStreamState = streamState.Value.simpleStream;
+                        SignalCounter1 = signalCounter1.Value;
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                case ITriggerComponent.TriggerKind.SimpleStream:
                     {
-                        OffsetStreamState = streamState.Value.offsettampStream;
+                        StreamProcessIsWaiting = streamProcessIsWaiting.Value;
+                        SignalCounter1 = signalCounter1.Value;
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.Timer:
-                case ITriggerComponent<TId>.TriggerKind.Counter:
+                case ITriggerComponent.TriggerKind.OffsetStream:
+                    {
+                        StreamProcessIsWaiting = streamProcessIsWaiting.Value;
+                        SignalCounter1 = signalCounter1.Value;
+                        SignalCounter2 = signalCounter2.Value;
+                        break;
+                    }
+
+                case ITriggerComponent.TriggerKind.Timer:                
                     break;
 
                 default: throw new NotImplementedException($"{Kind}.");
-            }
-        }        
+            }            
+        }
 
         public class SimpleStreamDto 
         {

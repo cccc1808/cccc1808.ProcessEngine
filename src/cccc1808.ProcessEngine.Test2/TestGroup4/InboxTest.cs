@@ -98,7 +98,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
                 var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
-
                 await triggerRunnern.ConsumerWorkAsync(executeOne: true, default);
                 (await queueProviderFactory.DisconnectConsumerAsync(FixtureCollection.TriggerQueue, default)).ShouldBeTrue();
             }

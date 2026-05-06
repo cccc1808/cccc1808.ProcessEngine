@@ -6,8 +6,12 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 {
-    public interface ISimpleStreamTriggerComponent
+    public interface IOffsetTriggerComponent
     {
-        string TriggerKey { get; }
+        IDictionary<string, long> ProcessedOffsets { get; }
+
+        void UpdateMaxTimestamp(
+            string triggerKey,
+            long timestamp);
     }
 }

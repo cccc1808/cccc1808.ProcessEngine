@@ -9,12 +9,12 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
@@ -26,7 +26,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
         private readonly IProcessSetter _processSetter;
         private readonly IWakeupRegistry<TId> _wakeupRegistry;
         private readonly IWakeupServiceQueries<TId> _wakeupServiceQueries;
-        private readonly ITriggerEventRaiser _triggerEventRaiser;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         private readonly IProcessContainerConditions<TId> _processContainerConditions;
 
@@ -37,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             IProcessSetter processSetter,
             IWakeupRegistry<TId> wakeupRegistry,
             IWakeupServiceQueries<TId> wakeupServiceQueries,
-            ITriggerEventRaiser triggerEventRaiser,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
 
             IProcessContainerConditions<TId> processContainerConditions,
 
@@ -66,8 +66,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             {
                 var wakeupWithoutStateData = new Dictionary<TId, ExecuteWakeupWithoutStateContextItemDto>(processes.Count);
                 var wakeupWithStateData = new Dictionary<TId, ExecuteWakeupContextItemDto>(processes.Count);
-                var streamData = new Dictionary<TId, ExecuteStreamContextItemDto>(processes.Count);
-
+                var streamData = new Dictionary<TId, StreamContextItemDto>(processes.Count);
+                var offsetStreamData = new Dictionary<TId, OffsetContextItemDto>(processes.Count);
+                
                 foreach (var elem in processes)
                 {
                     if (!elem.InAsyncExecuting)
@@ -75,11 +76,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                         throw new InvalidOperationException("[Bug] Данный метод вызывается только в конце асинхронной обработки.");
                     }
 
+                    // Оповещение о смещении нужно отправить в любом случае.
+                    if (elem.TryGetComponent<IOffsetTriggerComponent>(out var offsetStreamComponent)
+                        && offsetStreamComponent.ProcessedOffsets.Any())
+                    {
+                        offsetStreamData.Add(
+                            elem.Id,
+                            new OffsetContextItemDto(elem, offsetStreamComponent));
+                    }
+
                     // Игнорируем процессы с ошибкой.
                     if (This._processContainerConditions.HaveError.Check(elem))
                     {
                         continue;
-                    }
+                    }                    
 
                     // Обрабатываем только указанные статусы.
                     if (elem.Process.Status is not ProcessStatusEnum.WaitEvent)
@@ -90,21 +100,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                         continue;
                     }
 
-                    if (elem.TryGetComponent<ISimpleStreamTriggerComponent>(out var simpleStreamComponent))
+                    // Потенциальное событие об остановке процесса.
+                    if (elem.TryGetComponent<IStreamTriggerComponent>(out var streamTriggerComponent) 
+                        && streamTriggerComponent.TriggersKeys.Any())
                     {
-                        // В текущей реализации stream trigger не используется проверку условия wakeup.
-                        // Отчасти потому, что в таком случае есть шанс, что обработанное будет утеряно и не будет передано в StreamTrigger.
                         streamData.Add(
                             elem.Id,
-                            new ExecuteStreamContextItemDto(elem, simpleStreamComponent, offsetStreamComponent: null));
-                    }
-                    else if (elem.TryGetComponent<IOffsetStreamTriggerComponent>(out var offsetStreamComponent))
-                    {
-                        // В текущей реализации stream trigger не используется проверку условия wakeup.
-                        // Отчасти потому, что в таком случае есть шанс, что обработанное будет утеряно и не будет передано в StreamTrigger.
-                        streamData.Add(
-                            elem.Id,
-                            new ExecuteStreamContextItemDto(elem, simpleStreamComponent: null, offsetStreamComponent));
+                            new StreamContextItemDto(elem, streamTriggerComponent));
                     }
 
                     switch (elem.WakeupState)
@@ -138,7 +140,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 return new ExecuteContext(
                     wakeupWithoutStateData,
                     wakeupWithStateData,
-                    streamData);
+                    streamData,
+                    offsetStreamData);
             }
 
             /// <summary>
@@ -271,30 +274,56 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 }
             }
 
-            static async ValueTask ProcessStreamTriggerAsync(
+            static async ValueTask ProcessOffsetTriggerAsync(
                 WakeupService<TId> This,
-                IDictionary<TId, ExecuteStreamContextItemDto> streamData,
+                IDictionary<TId, OffsetContextItemDto> offsetData,
                 CancellationToken cancellationToken)
             {
-                var processGoWaitTriggerEvents = streamData.Values
-                    .Where(e => e.Process.Process.Status is ProcessStatusEnum.WaitEvent)
-                    .Select(e => 
-                        e.SimpleStreamComponent != null 
-                            ? (ITriggerEvent)new ProcessGoWaitSpleepSimpleStreamEvent(e.SimpleStreamComponent.TriggerKey)
-                            : (ITriggerEvent)new ProcessGoWaitSpleepOffsetStreamEvent(
-                                e.OffsetStreamComponent.TriggerKey,
-                                e.OffsetStreamComponent.ProcessedChannels.ToDictionary()
-                                ))
+                // Замечание: Рассчет в том числе на то, что брокер гарантирует упорядоченность сообщений.
+                // Инаеч лучше использовать общее событие на Offset и GoWait.
+                var events = offsetData.Values
+                    .SelectMany(
+                        e => e.OffsetTriggerComponent
+                            .ProcessedOffsets
+                            .Select(e2 => (ProcessId: e.Process.Id, TriggerKey: e2.Key, ProcessedOffset: e2.Value))
+                            )
+                    .Select(e => new ProcessedOffsetTriggerEvent<TId>(e.ProcessId, e.TriggerKey, e.ProcessedOffset))
                     .ToArray();
 
-                // Для процессов, использующих stream trigger, публикуем событие о том, что процесс засыпает и данные о смещения каналов.
-                // Если поступают новые сигналы, то триггер пробудит процесс.
-                await This._triggerEventRaiser.RaiseAsync(processGoWaitTriggerEvents, cancellationToken);
+                await This._triggerEventRaiser.RaiseAsync(events, cancellationToken);
+            }
+            
+            static async ValueTask ProcessStreamTriggerAsync(
+                WakeupService<TId> This,
+                IDictionary<TId, StreamContextItemDto> streamData,
+                CancellationToken cancellationToken)
+            {
+                // Оповещение указанных стрим триггеров о том, что процесс засыпает.
+                var events = streamData.Values
+                    .Where(e => e.Process.Process.Status == ProcessStatusEnum.WaitEvent)
+                    .SelectMany(
+                        e => e.StreamTriggerComponent
+                            .TriggersKeys
+                            .Select(e2 => (ProcessId: e.Process.Id, TriggerKey: e2))
+                            )
+                    .Select(e => new ProcessGoWaitStreamTriggerEvent<TId>(e.ProcessId, e.TriggerKey))
+                    .ToArray();
+
+                await This._triggerEventRaiser.RaiseAsync(events, cancellationToken);
             }
 
             var context = BuildContext(this, processes);
 
-            // Сналача выполняет WakeupWithoutState т.к. им не нужна блокировка.
+            // 1) Отправляем события по смещениям.
+            if (context.OffsetData.Any())
+            {
+                await ProcessOffsetTriggerAsync(
+                    this,
+                    context.OffsetData,
+                    cancellationToken);
+            }
+
+            // 2) Выполняет WakeupWithoutState т.к. им не нужна блокировка.
             if (context.WakeupWithoutStateData.Any())
             {
                 await ProcessWithoutStateAsync(
@@ -303,6 +332,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                     cancellationToken);
             }
 
+            // 3) Выполняем ProcessWithStateAsync, устанавливаем блокировку.
             if (context.WakeupData.Any())
             {
                 await ProcessWithStateAsync
@@ -311,6 +341,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                     cancellationToken);
             }
 
+            // 4) Выполняем ProcessStreamTriggerAsync т.к. вышестоящий код мог менять статус процесса (он мог не уснуть).
             if (context.StreamData.Any())
             {
                 await ProcessStreamTriggerAsync(
@@ -377,19 +408,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
             public IDictionary<TId, ExecuteWakeupContextItemDto> WakeupData { get; }
 
-            public IDictionary<TId, ExecuteStreamContextItemDto> StreamData { get; }
+            public IDictionary<TId, StreamContextItemDto> StreamData { get; }
+
+            public IDictionary<TId, OffsetContextItemDto> OffsetData { get; }
 
             public List<IProcessContainer<TId>> ForUpdate { get; }
 
             public ExecuteContext(
                 IDictionary<TId, ExecuteWakeupWithoutStateContextItemDto> wakeupWithoutStateData,
                 IDictionary<TId, ExecuteWakeupContextItemDto> wakeupData,
-                IDictionary<TId, ExecuteStreamContextItemDto> streamData)
+                IDictionary<TId, StreamContextItemDto> streamData,
+                IDictionary<TId, OffsetContextItemDto> offsetData)
             {
                 WakeupWithoutStateData = wakeupWithoutStateData;
                 WakeupData = wakeupData;
                 StreamData = streamData;
+                OffsetData = offsetData;
                 ForUpdate = new List<IProcessContainer<TId>>(wakeupWithoutStateData.Count + wakeupData.Count);
+
             }
         }
 
@@ -426,27 +462,35 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             }
         }
 
-        /// <summary>
-        /// Стрим по которому необходимо событие о засыпании.
-        /// </summary>
-        private class ExecuteStreamContextItemDto
+        private class StreamContextItemDto
         {
             public IProcessContainer<TId> Process { get; }
 
-            public ISimpleStreamTriggerComponent SimpleStreamComponent { get; }
+            public IStreamTriggerComponent StreamTriggerComponent { get; }
 
-            public IOffsetStreamTriggerComponent OffsetStreamComponent { get; }
-
-            public ExecuteStreamContextItemDto(
+            public StreamContextItemDto(
                 IProcessContainer<TId> process,
-                ISimpleStreamTriggerComponent simpleStreamComponent,
-                IOffsetStreamTriggerComponent offsetStreamComponent)
+                IStreamTriggerComponent streamTriggerComponent)
             {
                 Process = process;
-                SimpleStreamComponent = simpleStreamComponent;
-                OffsetStreamComponent = offsetStreamComponent;
+                StreamTriggerComponent = streamTriggerComponent;
             }
         }
+
+        private class OffsetContextItemDto 
+        {
+            public IProcessContainer<TId> Process { get; }
+
+            public IOffsetTriggerComponent OffsetTriggerComponent { get; }
+
+            public OffsetContextItemDto(
+                IProcessContainer<TId> process,
+                IOffsetTriggerComponent offsetTriggerComponent)
+            {
+                Process = process;
+                OffsetTriggerComponent = offsetTriggerComponent;
+            }
+        }        
 
         /// <summary>
         /// 

@@ -1,26 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
     public class TriggerSetter<TId> : ITriggerSetter<TId>
     {
-        public bool IsCounterActivated(ITriggerComponent<TId> trigger)
-        {
-            return trigger.Counter.Value <= 0;
-        }
-
-        public void ProcessCounter(ITriggerComponent<TId> trigger, int eventCount)
-        {
-            trigger.Counter -= eventCount;
-        }
-
         public void SetActivated(ITriggerComponent<TId> trigger, bool value)
         {
             trigger.IsActivated = value;
@@ -36,36 +29,37 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             trigger.TimerDate = value;
         }
 
-        public void OneOf(
-            ITriggerComponent<TId>.TriggerKind kind,
-            Action counterHandler,
-            Action timerHandler,
-            Action simpleStreamHandler,
-            Action offsetStreamHanler)
+        public void OneOfTriggerKind<TParamter>(
+            ITriggerComponent.TriggerKind kind,
+            TParamter paramter,
+            Action<TParamter> counterHandler,
+            Action<TParamter> timerHandler,
+            Action<TParamter> simpleStreamHandler,
+            Action<TParamter> offsetStreamHanler)
         {
             switch (kind)
             {
-                case ITriggerComponent<TId>.TriggerKind.Counter:
+                case ITriggerComponent.TriggerKind.Counter:
                     {
-                        counterHandler();
+                        counterHandler(paramter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.Timer:
+                case ITriggerComponent.TriggerKind.Timer:
                     {
-                        timerHandler();
+                        timerHandler(paramter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                case ITriggerComponent.TriggerKind.SimpleStream:
                     {
-                        simpleStreamHandler();
+                        simpleStreamHandler(paramter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                case ITriggerComponent.TriggerKind.OffsetStream:
                     {
-                        offsetStreamHanler();
+                        offsetStreamHanler(paramter);
                         break;
                     }
 
@@ -73,36 +67,37 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
         }
 
-        public void OneOf(
+        public void OneOfTrigger<TParameter>(
             ITriggerComponent<TId> trigger, 
-            Action<int> counterHandler,
-            Action timerHandler, 
-            Action<ITriggerComponent<TId>.ISimpleStreamDto> simpleStreamHandler,
-            Action<ITriggerComponent<TId>.IOffsetStreamDto> offsetStreamHanler)
+            TParameter parameter,
+            Action<ITriggerComponent.ICounterDto, TParameter> counterHandler,
+            Action<TParameter> timerHandler, 
+            Action<ITriggerComponent.ISimpleStreamDto, TParameter> simpleStreamHandler,
+            Action<ITriggerComponent.IOffsetStreamDto, TParameter> offsetStreamHanler)
         {
             switch (trigger.Kind)
             {
-                case ITriggerComponent<TId>.TriggerKind.Counter:
+                case ITriggerComponent.TriggerKind.Counter:
                     {
-                        counterHandler(trigger.Counter!.Value);
+                        counterHandler((ITriggerComponent.ICounterDto)trigger.State, parameter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.Timer:
+                case ITriggerComponent.TriggerKind.Timer:
                     {
-                        timerHandler();
+                        timerHandler(parameter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                case ITriggerComponent.TriggerKind.SimpleStream:
                     {
-                        simpleStreamHandler(trigger.SimpleStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State, parameter);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                case ITriggerComponent.TriggerKind.OffsetStream:
                     {
-                        offsetStreamHanler(trigger.OffsetStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        offsetStreamHanler((ITriggerComponent.IOffsetStreamDto)trigger.State, parameter);
                         break;
                     }
 
@@ -110,42 +105,87 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
         }
 
-        public async ValueTask OneOfAsync(
+        public async ValueTask OneOfTriggerAsync(
             ITriggerComponent<TId> trigger,
-            Func<int, ValueTask> counterHandler,
+            Func<ITriggerComponent.ICounterDto, ValueTask> counterHandler,
             Func<ValueTask> timerHandler,
-            Func<ITriggerComponent<TId>.ISimpleStreamDto, ValueTask> simpleStreamHandler,
-            Func<ITriggerComponent<TId>.IOffsetStreamDto, ValueTask> offsetStreamHanler)
+            Func<ITriggerComponent.ISimpleStreamDto, ValueTask> simpleStreamHandler,
+            Func<ITriggerComponent.IOffsetStreamDto, ValueTask> offsetStreamHanler)
         {
             switch (trigger.Kind)
             {
-                case ITriggerComponent<TId>.TriggerKind.Counter:
+                case ITriggerComponent.TriggerKind.Counter:
                     {
-                        await counterHandler(trigger.Counter!.Value);
+                        await counterHandler((ITriggerComponent.ICounterDto)trigger.State);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.Timer:
+                case ITriggerComponent.TriggerKind.Timer:
                     {
                         await timerHandler();
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.SimpleStream:
+                case ITriggerComponent.TriggerKind.SimpleStream:
                     {
-                        await simpleStreamHandler(trigger.SimpleStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        await simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State);
                         break;
                     }
 
-                case ITriggerComponent<TId>.TriggerKind.OffsetStream:
+                case ITriggerComponent.TriggerKind.OffsetStream:
                     {
-                        await offsetStreamHanler(trigger.OffsetStreamState ?? throw new ArgumentNullException("[Bug]."));
+                        await offsetStreamHanler((ITriggerComponent.IOffsetStreamDto)trigger.State);
                         break;
                     }
 
                 default: throw new NotImplementedException("[Bug]");
             }
         }
-        
+
+        public TResult OneOfEventKind<TParameters, TResult>(
+            ITriggerEvent.KindEnum triggerEventKind, 
+            TParameters parameters, 
+            Func<TParameters, TResult> counterTriggerEventHandler,
+            Func<TParameters, TResult> timerTriggerEventHandler,
+            Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<TParameters, TResult> processedOffsetTriggerEventHandler,
+            Func<TParameters, TResult> signalOffsetTriggerEventHandler)
+        {
+            return triggerEventKind switch
+            {
+                ITriggerEvent.KindEnum.CounterEvent => counterTriggerEventHandler(parameters),
+                ITriggerEvent.KindEnum.TimerEvent => timerTriggerEventHandler(parameters),
+                ITriggerEvent.KindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
+                ITriggerEvent.KindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
+                ITriggerEvent.KindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
+                ITriggerEvent.KindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
+
+                _ => throw new NotImplementedException(triggerEventKind.ToString())
+            };
+        }
+
+        public TResult OneOfEvent<TParameters, TResult>(
+            ITriggerEvent<TId> triggerEvent,
+            TParameters parameters,
+            Func<ICounterTriggerEvent<TId>, TParameters, TResult> counterTriggerEventHandler,
+            Func<ITimerTriggerEvent<TId>, TParameters, TResult> timerTriggerEventHandler,
+            Func<ISignalSimpleStreamTriggerEvent<TId>, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<IProcessGoWaitStreamTriggerEvent<TId>, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<IProcessedOffsetTriggerEvent<TId>, TParameters, TResult> processedOffsetTriggerEventHandler, 
+            Func<ISignalOffsetTriggerEvent<TId>, TParameters, TResult> signalOffsetTriggerEventHandler)
+        {
+            return triggerEvent.Kind switch 
+            {
+                ITriggerEvent.KindEnum.CounterEvent => counterTriggerEventHandler((ICounterTriggerEvent<TId>)triggerEvent, parameters),
+                ITriggerEvent.KindEnum.TimerEvent => timerTriggerEventHandler((ITimerTriggerEvent<TId>)triggerEvent, parameters),
+                ITriggerEvent.KindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent<TId>)triggerEvent, parameters),
+                ITriggerEvent.KindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent<TId>)triggerEvent, parameters),
+                ITriggerEvent.KindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent<TId>)triggerEvent, parameters),
+                ITriggerEvent.KindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent<TId>)triggerEvent, parameters),
+
+                _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
+            };
+        }
     }
 }

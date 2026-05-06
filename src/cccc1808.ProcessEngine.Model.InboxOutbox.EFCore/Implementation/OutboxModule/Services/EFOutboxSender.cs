@@ -6,12 +6,11 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
-using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
@@ -22,25 +21,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
-        private readonly ITriggerEventRaiser _triggerEventRaiser;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
         private readonly IClassifierRepository<TId> _classifierRepository;
-        private readonly OutboxRegistryDto _outboxRegistry;
 
         public EFOutboxSender(
             IIdGenerator<TId> idGenerator,
             IEFDbContext dbContext,
-            ITriggerEventRaiser triggerEventRaiser,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
             IHeaderJsonSerializer headerJsonSerializer,
-            IClassifierRepository<TId> classifierRepository,
-            OutboxRegistryDto outboxRegistry)
+            IClassifierRepository<TId> classifierRepository)
         {
             _idGenerator = idGenerator;
             _dbContext = dbContext;
             _triggerEventRaiser = triggerEventRaiser;
             _headerJsonSerializer = headerJsonSerializer;
             _classifierRepository = classifierRepository;
-            _outboxRegistry = outboxRegistry;
         }
 
         public async ValueTask SendAsync(
@@ -82,8 +78,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             // Для пробуждения outbox процесса
             await _triggerEventRaiser.RaiseAsync(
                 groups
-                    .Select(e => new SignalSimpleStreamTriggerEvent(
-                        outboxes[e.Key].TriggerKey))
+                    .Select(e => 
+                    {
+                        var metadata = outboxes[e.Key];
+
+                        return new SignalSimpleStreamTriggerEvent<TId>(
+                            metadata.ProcessId,
+                            metadata.TriggerKey);
+                    }
+                    )
                     .ToArray(),
                 cancellationToken);
         }

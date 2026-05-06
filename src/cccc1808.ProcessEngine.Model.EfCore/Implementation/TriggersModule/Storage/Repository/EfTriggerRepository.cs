@@ -157,28 +157,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     isActivated: elem.isActivated,
                     isCompleted: false,
                     processId: elem.processId,
-                    counter: elem.counter,
-                    streamState: elem.streamState.HasValue
-                        ? (
-                            elem.streamState.Value.simpleStream != null 
-                                ? new TriggerDbEntity<TId>.SimpleStreamDto(
-                                    elem.streamState.Value.simpleStream.StreamsProcessIsWaiting,
-                                    elem.streamState.Value.simpleStream.NewSignalCounter) 
-                                : null,
-                            elem.streamState.Value.offsettampStream != null 
-                                ? new TriggerDbEntity<TId>.OffsetStreamDto(
-                                    elem.streamState.Value.offsettampStream.StreamsProcessIsWaiting,
-                                    elem.streamState.Value.offsettampStream.ChannelsOffsets.ToDictionary(
-                                        e => e.Key, 
-                                        e => new TriggerDbEntity<TId>.OffsetStreamDto.OffsetEntry(
-                                            e.Value.LastOffset, 
-                                            e.Value.ProcessedOffset)
-                                        )
-                                    ) 
-                                : null
-                        )
-                        : null)
-                    );
+                    streamProcessIsWaiting: elem.streamProcessIsWaiting,
+                    signalCounter1: elem.signalCounter1,
+                    signalCounter2: elem.signalCounter2
+                    ));
             }
 
             Set.AddRange(create);

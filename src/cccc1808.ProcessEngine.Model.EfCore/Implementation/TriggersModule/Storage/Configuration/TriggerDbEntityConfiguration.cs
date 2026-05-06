@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             DbProcessingForSelectorIndex(builder);
             DbProcessingForHandlerParameters(builder);
             ProcessIdIndex(builder);
-            StreamDataProperty(builder);
+            // StreamDataProperty(builder);
         }
 
         /// <summary>
@@ -89,12 +89,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => e.ProcessId);
         }
 
-        protected virtual PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
-        {
-            builder.Ignore(e => e.SimpleStreamState);
-            builder.Ignore(e => e.OffsetStreamState);
+        //protected virtual PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
+        //{
+        //    builder.Ignore(e => e.SimpleStreamState);
+        //    builder.Ignore(e => e.OffsetStreamState);
 
-            return builder.Property(e => e.StreamData);
-        }
+        //    return builder.Property(e => e.StreamData);
+        //}
     }
 }

@@ -16,9 +16,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
         public string Queue => DbEntity.Queue.Name;
 
+        public string WakeupTriggerKey => DbEntity.WakeupTriggerKey;
+
         public IList<IInboxMessageComponent<TId>> Messages { get; }
 
-        public int CurrentMessageIndex { get; set; }
+        public int CurrentMessageIndex { get; set; }        
 
         public EFInboxComponentProxy(
             InboxProcessDataDbEntity<TId> dbEntity,

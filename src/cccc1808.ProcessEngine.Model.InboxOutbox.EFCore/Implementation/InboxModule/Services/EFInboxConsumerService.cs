@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -29,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
-        private readonly ITriggerEventRaiser _triggerRaiser;
+        private readonly ITriggerEventRaiser<TId> _triggerRaiser;
         private readonly IClassifierRepository<TId> _classifierRepository;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
         private readonly InboxRegistryDto _inboxRegistry;
@@ -38,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         public EFInboxConsumerService(
             IIdGenerator<TId> idGenerator,
             IEFDbContext dbContext,
-            ITriggerEventRaiser triggerRaiser,
+            ITriggerEventRaiser<TId> triggerRaiser,
             IClassifierRepository<TId> classifierRepository,
             IHeaderJsonSerializer headerJsonSerializer,
             InboxRegistryDto inboxRegistry,
@@ -106,10 +105,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         .Select(e => e.ProcessId)
                         .Distinct()
                         .Select(e => processData[e])
-                        .Select(e => new SignalOffsetStreamTriggerEvent(
+                        .Select(e => new SignalOffsetTriggerEvent<TId>(
+                            e.ProcessId,
                             e.TriggerKey,
-                            channelName: _inboxRegistry.TriggerChannelName,
-                            channelTimestamp: result.Max(e => e.OrderId)
+                            updateOffset: result.Max(e => e.OrderId)
                             ))
                         .ToArray();
                     

@@ -69,35 +69,35 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 // Retry trigger.
                 if (errorResult.IsRetry)
                 {
-                    if (elem.WakeupState == WakeupStateEnum.WakeupWithState)
-                    {
-                        retryTriggers.Add(
-                            new ITriggerRepository<TId>.CreateTriggerDto(
-                                key: Guid.NewGuid().ToString(),
-                                timerDate: errorResult.Timeout,
-                                processId: elem.Id,
-                                handlerKey: WakeupTriggerRangeHandler<TId>.Name,
-                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                                priority: elem.Process.Info.Priority,
-                                isActivated: true,
-                                counter: null,
-                                streamState: null));                        
-                    }
-                    else 
-                    {
-                        retryTriggers.Add(
-                            new ITriggerRepository<TId>.CreateTriggerDto(
-                                key: Guid.NewGuid().ToString(),
-                                timerDate: errorResult.Timeout,
-                                processId: elem.Id,
-                                handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
-                                kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
-                                priority: elem.Process.Info.Priority,
-                                isActivated: true,
-                                counter: null,
-                                streamState: null)
-                            );
-                    }                        
+                    // Если процесс в ошибке, то он не выполняется (в том числе не публекуется событие для стримов),
+                    // поэтому можно использовать NoWakeupRetryTriggerRangeHandler.
+                    retryTriggers.Add(
+                        ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
+                            key: Guid.NewGuid().ToString(),
+                            timerDate: errorResult.Timeout,
+                            processId: elem.Id,
+                            handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
+                            priority: elem.Process.Info.Priority,
+                            isActivated: true
+                            )
+                        );
+
+                    //if (elem.WakeupState == WakeupStateEnum.WakeupWithState)
+                    //{
+                    //    retryTriggers.Add(
+                    //        ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
+                    //            key: Guid.NewGuid().ToString(),
+                    //            timerDate: errorResult.Timeout,
+                    //            processId: elem.Id,
+                    //            handlerKey: WakeupTriggerRangeHandler<TId>.Name,
+                    //            priority: elem.Process.Info.Priority,
+                    //            isActivated: true,
+                    //            counter: null,
+                    //            streamState: null));                        
+                    //}
+                    //else 
+                    //{
+                    //}                        
                 }
             }
 

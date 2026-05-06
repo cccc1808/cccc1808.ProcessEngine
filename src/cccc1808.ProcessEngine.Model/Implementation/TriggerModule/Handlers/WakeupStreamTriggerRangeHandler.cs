@@ -12,7 +12,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 {
     /// <summary>
     /// Хендлер пробуждения процессов-стримов.
-    /// <see cref="ITriggerComponent{TId}.TriggerKind.SimpleStream"/> или <see cref="ITriggerComponent{TId}.TriggerKind.OffsetStream"/>.
+    /// <see cref="ITriggerComponent.TriggerKind.SimpleStream"/> или <see cref="ITriggerComponent{TId}.TriggerKind.OffsetStream"/>.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public class WakeupStreamTriggerRangeHandler<TId>

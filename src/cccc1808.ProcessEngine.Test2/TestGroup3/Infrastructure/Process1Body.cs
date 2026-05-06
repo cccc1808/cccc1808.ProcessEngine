@@ -8,11 +8,10 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -75,6 +74,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         {
                             var idGenerator = _serviceProvider.GetRequiredService<IIdGenerator<Guid>>();
                             var dbcontext = _serviceProvider.GetRequiredService<IEFDbContext>();
+                            var triggerRepository = _serviceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                             var setter = _serviceProvider.GetRequiredService<IProcessSetter>();
 
                             var childProcessesCreated = await dbcontext
@@ -86,19 +86,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             {
                                 var childCount = FixtureCollection.RangeConst;
                                 var triggerKey = Guid.NewGuid().ToString();
-                                dbcontext.Set<TriggerDbEntity<Guid>>().Add(new TriggerDbEntity<Guid>(
-                                    await idGenerator.NextAsync(cancellationToken),
-                                    triggerKey,
-                                    DateTimeOffset.MinValue,
-                                    DateTimeOffset.MinValue,
-                                    ParentProcessTriggerHandler.Name,
-                                    Model.Abstract.TriggerModule.Components.ITriggerComponent<Guid>.TriggerKind.Counter,
-                                    1,
-                                    false,
-                                    false,
-                                    process.Id,
-                                    childCount,
-                                    streamState: null));
+
+                                await triggerRepository.CreateTriggerAsync(
+                                    ITriggerRepository<Guid>.CreateTriggerDto.CounterTrigger(
+                                        triggerKey,
+                                        DateTimeOffset.MinValue,
+                                        process.Id,
+                                        ParentProcessTriggerHandler.Name,
+                                        1,
+                                        isActivated: false,
+                                        counter: childCount),
+                                    CancellationToken.None);
 
                                 for (int i = 0; i < childCount; i++)
                                 {
@@ -139,13 +137,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                     case 4:
                         {
                             var setter = _serviceProvider.GetRequiredService<IProcessSetter>();
-                            var triggerEventRaiser = _serviceProvider.GetRequiredService<ITriggerEventRaiser>();
+                            var triggerEventRaiser = _serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                             var component = process.GetComponent<ChildProcessDbEntity>();
 
                             // Оповещаем родительский процесс о завершении дочернего процесса.
                             await triggerEventRaiser.RaiseAsync(
-                                [new TriggerEvent(component.ParentTriggerKey, ignoreDelay: false)],
+                                [new CounterTriggerEvent<Guid>(component.ParentProcessId, component.ParentTriggerKey, value: -1)],
                                 cancellationToken);
 
                             setter.SetStatus(

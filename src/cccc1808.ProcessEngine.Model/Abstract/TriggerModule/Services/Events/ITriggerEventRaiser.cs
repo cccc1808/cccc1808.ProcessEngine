@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+
+namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
 {
     /// <summary>
     /// Интерфейс для публикации событий по триггеру.
@@ -12,10 +14,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
     /// Info: Можно сделать реализацию пол БД, тогда ITriggerEvent гарантировано не будет теряться,
     /// но сильно увеличит нагрузку на БД. Первоначальная задумка имено в реализации через брокер.
     /// </summary>
-    public interface ITriggerEventRaiser
+    public interface ITriggerEventRaiser<TId>
     {
         ValueTask RaiseAsync(
-            ICollection<ITriggerEvent> events,
+            ICollection<ITriggerEvent<TId>> events,
             CancellationToken cancellationToken);
     }
 }

@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
@@ -25,8 +26,6 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.Stream;
-using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
@@ -45,7 +44,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly ITriggerEventRaiser _triggerEventRaiser;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         private readonly Options _options;
         private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;        
@@ -60,7 +59,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
-            ITriggerEventRaiser triggerEventRaiser,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
 
@@ -269,9 +268,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         .ToArray()
                     );
                 container.AddComponent<IInboxComponent<TId>>(component);
-                container.AddComponent<IOffsetStreamTriggerComponent>(
-                    new OffsetStreamTriggerComponent(
-                        processDataElem.WakeupTriggerKey));
+                container.AddComponent<IStreamTriggerComponent>(
+                    new StreamTriggerComponent([processDataElem.WakeupTriggerKey]));
+                container.AddComponent<IOffsetTriggerComponent>(
+                    new OffsetStreamTriggerComponent());
 
                 loadBuffer.Add(container.Id, container);
 
@@ -292,12 +292,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                         var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
                         var messageStreamConditions = scope.ServiceProvider.GetRequiredService<IMessageStreamConditions<TId, InboxMessageDbEntity<TId>>>();
-                        var triggerEventRaiser = scope.ServiceProvider.GetRequiredService<ITriggerEventRaiser>();
+                        var triggerEventRaiser = scope.ServiceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
 
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
-                            var triggerEvents = new List<ITriggerEvent>(0);
+                            var triggerEvents = new List<ITriggerEvent<TId>>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
@@ -342,9 +342,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);
 
                                             triggerEvents.Add(
-                                                new ProcessGoWaitSpleepOffsetStreamEvent(
-                                                    pd[elem.Process.Id].WakeupTriggerKey,
-                                                    new Dictionary<string, long>(0)
+                                                new ProcessGoWaitStreamTriggerEvent<TId>(
+                                                    elem.Process.Id,
+                                                    pd[elem.Process.Id].WakeupTriggerKey
                                                     ));                                            
                                         }
                                     }

@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
 {
@@ -44,21 +43,90 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             DateTimeOffset timerDate,
             TId processId,
             string handlerKey,
-            ITriggerComponent<TId>.TriggerKind kind,
+            ITriggerComponent.TriggerKind kind,
             short priority,
             bool isActivated,
-            int? counter,
-            (
-                DefaultTriggerComponent.SimpleStreamDto<TId>? simpleStream,
-                DefaultTriggerComponent.OffsetStreamDto<TId>? offsettampStream)? streamState);
-
-        public class StreamDto
+            bool? streamProcessIsWaiting,
+            long? signalCounter1,
+            long? signalCounter2)
         {
-            public bool StreamsProcessIsWaiting { get; set; }
+            public static CreateTriggerDto CounterTrigger(
+                string key,
+                DateTimeOffset timerDate,
+                TId processId,
+                string handlerKey,
+                short priority,
+                bool isActivated,
+                int counter) => new CreateTriggerDto(
+                    key,
+                    timerDate,
+                    processId,
+                    handlerKey, 
+                    ITriggerComponent.TriggerKind.Counter,
+                    priority, 
+                    isActivated, 
+                    null,
+                    counter,
+                    null);
 
-            public Dictionary<string, long> StreamsTimeStamp { get; set; } = default!;
+            public static CreateTriggerDto TimerTrigger(
+                string key,
+                DateTimeOffset timerDate,
+                TId processId,
+                string handlerKey,
+                short priority,
+                bool isActivated) => new CreateTriggerDto(
+                    key,
+                    timerDate,
+                    processId,
+                    handlerKey,
+                    ITriggerComponent.TriggerKind.Timer,
+                    priority,
+                    isActivated,
+                    null,
+                    null,
+                    null);
 
-            public Dictionary<string, long> StreamProcessTimestamps { get; set; } = default!;
+            public static CreateTriggerDto SimpleStreamTrigger(
+                string key,
+                DateTimeOffset timerDate,
+                TId processId,
+                string handlerKey,
+                short priority,
+                bool isActivated,
+                bool streamProcessIsWaiting,
+                long newSignalCounter) => new CreateTriggerDto(
+                    key,
+                    timerDate,
+                    processId,
+                    handlerKey,
+                    ITriggerComponent.TriggerKind.SimpleStream,
+                    priority,
+                    isActivated,
+                    streamProcessIsWaiting,
+                    newSignalCounter,
+                    null);
+
+            public static CreateTriggerDto OffsetStreamTrigger(
+                string key,
+                DateTimeOffset timerDate,
+                TId processId,
+                string handlerKey,
+                short priority,
+                bool isActivated,
+                bool streamProcessIsWaiting,
+                long processedOffset,
+                long lastOffset) => new CreateTriggerDto(
+                    key,
+                    timerDate,
+                    processId,
+                    handlerKey,
+                    ITriggerComponent.TriggerKind.OffsetStream,
+                    priority,
+                    isActivated,
+                    streamProcessIsWaiting,
+                    processedOffset,
+                    lastOffset);
         }
     }
 }

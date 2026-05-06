@@ -27,7 +27,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto
         /// Механизм wakeup используется.
         /// * Отдельная таблица не используется (низкий или отсуствие concurrency).
         /// * Условие <see cref="IWakeupCheckHandler{TId}"/> проверяется без дополнительной блокировки.
-        /// * Может использовать для триггера <see cref="ITriggerComponent{TId}.TriggerKind.SimpleStream"/> т.к. 
+        /// * Может использовать для триггера <see cref="ITriggerComponent.TriggerKind.SimpleStream"/> т.к. 
         /// тригер знает о состоянии стрима и конкуренции не будет.
         /// </summary>
         WakeupWithoutState,        

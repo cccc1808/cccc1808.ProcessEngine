@@ -5,36 +5,55 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
     public interface ITriggerSetter<TId>
     {
-        void OneOf(
-            ITriggerComponent<TId>.TriggerKind kind,
-            Action counterHandler,
-            Action timerHandler,
-            Action simpleStreamHandler,
-            Action offsetStreamHanler);
+        void OneOfTriggerKind<TParamter>(
+            ITriggerComponent.TriggerKind kind,
+            TParamter paramter,
+            Action<TParamter> counterHandler,
+            Action<TParamter> timerHandler,
+            Action<TParamter> simpleStreamHandler,
+            Action<TParamter> offsetStreamHanler);
 
-        void OneOf(
+        void OneOfTrigger<TParameter>(
             ITriggerComponent<TId> trigger,
-            Action<int> counterHandler,
-            Action timerHandler,
-            Action<ITriggerComponent<TId>.ISimpleStreamDto> simpleStreamHandler,
-            Action<ITriggerComponent<TId>.IOffsetStreamDto> offsetStreamHanler
+            TParameter parameter,
+            Action<ITriggerComponent.ICounterDto, TParameter> counterHandler,
+            Action<TParameter> timerHandler,
+            Action<ITriggerComponent.ISimpleStreamDto, TParameter> simpleStreamHandler,
+            Action<ITriggerComponent.IOffsetStreamDto, TParameter> offsetStreamHanler
             );
 
-        ValueTask OneOfAsync(
+        ValueTask OneOfTriggerAsync(
             ITriggerComponent<TId> trigger,
-            Func<int, ValueTask> counterHandler,
+            Func<ITriggerComponent.ICounterDto, ValueTask> counterHandler,
             Func<ValueTask> timerHandler,
-            Func<ITriggerComponent<TId>.ISimpleStreamDto, ValueTask> simpleStreamHandler,
-            Func<ITriggerComponent<TId>.IOffsetStreamDto, ValueTask> offsetStreamHanler);        
+            Func<ITriggerComponent.ISimpleStreamDto, ValueTask> simpleStreamHandler,
+            Func<ITriggerComponent.IOffsetStreamDto, ValueTask> offsetStreamHanler);
 
-        void ProcessCounter(ITriggerComponent<TId> trigger, int eventCount);
+        TResult OneOfEventKind<TParameters, TResult>(
+            ITriggerEvent.KindEnum triggerEventKind,
+            TParameters parameters,
+            Func<TParameters, TResult> counterTriggerEventHandler,
+            Func<TParameters, TResult> timerTriggerEventHandler,
+            Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<TParameters, TResult> processedOffsetTriggerEventHandler,
+            Func<TParameters, TResult> signalOffsetTriggerEventHandler);
 
-        bool IsCounterActivated(ITriggerComponent<TId> trigger);
+        TResult OneOfEvent<TParameters, TResult>(
+            ITriggerEvent<TId> triggerEvent, 
+            TParameters parameters,
+            Func<ICounterTriggerEvent<TId>, TParameters, TResult> counterTriggerEventHandler,
+            Func<ITimerTriggerEvent<TId>, TParameters, TResult> timerTriggerEventHandler,
+            Func<ISignalSimpleStreamTriggerEvent<TId>, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<IProcessGoWaitStreamTriggerEvent<TId>, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<IProcessedOffsetTriggerEvent<TId>, TParameters, TResult> processedOffsetTriggerEventHandler,
+            Func<ISignalOffsetTriggerEvent<TId>, TParameters, TResult> signalOffsetTriggerEventHandler);
 
         void SetActivated(ITriggerComponent<TId> trigger, bool value);
 

@@ -22,10 +22,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersMo
                 .IncludeProperties(e => new { e.Id, e.HandlerKey });
         }
 
-        protected override PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
-        {
-            return base.StreamDataProperty(builder)
-                .HasColumnType("json");
-        }
+        //protected override PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        //{
+        //    return base.StreamDataProperty(builder)
+        //        .HasColumnType("json");
+        //}
     }
 }

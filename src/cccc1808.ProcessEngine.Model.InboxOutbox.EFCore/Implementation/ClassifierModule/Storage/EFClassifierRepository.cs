@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -74,6 +73,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                     var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                    var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var registry = scope.ServiceProvider.GetRequiredService<InboxRegistryDto>();
                     var aggregateClassifierDbEntityCondition = scope.ServiceProvider.GetRequiredService<IAggregateClassifierDbEntityCondition<TId>>();
 
@@ -234,6 +234,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                             .ToArray();
                         if (inserted.Any())
                         {
+                            var createTriggers = new List<ITriggerRepository<TId>.CreateTriggerDto>(inserted.Length);
                             foreach (var elem in inserted)
                             {
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
@@ -253,26 +254,22 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                 //        processId: elem.Value.Entity.ProcessId,
                                 //        isAsyncExecuting: false));
 
-                                dbContext.Set<TriggerDbEntity<TId>>().Add(
-                                    new TriggerDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
-                                        timerDate: DateTimeOffset.MinValue,
-                                        handlerKey: NoWakeupStreamTriggerRangeHandler<TId>.Name,
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.OffsetStream,
+                                createTriggers.Add(
+                                    ITriggerRepository<TId>.CreateTriggerDto.OffsetStreamTrigger(
+                                        elem.Value.Entity.WakeupTriggerKey,
+                                        DateTimeOffset.MinValue,
+                                        elem.Value.Entity.ProcessId,
+                                        NoWakeupStreamTriggerRangeHandler<TId>.Name,
                                         priority: 0,
                                         isActivated: false,
-                                        isCompleted: false,
-                                        processId: elem.Value.Entity.ProcessId,
-                                        streamState: (
-                                            null, 
-                                            new TriggerDbEntity<TId>.OffsetStreamDto(
-                                                streamsProcessIsWaiting: true, 
-                                                new Dictionary<string, TriggerDbEntity<TId>.OffsetStreamDto.OffsetEntry>())
-                                            ),
-                                        counter: 0));
+                                        streamProcessIsWaiting: true,
+                                        processedOffset: 0,
+                                        lastOffset: 0
+                                        )
+                                    );
                             }
+
+                            await triggerRepository.CreateTriggerRangeAsync(createTriggers, cancellationToken);
 
                             await dbContext.SaveChangesAsync(cancellationToken);
                             // TODO: [Метка 2] Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.
@@ -325,6 +322,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                     var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                    var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var registry = scope.ServiceProvider.GetRequiredService<OutboxRegistryDto>();
                     var aggregateClassifierDbEntityCondition = scope.ServiceProvider.GetRequiredService<IAggregateClassifierDbEntityCondition<TId>>();
 
@@ -482,6 +480,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                             .ToArray();
                         if (inserted.Any())
                         {
+                            var createTriggers = new List<ITriggerRepository<TId>.CreateTriggerDto>(inserted.Length);
                             foreach (var elem in inserted)
                             {
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
@@ -501,29 +500,20 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                 //        processId: elem.Value.Entity.ProcessId,
                                 //        isAsyncExecuting: false));
 
-                                dbContext.Set<TriggerDbEntity<TId>>().Add(
-                                    new TriggerDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
-                                        timerDate: DateTimeOffset.MinValue,
-                                        handlerKey: EFOutboxTriggerWakeupHandler<TId>.Name,
-                                        // Тут используется этот тип т.к. для параллельных транзакций сложно гарантировать упорядоченную запись сообщений.
-                                        // (более поздняя транзакция может дописать сообщение с меньшим смещением и сигнал будет утерян).
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.SimpleStream,
+                                createTriggers.Add(
+                                    ITriggerRepository<TId>.CreateTriggerDto.SimpleStreamTrigger(
+                                        elem.Value.Entity.WakeupTriggerKey,
+                                        DateTimeOffset.MinValue,
+                                        elem.Value.Entity.ProcessId,
+                                        EFOutboxTriggerWakeupHandler<TId>.Name,
                                         priority: 0,
                                         isActivated: false,
-                                        isCompleted: false,
-                                        processId: elem.Value.Entity.ProcessId,
-                                        counter: 0,
-                                        streamState: (
-                                            new TriggerDbEntity<TId>.SimpleStreamDto(
-                                                streamsProcessIsWaiting: true,
-                                                newSignalCounter: 0), 
-                                            null)
-                                            )
+                                        streamProcessIsWaiting: true,
+                                        newSignalCounter: 0)
                                     );
                             }
+
+                            await triggerRepository.CreateTriggerRangeAsync(createTriggers, cancellationToken);
 
                             await dbContext.SaveChangesAsync(cancellationToken);
                             // TODO: Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.

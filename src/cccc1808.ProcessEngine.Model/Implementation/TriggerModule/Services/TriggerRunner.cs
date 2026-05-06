@@ -11,16 +11,15 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events.Stream;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,9 +39,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             bool executeOne,
             CancellationToken cancellationToken)
         {
+            static int EventTypeMismathError(ITriggerEvent triggerEvent, ITriggerComponent<TId> trigger)
+            {
+                // TODO: log error.
+                return 1;
+            }
+
             static async Task ProcessAsync(
                 IServiceProvider serviceProvider,
-                Dictionary<string, List<ITriggerEvent>> groupByTrigger,
+                Dictionary<string, List<ITriggerEvent<TId>>> groupByTrigger,
                 CancellationToken cancellationToken)
             {
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
@@ -53,7 +58,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 {
                     // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке (не содержат долгих операций), иначе тут будет подвисать consumer.
                     var triggers = await repository.LoadTriggerForQueueConsumerAsync(
-                        groupByTrigger.Select(e => e.Key).ToArray(),
+                        groupByTrigger.Keys,
                         cancellationToken);
 
                     foreach (var elem in groupByTrigger)
@@ -66,7 +71,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                         // Перед этим его мог пытаться взять в обработку DbWorker, сбрасываем, чтобы убрать не нужную задержку.
-                        trigger.SelectLockTimeout = DateTimeOffset.MinValue;
+                        trigger.SelectLockTimeout = DateTimeOffset.UtcNow;
 
                         // Такого быть не может - фильтрует запрос.
                         //if (trigger.IsCompleted)
@@ -74,145 +79,161 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    continue;
                         //}
 
-                        // Событие с игнорированием текущей задержки.
-                        var haveIgnoreDelay = false;
-                        foreach (var elem2 in elem.Value)
-                        {
-                            haveIgnoreDelay = haveIgnoreDelay || elem2.IgnoreDelay;
-                        }
-
-                        if (haveIgnoreDelay)
-                        {
-                            trigger.TimerDate = DateTimeOffset.MinValue;
-                        }
-
-                        var eventsCount = elem.Value.Count();
-                        triggerSetter.OneOf(
+                        triggerSetter.OneOfTrigger(
                             trigger,
-                            counterHandler: (counter) =>
+                            (triggerSetter, trigger, messages: elem.Value),
+                            counterHandler: static (state, p) =>
                             {
-                                triggerSetter.ProcessCounter(trigger, eventsCount);
-                                if (triggerSetter.IsCounterActivated(trigger))
+                                foreach (var elem in p.messages)
                                 {
-                                    triggerSetter.SetActivated(trigger, true);
+                                    p.triggerSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger, state),                                        
+                                        counterTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (typedEvent.Reset)
+                                            {
+                                                p.state.Counter = typedEvent.Value;
+                                            }
+                                            else
+                                            {
+                                                p.state.Counter += typedEvent.Value;
+                                            }
+                                            return 1;
+                                        },
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: (typedEvent, p) => 1,
+                                        processGoWaitStreamTriggerEventHandler: (typedEvent, p) => 1,
+                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
+                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                        );
+                                }
+
+                                if (state.Counter <= 0)
+                                {
+                                    p.triggerSetter.SetActivated(p.trigger, true);
                                 }
                             },
-                            timerHandler: () => triggerSetter.SetActivated(trigger, true),
-                            simpleStreamHandler: (state) => 
+                            timerHandler: static (p) => 
                             {
-                                foreach (var elem2 in elem.Value)
+                                foreach (var elem in p.messages)
                                 {
-                                    switch (elem2.Kind)
-                                    {
-                                        case ITriggerEvent.KindEnum.SimpleStream_SignalEvent:
-                                            {
-                                                var typedEvent = (ISignalSimpleStreamTriggerEvent)elem2;
-                                                state.NewSignalCounter++;
-                                                break;
-                                            }
-
-                                        case ITriggerEvent.KindEnum.SimpleStream_ProcessGoWaitEvent:
-                                            {
-                                                var typedEvent = (IProcessGoWaitSpleepSimpleStreamEvent)elem2;
-                                                state.StreamsProcessIsWaiting = true;
-                                                break;
-                                            }
-
-                                        default: throw new Exception($"[Bug]. Триггер не поддерживает тип события {elem2.Kind}.");
-                                    }
+                                    p.triggerSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger),
+                                        counterTriggerEventHandler: static (typedEvent, p) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 1,
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 1,
+                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
+                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                        );
+                                }
+                            },
+                            simpleStreamHandler: static (state, p) => 
+                            {
+                                foreach (var elem in p.messages)
+                                {
+                                    p.triggerSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger, state),
+                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.state.NewSignalCounter++;
+                                            return 1;
+                                        },
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.state.StreamsProcessIsWaiting = true;
+                                            return 1;
+                                        },                                        
+                                        processedOffsetTriggerEventHandler: static  (_, _) => 1,
+                                        signalOffsetTriggerEventHandler: static (_, _) => 1
+                                        );
                                 }
 
                                 if (state.NewSignalCounter != 0 && state.StreamsProcessIsWaiting)
                                 {
                                     // Процесс на пробуждение, счетчик сбрасывается.
-                                    triggerSetter.SetActivated(trigger, true);                                    
+                                    p.triggerSetter.SetActivated(p.trigger, true);
                                     state.StreamsProcessIsWaiting = false;
                                     state.NewSignalCounter = 0;
                                 }
-
-                                trigger.StreamStateChanged();
                             },
-                            offsetStreamHanler: (state) => 
+                            offsetStreamHanler: (state, p) =>
                             {
                                 foreach (var elem2 in elem.Value)
                                 {
-                                    switch (elem2.Kind)
-                                    {
-                                        case ITriggerEvent.KindEnum.OffsetStream_SignalEvent:
+                                    p.triggerSetter.OneOfEvent(
+                                        elem2,
+                                        (triggerSetter, trigger, state),
+                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },                                        
+                                        signalSimpleStreamTriggerEventHandler: static (_, _) => 1,
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.state.StreamsProcessIsWaiting = true;
+                                            return 1;
+                                        },                                        
+                                        processedOffsetTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.state.ProcessedOffset < typedEvent.ProcessedOffset)
                                             {
-                                                var typedEvent = (ISignalOffsetStreamTriggerEvent)elem2;
-
-                                                if (state.ChannelsOffsets.TryGetValue(typedEvent.ChannelName, out var entry))
-                                                {
-                                                    if (entry.LastOffset < typedEvent.ChannelOffset)
-                                                    {
-                                                        entry.LastOffset = typedEvent.ChannelOffset;
-                                                    }
-                                                    else 
-                                                    {
-                                                        // TODO: log warnig событие с меньшим смещением.
-                                                    }
-                                                }
-                                                else 
-                                                {
-                                                    state.ChannelsOffsets.Add(
-                                                        typedEvent.ChannelName, 
-                                                        new DefaultTriggerComponent.OffsetStreamDto<TId>.EntryDto(
-                                                            typedEvent.ChannelOffset, 
-                                                            -1));
-                                                }
-
-                                                break;
+                                                p.state.ProcessedOffset = typedEvent.ProcessedOffset;
+                                            }
+                                            else
+                                            {
+                                                // TODO: log warnig событие с меньшим смещением.
                                             }
 
-                                        case ITriggerEvent.KindEnum.OffsetStream_ProcessGoWaitEvent:
+                                            return 1;
+                                        },
+                                        signalOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                        {
+                                            if (p.state.LastOffset < typedEvent.UpdateOffset)
                                             {
-                                                var typedEvent = (IProcessGoWaitSpleepOffsetStreamEvent)elem2;
-                                                foreach (var elem in typedEvent.ProcessedChannelsOffsets)
-                                                {
-                                                    if (state.ChannelsOffsets.TryGetValue(elem.Key, out var entry))
-                                                    {
-                                                        if (entry.LastOffset < elem.Value)
-                                                        {
-                                                            entry.LastOffset = elem.Value;
-                                                        }
-                                                        else
-                                                        {
-                                                            // TODO: log warnig событие с меньшим смещением.
-                                                        }
-                                                    }
-                                                    else 
-                                                    {
-                                                        state.ChannelsOffsets.Add(
-                                                            elem.Key,
-                                                            new DefaultTriggerComponent.OffsetStreamDto<TId>.EntryDto(
-                                                                -1,
-                                                                elem.Value));
-                                                    }
-                                                }
-
-                                                state.StreamsProcessIsWaiting = true;
-                                                break;
+                                                p.state.LastOffset = typedEvent.UpdateOffset;
+                                            }
+                                            else
+                                            {
+                                                // TODO: log warnig событие с меньшим смещением.
                                             }
 
-                                        default: throw new Exception($"[Bug]. Триггер не поддерживает тип события {elem2.Kind}.");
-                                    }
+                                            return 1;
+                                        }
+                                        );
                                 }
 
-                                // Есть ли каналы, по которым процесс не обработал последний сигнал.
-                                var haveNotProcessedSignals = state.ChannelsOffsets.Any(
-                                    e => e.Value.ProcessedOffset < e.Value.LastOffset);
+                                // Не все смещенеи обрботано.
+                                var haveNotProcessedSignals = state.ProcessedOffset < state.LastOffset;
 
-                                // Если процесс уснул и не обработал все сигналы.
+                                // Если процесс уснул и не все смещенеи обрботано.
                                 if (state.StreamsProcessIsWaiting && haveNotProcessedSignals)
                                 {
                                     // Взводим триггер на пробуждение.
                                     triggerSetter.SetActivated(trigger, true);
                                     state.StreamsProcessIsWaiting = false;
                                 }
-
-                                trigger.StreamStateChanged();
-                            });
+                            }
+                            );
                     }
                     
                     await repository.SaveAsync(triggers.Values, cancellationToken);
@@ -222,13 +243,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             await using (var scope = _serviceProvider.CreateAsyncScope())
             {
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<TId>>();
                 var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var serializer = scope.ServiceProvider.GetRequiredService<IEventJsonSerializer>();
+                var serializer = scope.ServiceProvider.GetRequiredService<IEventJsonSerializer<TId>>();
 
                 var receivedMessages = new LinkContainer<int>(0);
-                var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
+                var groupByTrigger = new Dictionary<string, List<ITriggerEvent<TId>>>();
 
                 var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
                     queueProviderFactory,
@@ -269,7 +290,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                                     if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
                                     {
-                                        triggerEvents = new List<ITriggerEvent>(e.Count);
+                                        triggerEvents = new List<ITriggerEvent<TId>>(e.Count);
                                         p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
                                     }
                                     triggerEvents.Add(triggerEvent);

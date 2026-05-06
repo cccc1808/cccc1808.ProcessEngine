@@ -168,9 +168,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             QueueConsumePackSize = 10,
                             QueueConsumeBatchTimeout = TimeSpan.FromSeconds(0.5),
                         },
-                        new TriggerOptions() 
+                        new TriggerOptions<Guid>() 
                         {
                             TriggerEventQueueName = TriggerQueue,
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
 
@@ -271,7 +272,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             MessageLimitFunc = (m) => m * 10,
                         },
-                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), "inbox"),
+                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
                         new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1))
                     );
 
