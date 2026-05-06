@@ -247,7 +247,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue // TODO: condition                                                                                                   
                         ),
                     isAsyncExecuting: true,
-                    wakeupState: WakeupStateEnum.WakeupWithoutState                       
+                    wakeupState: WakeupStateEnum.CheckWakeupWithoutLock                       
                     );
                 if (softTimeout.HasValue)
                 {

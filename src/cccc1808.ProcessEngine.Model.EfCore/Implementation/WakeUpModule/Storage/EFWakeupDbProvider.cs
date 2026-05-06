@@ -50,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             }
             
             var ids = byTypeIndex
-                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.WakeupWithState)
+                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.CheckWakeupWithLock)
                 .SelectMany(e => e.Value)
                 .ToArray();
 
@@ -88,7 +88,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
             // Иначе обновляем в ChangeTracker.
             var ids = byTypeIndex
-                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.WakeupWithState)
+                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.CheckWakeupWithLock)
                 .SelectMany(e => e.Value)
                 .ToArray();
 

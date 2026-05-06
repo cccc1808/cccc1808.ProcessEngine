@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
         {
             process.Process.Status = status;
 
-            if (process.WakeupState == WakeupStateEnum.WakeupWithState && !process.InAsyncExecuting)
+            if (process.WakeupState == WakeupStateEnum.CheckWakeupWithLock && !process.InAsyncExecuting)
             {
                 // Если не в асинхронном выполнении, то меняем также компонент.
                 var wakeupComponent = process.GetComponent<IWakeupComponent<TId>>();

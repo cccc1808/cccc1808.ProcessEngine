@@ -64,8 +64,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 WakeupService<TId> This,
                 ICollection<IProcessContainer<TId>> processes)
             {
-                var wakeupWithoutStateData = new Dictionary<TId, ExecuteWakeupWithoutStateContextItemDto>(processes.Count);
-                var wakeupWithStateData = new Dictionary<TId, ExecuteWakeupContextItemDto>(processes.Count);
+                var wakeupWithoutLockData = new Dictionary<TId, ExecuteWakeupWithoutLockContextItemDto>(processes.Count);
+                var wakeupWithLockData = new Dictionary<TId, ExecuteWakeupWithLockContextItemDto>(processes.Count);
                 var streamData = new Dictionary<TId, StreamContextItemDto>(processes.Count);
                 var offsetStreamData = new Dictionary<TId, OffsetContextItemDto>(processes.Count);
                 
@@ -111,19 +111,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
                     switch (elem.WakeupState)
                     {
-                        case WakeupStateEnum.WakeupWithState:
+                        case WakeupStateEnum.CheckWakeupWithLock:
                             {
-                                wakeupWithStateData.Add(
+                                wakeupWithLockData.Add(
                                     elem.Id,
-                                    new ExecuteWakeupContextItemDto(elem));
+                                    new ExecuteWakeupWithLockContextItemDto(elem));
                                 break;
                             }
 
-                        case WakeupStateEnum.WakeupWithoutState:
+                        case WakeupStateEnum.CheckWakeupWithoutLock:
                             {
-                                wakeupWithoutStateData.Add(
+                                wakeupWithoutLockData.Add(
                                     elem.Id,
-                                    new ExecuteWakeupWithoutStateContextItemDto(elem));
+                                    new ExecuteWakeupWithoutLockContextItemDto(elem));
 
                                 break;
                             }
@@ -138,24 +138,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 }
 
                 return new ExecuteContext(
-                    wakeupWithoutStateData,
-                    wakeupWithStateData,
+                    wakeupWithoutLockData,
+                    wakeupWithLockData,
                     streamData,
                     offsetStreamData);
             }
 
             /// <summary>
             /// Обработка записей wakeup без отдельной таблицы.
-            /// Подробности в <see cref="WakeupStateEnum.WakeupWithoutState"/>.
+            /// Подробности в <see cref="WakeupStateEnum.CheckWakeupWithoutLock"/>.
             /// </summary>
-            static async Task ProcessWithoutStateAsync(
+            static async Task ProcessWithoutLockAsync(
                 WakeupService<TId> This,
                 ExecuteContext context,
                 CancellationToken cancellationToken) 
             {
                 // Тут нет отдельного wakeup state, поэтому нужно только проверить условие.
 
-                var checkGroups = context.WakeupWithoutStateData.Values
+                var checkGroups = context.WakeupWithoutLockData.Values
                     .Select(e => (
                         Element: e,
                         Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.ProcessType)))
@@ -199,7 +199,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             /// а мы это не увидим (и процесс уснет)
             /// (ждем завершения блокировок всех сигналов).
             /// </summary>
-            static async Task ProcessWithStateAsync(
+            static async Task ProcessWithLockAsync(
                 WakeupService<TId> This,
                 ExecuteContext context,
                 CancellationToken cancellationToken)
@@ -207,10 +207,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 // 1) Получаем wakeup с блокировкой
                 // (это небходимо, чтобы если сейчас идет попытка пробуждения по новому внешнему сигналу, то она будет выполняться после завершения это транзакции, и новый сигнал не потеряется).
                 var dbData = await This._wakeupServiceQueries.AfterSession_LoadStateWithLockAsync(
-                    context.WakeupData.Keys,
+                    context.WakeupWithLockData.Keys,
                     cancellationToken);
 
-                foreach (var elem in context.WakeupData.Values)
+                foreach (var elem in context.WakeupWithLockData.Values)
                 {
                     var dbDataElem = dbData[elem.Process.Id];
 
@@ -219,7 +219,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 }
                 
                 // 2) Блокировка получена, вызываем кастомную логику проверки условия: 
-                var checkGroups = context.WakeupData.Values
+                var checkGroups = context.WakeupWithLockData.Values
                     .Select(e => (
                         Element: e,
                         Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.ProcessType)))
@@ -324,18 +324,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             }
 
             // 2) Выполняет WakeupWithoutState т.к. им не нужна блокировка.
-            if (context.WakeupWithoutStateData.Any())
+            if (context.WakeupWithoutLockData.Any())
             {
-                await ProcessWithoutStateAsync(
+                await ProcessWithoutLockAsync(
                     this,
                     context,
                     cancellationToken);
             }
 
             // 3) Выполняем ProcessWithStateAsync, устанавливаем блокировку.
-            if (context.WakeupData.Any())
+            if (context.WakeupWithLockData.Any())
             {
-                await ProcessWithStateAsync
+                await ProcessWithLockAsync
                     (this, 
                     context, 
                     cancellationToken);
@@ -404,9 +404,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
         private class ExecuteContext
         {
-            public IDictionary<TId, ExecuteWakeupWithoutStateContextItemDto> WakeupWithoutStateData { get; }
+            public IDictionary<TId, ExecuteWakeupWithoutLockContextItemDto> WakeupWithoutLockData { get; }
 
-            public IDictionary<TId, ExecuteWakeupContextItemDto> WakeupData { get; }
+            public IDictionary<TId, ExecuteWakeupWithLockContextItemDto> WakeupWithLockData { get; }
 
             public IDictionary<TId, StreamContextItemDto> StreamData { get; }
 
@@ -415,16 +415,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             public List<IProcessContainer<TId>> ForUpdate { get; }
 
             public ExecuteContext(
-                IDictionary<TId, ExecuteWakeupWithoutStateContextItemDto> wakeupWithoutStateData,
-                IDictionary<TId, ExecuteWakeupContextItemDto> wakeupData,
+                IDictionary<TId, ExecuteWakeupWithoutLockContextItemDto> wakeupWithoutLockData,
+                IDictionary<TId, ExecuteWakeupWithLockContextItemDto> wakeupWithLockData,
                 IDictionary<TId, StreamContextItemDto> streamData,
                 IDictionary<TId, OffsetContextItemDto> offsetData)
             {
-                WakeupWithoutStateData = wakeupWithoutStateData;
-                WakeupData = wakeupData;
+                WakeupWithoutLockData = wakeupWithoutLockData;
+                WakeupWithLockData = wakeupWithLockData;
                 StreamData = streamData;
                 OffsetData = offsetData;
-                ForUpdate = new List<IProcessContainer<TId>>(wakeupWithoutStateData.Count + wakeupData.Count);
+                ForUpdate = new List<IProcessContainer<TId>>(wakeupWithoutLockData.Count + wakeupWithLockData.Count);
 
             }
         }
@@ -432,11 +432,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
         /// <summary>
         /// Пробуждение с проверкой условия без отдельной таблицы ProcessWakeup.
         /// </summary>
-        private class ExecuteWakeupWithoutStateContextItemDto
+        private class ExecuteWakeupWithoutLockContextItemDto
         {
             public IProcessContainer<TId> Process { get; }
 
-            public ExecuteWakeupWithoutStateContextItemDto(IProcessContainer<TId> process)
+            public ExecuteWakeupWithoutLockContextItemDto(IProcessContainer<TId> process)
             {
                 Process = process;
             }
@@ -445,7 +445,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
         /// <summary>
         /// Пробуждение с проверкой условия и отдельной таблицей ProcessWakeup.
         /// </summary>
-        private class ExecuteWakeupContextItemDto
+        private class ExecuteWakeupWithLockContextItemDto
         {
             public IProcessContainer<TId> Process { get; }
 
@@ -453,7 +453,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 
             public bool WakeupWithLockIsAsyncExecuting { get; set; }
 
-            public ExecuteWakeupContextItemDto(IProcessContainer<TId> process)
+            public ExecuteWakeupWithLockContextItemDto(IProcessContainer<TId> process)
             {
                 Process = process;
 
