@@ -12,10 +12,11 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Implementation.Common;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -74,32 +75,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         // TODO: можно сделать без загрузки, но не через LINQ.
 
                         // В1: нормальный join
-                        var registrationQuery = _dbContext.QueryFromCollection(
-                            registrations
-                            .Select(e => new 
-                            {
-                                ProcessTypeId = e.ProcessType.ProcessType,
-                                ProcessVersion = e.ProcessType.ProcessVersion,
-                                Priority = e.Priority,
-                            })
-                            .ToArray());
+
                         var query = _dbContext.Set<TEntity>()
-                            .Join(
-                                registrationQuery,
-                                e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority },
-                                e => e,
-                                (e1, e2) => new { Process = e1, e2 }
+                            .ApplayQueryCondition(
+                                _processDbEntityConditions.DbProcessingForSelector.Query,
+                                new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(
+                                    now,
+                                    registrations)
                                 );
-                        query = query.ApplayQueryCondition(
-                            _processDbEntityConditions.DbProcessingForSelectorProjection(query),
-                            e => e.Process,
-                            new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
-                            );
 
                         var batch = await query
-                            .OrderByDescending(e => e.Process.Priority)
+                            .OrderByDescending(e => e.Priority)
                             .Take(context.Data.BatchSize)
-                            .Select(e => new { e.Process.Id, e.Process.ProcessTypeId, e.Process.ProcessVersion, e.Process.Priority })
+                            .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority })
                             .ToArrayAsync(cancellationToken);
 
                         // В2 Коррелированный подзапрос
@@ -157,7 +145,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             Queue<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
-            // var now = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow;
 
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
@@ -168,7 +156,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.MinValue.UtcDateTime),
+                    e => e.SetProperty(e => e.SelectLockTimeout, now),
                     cancellationToken);
         }
 
@@ -176,6 +164,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<TId> ids, 
             CancellationToken cancellationToken)
         {
+            var now = DateTimeOffset.UtcNow;
+
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
                 .ApplayQueryCondition(
@@ -185,7 +175,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.MinValue.UtcDateTime),
+                    e => e.SetProperty(e => e.SelectLockTimeout, now),
                     cancellationToken);
         }
 

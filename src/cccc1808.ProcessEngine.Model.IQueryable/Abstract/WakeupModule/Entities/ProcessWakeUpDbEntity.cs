@@ -1,0 +1,40 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+
+namespace cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities
+{
+    public class ProcessWakeupDbEntity<TId>
+        : IId<TId>,
+        IProcessLinked<TId>
+    {
+        public TId Id { get; set; } = default!;
+
+        public TId ProcessId { get; set; } = default!;
+        public ProcessDbEntity<TId> Process { get; set; } = default!;
+
+        /// <summary>
+        /// Отображает, что процесс находится в состоянии асинхронной обработки.
+        /// </summary>
+        public bool IsAsyncExecuting { get; set; }
+
+        public ProcessWakeupDbEntity() 
+        {
+        }
+
+        public ProcessWakeupDbEntity(
+            TId id,
+            TId processId,
+            bool isAsyncExecuting)
+        {
+            Id = id;
+            ProcessId = processId;
+            IsAsyncExecuting = isAsyncExecuting;
+        }
+    }
+}

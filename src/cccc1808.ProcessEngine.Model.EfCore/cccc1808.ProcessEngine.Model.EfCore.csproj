@@ -16,11 +16,11 @@
 
 	<ItemGroup>
     <PackageReference Include="EntityFrameworkCore.MemoryJoin" Version="0.10.0" />
-    <PackageReference Include="linq2db.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
   </ItemGroup>
 

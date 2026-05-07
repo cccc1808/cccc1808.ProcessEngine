@@ -11,14 +11,9 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
@@ -28,8 +23,13 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Components;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.MessageStreamModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -155,71 +155,29 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             var messagesLimit = _options.MessageLimitFunc(notProcessedOutboxProcessesIds.Count);
             int selectedMessages;
             (ProcessDbEntity<TId> Process, IEnumerable<OutboxMessageDbEntity<TId>> Messages)[] processGroups;
-            using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
-                // В1: нормальный join
-                var idsQuery = _dbContext
-                    .QueryFromCollection(notProcessedOutboxProcessesIds.Select(
-                        e => new
-                        {
-                            ProcessTypeId = _outboxRegistry.Registry.ProcessType.ProcessType,
-                            ProcessVersion = _outboxRegistry.Registry.ProcessType.ProcessVersion,
-                            Priority = _outboxRegistry.Registry.Priority,
-                            Id = e,
-                        })
-                    .ToArray());
-                var query = _dbContext.Set<ProcessDbEntity<TId>>()
-                    .Join(
-                        idsQuery,
-                        e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
-                        e => e,
-                        (e1, e2) => e1)
-                    .Join(
-                        _dbContext.Set<OutboxMessageDbEntity<TId>>(),
-                        e => e.Id,
-                        e => e.ProcessId,
-                        (e1, e2) => new { Process = e1, Message = e2 });
-                query = query
+                var messages = await _dbContext.Set<OutboxMessageDbEntity<TId>>()
                     .ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForHandlerProjection(query),
-                        e => e.Process,
-                        new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForHandlerParameters(
-                            _dbContext,
-                            [_outboxRegistry.Registry],
-                            notProcessedOutboxProcessesIds))
-                    .ApplayQueryCondition(
-                        _messageStreamConditions.ForProcessingProjection(query),
-                        e => e.Message,
-                        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto1()
-                    );
-                var data = await query
-                    .OrderByDescending(e => e.Message.Priority)
-                    .ThenBy(e => e.Message.OrderId)
-                    .ToArrayAsync(cancellationToken);
-                selectedMessages = data.Length;
+                        _messageStreamConditions.ForProcessing.QueryIds,
+                        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto2(notProcessedOutboxProcessesIds)
+                        ) 
+                    .Take(messagesLimit)
+                    .ToArrayAsync();
+                selectedMessages = messages.Length;
 
-                // В2 Коррелированный подзапрос
-                //var processQuery = _dbContext.Set<ProcessDbEntity<TId>>()
-                //    .ApplayQueryCondition(
-                //    _processDbEntityConditions.DbProcessingForHandler.Query,
-                //    new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForSelectorHandlerParameters(
-                //        _dbContext,
-                //        [_outboxRegistry.Registry],
-                //        notLoadedProcesses.Keys));
-                //var messagesQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
-                //    .ApplayQueryCondition(
-                //        _messageStreamConditions.ForProcessing.Query,
-                //        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto1()
-                //        );
-                //var data = await processQuery
-                //    .Join(messagesQuery, e => e.Id, e => e.ProcessId, (process, message) => new { process, message })
-                //    .Take(limit)
-                //    .ToArrayAsync(cancellationToken);
+                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                {
+                    var messageByProcess = messages.GroupBy(e => e.ProcessId).ToArray();
 
-                processGroups = data
-                    .GroupBy(e => e.Process.Id)
-                    .Select(e => (e.First().Process, e.Select(e => e.Message)))
-                    .ToArray();
+                    var processes = await _dbContext.Set<ProcessDbEntity<TId>>()
+                        .Where(e => e.Status == ProcessStatusEnum.AsyncExecute)
+                        .Where(e => messageByProcess.Select(e => e.Key).Contains(e.Id))
+                        .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
+
+                    processGroups = messageByProcess
+                        .Select(e => (processes[e.Key], e.Select(e => e)))
+                        .ToArray();
+                }
             }
 
             var processData = await _dbContext.Set<OutboxProcessDataDbEntity<TId>>()

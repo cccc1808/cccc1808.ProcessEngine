@@ -137,14 +137,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             bool StreamsProcessIsWaiting { get; set; }
 
             /// <summary>
-            /// Наибольшее смещение сигнала.
-            /// </summary>
-            public long LastOffset { get; set; }
-
-            /// <summary>
             /// Наибольшее обработанное процессом смещение.
             /// </summary>
             public long ProcessedOffset { get; set; }
+
+            /// <summary>
+            /// Наибольшее смещение сигнала.
+            /// </summary>
+            public long LastOffset { get; set; }            
         }
 
         #endregion

@@ -39,6 +39,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj" />
   </ItemGroup>
 

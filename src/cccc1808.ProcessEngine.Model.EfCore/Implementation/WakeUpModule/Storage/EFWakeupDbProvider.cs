@@ -10,11 +10,11 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Implementation.Common.Conditions;
 
 using Microsoft.EntityFrameworkCore;
 
