@@ -20,8 +20,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
@@ -165,12 +165,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<Guid>>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueueName, default)).ShouldBeTrue();
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(
@@ -306,13 +306,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 case 4:
                     {
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
+                        var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                         var component = process.GetComponent<ChildProcessDbEntity>();
 
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
-                            [new CounterTriggerEvent<Guid>(component.ParentProcessId, component.ParentTriggerKey, value: -1)],
+                            [new ITriggerEventRaiser<Guid>.RaiseContainer(
+                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                component.ParentProcessId,
+                                new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
+                                )],
                             default);
 
                         setter.SetStatus(

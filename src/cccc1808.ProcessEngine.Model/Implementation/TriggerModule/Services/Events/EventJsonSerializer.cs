@@ -13,7 +13,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
 {
-    public class EventJsonSerializer<TId> : IEventJsonSerializer<TId>
+    public class EventJsonSerializer<TId> : IEventJsonSerializer
     {
         private readonly ITriggerSetter<TId> _setter;
 
@@ -22,22 +22,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _setter = setter;
         }
 
-        public ITriggerEvent<TId> Deserialize(JsonElement jsonElement)
+        public ITriggerEvent Deserialize(JsonElement jsonElement)
         {
-            var commonEvent = jsonElement.Deserialize<TriggerEvent<TId>>()!;
+            var commonEvent = jsonElement.Deserialize<TriggerEvent>()!;
             return _setter.OneOfEventKind(
                 commonEvent.Kind,
                 (commonEvent, jsonElement),
-                counterTriggerEventHandler: static (p) => (ITriggerEvent<TId>)p.jsonElement.Deserialize<CounterTriggerEvent<TId>>(),
-                timerTriggerEventHandler: static (p) => p.jsonElement.Deserialize<TimerTriggerEvent<TId>>(),
-                signalSimpleStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalSimpleStreamTriggerEvent<TId>>(),
-                processGoWaitStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<ProcessGoWaitStreamTriggerEvent<TId>>(),
-                processedOffsetTriggerEventHandler: static  (p) => p.jsonElement.Deserialize<ProcessedOffsetTriggerEvent<TId>>(),
-                signalOffsetTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalOffsetTriggerEvent<TId>>()
+                counterTriggerEventHandler: static (p) => (ITriggerEvent)p.jsonElement.Deserialize<CounterTriggerEvent>(),
+                timerTriggerEventHandler: static (p) => p.jsonElement.Deserialize<TimerTriggerEvent>(),
+                signalSimpleStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalSimpleStreamTriggerEvent>(),
+                processGoWaitStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<ProcessGoWaitStreamTriggerEvent>(),
+                processedOffsetTriggerEventHandler: static  (p) => p.jsonElement.Deserialize<ProcessedOffsetTriggerEvent>(),
+                signalOffsetTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalOffsetTriggerEvent>()
                 )!;
         }
 
-        public JsonElement Serialize(ITriggerEvent<TId> triggerEvent)
+        public JsonElement Serialize(ITriggerEvent triggerEvent)
         {
             using var doc = JsonSerializer.SerializeToDocument(
                 triggerEvent, 

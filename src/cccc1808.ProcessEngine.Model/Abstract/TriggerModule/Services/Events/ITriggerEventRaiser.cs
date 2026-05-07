@@ -17,7 +17,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
     public interface ITriggerEventRaiser<TId>
     {
         ValueTask RaiseAsync(
-            ICollection<ITriggerEvent<TId>> events,
+            ICollection<RaiseContainer> events,
             CancellationToken cancellationToken);
+
+        public readonly record struct RaiseContainer(
+            string EventQueue,
+            TId ProcessId,
+            ITriggerEvent Event
+            );
     }
 }

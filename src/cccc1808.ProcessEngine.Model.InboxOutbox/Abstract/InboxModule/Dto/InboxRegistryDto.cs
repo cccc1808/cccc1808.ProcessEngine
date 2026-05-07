@@ -13,7 +13,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto
     /// </summary>
     /// <param name="Registry"></param>
     public record InboxRegistryDto(
-        ProcessRegistryDto Registry)
+        ProcessRegistryDto Registry,
+        string TriggerEventQueue)
     {
     }
 }

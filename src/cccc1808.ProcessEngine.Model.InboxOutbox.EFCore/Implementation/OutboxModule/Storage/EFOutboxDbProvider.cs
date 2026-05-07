@@ -263,6 +263,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 container.AddComponent<IOutboxComponent<TId>>(component);
                 container.AddComponent<IStreamTriggerComponent>(
                     new StreamTriggerComponent(
+                        _outboxRegistry.TriggerEventQueue,
                         [processDataElem.WakeupTriggerKey]));
 
                 loadBuffer.Add(container.Id, container);
@@ -288,7 +289,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
-                            var triggerEvents = new List<ITriggerEvent<TId>>(0);
+                            var triggerEvents = new List<ITriggerEventRaiser<TId>.RaiseContainer>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
@@ -333,10 +334,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                             notProcessedOutboxProcessesIds.Remove(elem.Process.Id);
 
                                             triggerEvents.Add(
-                                                new ProcessGoWaitStreamTriggerEvent<TId>(
+                                                new ITriggerEventRaiser<TId>.RaiseContainer(
+                                                    _outboxRegistry.TriggerEventQueue,
                                                     elem.Process.Id,
-                                                    pd[elem.Process.Id].WakeupTriggerKey
-                                                    ));
+                                                    new ProcessGoWaitStreamTriggerEvent(
+                                                        pd[elem.Process.Id].WakeupTriggerKey
+                                                        )
+                                                    )
+                                                );
                                         }
                                     }
                                 }

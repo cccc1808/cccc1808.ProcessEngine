@@ -11,7 +11,6 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -269,9 +268,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     );
                 container.AddComponent<IInboxComponent<TId>>(component);
                 container.AddComponent<IStreamTriggerComponent>(
-                    new StreamTriggerComponent([processDataElem.WakeupTriggerKey]));
+                    new StreamTriggerComponent(_inboxRegistryDto.TriggerEventQueue, [processDataElem.WakeupTriggerKey]));
                 container.AddComponent<IOffsetTriggerComponent>(
-                    new OffsetStreamTriggerComponent());
+                    new OffsetStreamTriggerComponent(_inboxRegistryDto.TriggerEventQueue));
 
                 loadBuffer.Add(container.Id, container);
 
@@ -297,7 +296,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
-                            var triggerEvents = new List<ITriggerEvent<TId>>(0);
+                            var triggerEvents = new List<ITriggerEventRaiser<TId>.RaiseContainer>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<InboxMessageDbEntity<TId>>()
@@ -344,15 +343,21 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                             var elemProcessData = pd[elem.Process.Id];
                                             // По хорощему не нужно, но на случай, если событие было утеряно.
                                             triggerEvents.Add(
-                                                new ProcessedOffsetTriggerEvent<TId>(
+                                                new ITriggerEventRaiser<TId>.RaiseContainer(
+                                                    _inboxRegistryDto.TriggerEventQueue,
                                                     elem.Process.Id,
+                                                    new ProcessedOffsetTriggerEvent(
                                                     elemProcessData.WakeupTriggerKey,
                                                     processedOffset: elemProcessData.ProcessedOffset
+                                                    )
                                                     ));
                                             triggerEvents.Add(
-                                                new ProcessGoWaitStreamTriggerEvent<TId>(
+                                                new ITriggerEventRaiser<TId>.RaiseContainer(
+                                                    _inboxRegistryDto.TriggerEventQueue,
                                                     elem.Process.Id,
-                                                    elemProcessData.WakeupTriggerKey
+                                                    new ProcessGoWaitStreamTriggerEvent(
+                                                        elemProcessData.WakeupTriggerKey
+                                                        )
                                                     ));                                            
                                         }
                                     }

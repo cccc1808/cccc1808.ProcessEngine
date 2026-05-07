@@ -28,11 +28,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
     public class TriggerRunner<TId> : ITriggerRunner
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly OptionsDto _options;
+
 
         public TriggerRunner(
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider, 
+            OptionsDto options)
         {
             _serviceProvider = serviceProvider;
+            _options = options;
         }
 
         public async Task ConsumerWorkAsync(
@@ -45,9 +49,142 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 return 1;
             }
 
-            static async Task ProcessAsync(
+            static async Task ConsumerHandlerAsync(
                 IServiceProvider serviceProvider,
-                Dictionary<string, List<ITriggerEvent<TId>>> groupByTrigger,
+                QueueOptionsDto consumerQueueOptions,
+                bool executeOne,
+                CancellationToken cancellationToken) 
+            {
+                var triggerOptions = serviceProvider.GetRequiredService<TriggerOptions<TId>>();
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
+                var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
+                var serializer = serviceProvider.GetRequiredService<IEventJsonSerializer>();
+
+                var receivedMessages = new LinkContainer<int>(0);
+                var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
+
+                var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
+                    queueProviderFactory,
+                    options.ExceptionDelay,
+                    consumer: null,
+                    consumerQueueOptions.QueueName,
+                    executeOne,
+                    (ex) => {  /*TODO: log*/ },
+                    cancellationToken);
+
+                while (true)
+                {
+                    try
+                    {
+                        receivedMessages.Data = 0;
+                        groupByTrigger.Clear();
+
+                        // TODO: не было бы лишним допускать использование нескольких топиков (потребителей),
+                        // * например для inbox большое значение QueueConsumeBatchTimeout/QueueConsumePackTimeout не очень подходит,
+                        // * а для parent-child процесса (с большим количеством дочерних) QueueConsumeBatchTimeout/QueueConsumePackTimeout может быть больше (чтобы снизить нагрузку записи на БД).
+                        await consumer.ConsumeBatchAsync(
+                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
+                            consumerQueueOptions.QueueConsumePackTimeout,
+                            consumerQueueOptions.QueueConsumePackSize,
+                            consumerQueueOptions.QueueConsumeBatchTimeout,
+                            static (p, e) =>
+                            {
+                                if (!e.Any())
+                                {
+                                    return true;
+                                }
+
+                                // (Info: точка агрегации).
+                                // N событий триггера сжимаются в одном действия (1 db update).
+                                foreach (var elem in e)
+                                {
+                                    var triggerEvent = p.serializer.Deserialize(elem.Body);
+
+                                    if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
+                                    {
+                                        triggerEvents = new List<ITriggerEvent>(e.Count);
+                                        p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
+                                    }
+                                    triggerEvents.Add(triggerEvent);
+                                }
+                                p.receivedMessages.Data += e.Count;
+
+                                // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
+                                var stop =
+                                    p.receivedMessages.Data > p.consumerQueueOptions.QueueConsumeMessagesLimit
+                                    || p.groupByTrigger.Count > p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
+                                return !stop;
+                            },
+                            cancellationToken);
+
+                        if (receivedMessages.Data == 0)
+                        {
+                            continue;
+                        }
+
+                        await using (var scope2 = serviceProvider.CreateAsyncScope())
+                        {
+                            try
+                            {
+                                await ProcessEventsHandlerAsync(
+                                    scope2.ServiceProvider,
+                                    groupByTrigger,
+                                    cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                // exception в хендлере.
+                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                                {
+                                    throw;
+                                }
+
+                                // TODO: log.
+
+                                if (executeOne)
+                                {
+                                    throw;
+                                }
+                            }
+
+                            await consumer.CommitAsync(cancellationToken);
+
+                            if (executeOne)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // exception при работе с брокером.
+                        if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                        {
+                            throw;
+                        }
+
+                        // TODO: log.
+
+                        if (executeOne)
+                        {
+                            throw;
+                        }
+
+                        consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
+                            queueProviderFactory,
+                            options.ExceptionDelay,
+                            consumer,
+                            consumerQueueOptions.QueueName,
+                            oneExecute: executeOne,
+                            (ex) => {  /*TODO: log*/ },
+                            cancellationToken);
+                    }
+                }
+            }
+
+            static async Task ProcessEventsHandlerAsync(
+                IServiceProvider serviceProvider,
+                Dictionary<string, List<ITriggerEvent>> groupByTrigger,
                 CancellationToken cancellationToken)
             {
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
@@ -241,134 +378,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
             }
 
-            await using (var scope = _serviceProvider.CreateAsyncScope())
+            var runningTasks = new List<Task>(_options.TriggerEventQueues.Count);
+            foreach (var elem in _options.TriggerEventQueues)
             {
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<TId>>();
-                var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var serializer = scope.ServiceProvider.GetRequiredService<IEventJsonSerializer<TId>>();
-
-                var receivedMessages = new LinkContainer<int>(0);
-                var groupByTrigger = new Dictionary<string, List<ITriggerEvent<TId>>>();
-
-                var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
-                    queueProviderFactory,
-                    options.ExceptionDelay,
-                    consumer: null,
-                    triggerOptions.TriggerEventQueueName,
-                    executeOne,
-                    (ex) => {  /*TODO: log*/ },
-                    cancellationToken);
-                
-                while (true)
-                {
-                    try
+                var t = Task.Run(
+                    async () => 
                     {
-                        receivedMessages.Data = 0;
-                        groupByTrigger.Clear();
-
-                        // TODO: не было бы лишним допускать использование нескольких топиков (потребителей),
-                        // * например для inbox большое значение QueueConsumeBatchTimeout/QueueConsumePackTimeout не очень подходит,
-                        // * а для parent-child процесса (с большим количеством дочерних) QueueConsumeBatchTimeout/QueueConsumePackTimeout может быть больше (чтобы снизить нагрузку записи на БД).
-                        await consumer.ConsumeBatchAsync(
-                            (options, serializer, receivedMessages, groupByTrigger),
-                            options.QueueConsumePackTimeout,
-                            options.QueueConsumePackSize,
-                            options.QueueConsumeBatchTimeout,
-                            static (p, e) =>
-                            {
-                                if (!e.Any())
-                                {
-                                    return true;
-                                }
-
-                                // (Info: точка агрегации).
-                                // N событий триггера сжимаются в одном действия (1 db update).
-                                foreach (var elem in e)
-                                {
-                                    var triggerEvent = p.serializer.Deserialize(elem.Body);
-
-                                    if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
-                                    {
-                                        triggerEvents = new List<ITriggerEvent<TId>>(e.Count);
-                                        p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
-                                    }
-                                    triggerEvents.Add(triggerEvent);
-                                }
-                                p.receivedMessages.Data += e.Count;
-
-                                // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
-                                var stop =
-                                    p.receivedMessages.Data > p.options.QueueConsumeMessagesLimit
-                                    || p.groupByTrigger.Count > p.options.QueueConsumeTriggersCountLimit;
-                                return !stop;
-                            },
-                            cancellationToken);
-
-                        if (receivedMessages.Data == 0)
+                        await using (var scope = _serviceProvider.CreateAsyncScope())
                         {
-                            continue;
+                            await ConsumerHandlerAsync(
+                                scope.ServiceProvider,
+                                elem, 
+                                executeOne, 
+                                cancellationToken);
                         }
-
-                        await using (var scope2 = scope.ServiceProvider.CreateAsyncScope())
-                        {
-                            try
-                            {
-                                await ProcessAsync(
-                                    scope2.ServiceProvider,
-                                    groupByTrigger,
-                                    cancellationToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                // exception в хендлере.
-                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                                {
-                                    throw;
-                                }
-
-                                // TODO: log.
-
-                                if (executeOne)
-                                {
-                                    throw;
-                                }
-                            }
-
-                            await consumer.CommitAsync(cancellationToken);
-
-                            if (executeOne)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // exception при работе с брокером.
-                        if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                        {
-                            throw;
-                        }
-
-                        // TODO: log.
-
-                        if (executeOne)
-                        {
-                            throw;
-                        }
-
-                        consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
-                            queueProviderFactory,
-                            options.ExceptionDelay,
-                            consumer,
-                            triggerOptions.TriggerEventQueueName,
-                            oneExecute: false,
-                            (ex) => {  /*TODO: log*/ },
-                            cancellationToken);
-                    }
-                }
+                    });
+                runningTasks.Add(t);
             }
+            
+            await Task.WhenAll(runningTasks);
         }
 
         public async Task DbWorkAsync(
@@ -634,26 +662,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class OptionsDto
         {
-            public int QueueConsumePackSize { get; set; }
-                = 200;
-
-            /// <summary>
-            /// Ограничение количества сообщений, закомиченных за один такт.
-            /// </summary>
-            public int QueueConsumeMessagesLimit { get; set; }
-                = 1000;
-
-            /// <summary>
-            /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
-            /// </summary>
-            public int QueueConsumeTriggersCountLimit { get; set; }
-                = 200;
-
-            public TimeSpan QueueConsumePackTimeout { get; set; }
-                = TimeSpan.FromMilliseconds(200);
-
-            public TimeSpan QueueConsumeBatchTimeout { get; set; }
-                = TimeSpan.FromSeconds(1);
+            public List<QueueOptionsDto> TriggerEventQueues { get; set; }
+                = new List<QueueOptionsDto>(0);                 
 
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
@@ -672,6 +682,33 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// </summary>
             public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
+        }
+
+        public class QueueOptionsDto 
+        {
+            public string QueueName { get; set; } 
+                = null;
+
+            /// <summary>
+            /// Ограничение количества сообщений, закомиченных за один такт.
+            /// </summary>
+            public int QueueConsumeMessagesLimit { get; set; }
+                = 1000;
+
+            public int QueueConsumePackSize { get; set; }
+                = 200;
+
+            /// <summary>
+            /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
+            /// </summary>
+            public int QueueConsumeTriggersCountLimit { get; set; }
+                = 200;
+
+            public TimeSpan QueueConsumePackTimeout { get; set; }
+                = TimeSpan.FromMilliseconds(200);
+
+            public TimeSpan QueueConsumeBatchTimeout { get; set; }
+                = TimeSpan.FromSeconds(1);
         }
     }    
 }

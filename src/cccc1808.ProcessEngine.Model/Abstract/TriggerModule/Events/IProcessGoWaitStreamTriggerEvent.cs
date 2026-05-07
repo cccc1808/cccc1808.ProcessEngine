@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface IProcessGoWaitStreamTriggerEvent<TId>
-        : ITriggerEvent<TId>
+    public interface IProcessGoWaitStreamTriggerEvent
+        : ITriggerEvent
     {
     }
 }

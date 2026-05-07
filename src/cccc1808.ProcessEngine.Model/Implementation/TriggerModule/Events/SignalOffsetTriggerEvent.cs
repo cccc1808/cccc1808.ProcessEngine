@@ -8,9 +8,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class SignalOffsetTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        ISignalOffsetTriggerEvent<TId>
+    public class SignalOffsetTriggerEvent :
+        TriggerEvent,
+        ISignalOffsetTriggerEvent
     {
         public long UpdateOffset { get; set; }
 
@@ -19,13 +19,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         { }
 
         public SignalOffsetTriggerEvent(
-            TId processId,
             string triggerKey,
             long updateOffset)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.SignalOffsetEvent)
+                  TriggerEventKindEnum.SignalOffsetEvent)
         {
             UpdateOffset = updateOffset;
         }

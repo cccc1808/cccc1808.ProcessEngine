@@ -11,11 +11,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
     public class OffsetStreamTriggerComponent 
         : IOffsetTriggerComponent
     {
+        public string TriggerEventQueue { get; }
+
         public IDictionary<string, long> ProcessedOffsets { get; } 
             = new Dictionary<string, long>(5);
 
-        public OffsetStreamTriggerComponent()
-        {}
+        public OffsetStreamTriggerComponent(string triggerEventQueue)
+        {
+            TriggerEventQueue = triggerEventQueue;
+        }
 
         public long UpdateMaxTimestamp(string triggerKey, long offset)
         {

@@ -143,7 +143,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         }
 
         public TResult OneOfEventKind<TParameters, TResult>(
-            ITriggerEvent.KindEnum triggerEventKind, 
+            TriggerEventKindEnum triggerEventKind, 
             TParameters parameters, 
             Func<TParameters, TResult> counterTriggerEventHandler,
             Func<TParameters, TResult> timerTriggerEventHandler,
@@ -154,35 +154,35 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         {
             return triggerEventKind switch
             {
-                ITriggerEvent.KindEnum.CounterEvent => counterTriggerEventHandler(parameters),
-                ITriggerEvent.KindEnum.TimerEvent => timerTriggerEventHandler(parameters),
-                ITriggerEvent.KindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
-                ITriggerEvent.KindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
-                ITriggerEvent.KindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
-                ITriggerEvent.KindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
+                TriggerEventKindEnum.CounterEvent => counterTriggerEventHandler(parameters),
+                TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler(parameters),
+                TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
+                TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
+                TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
+                TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
 
                 _ => throw new NotImplementedException(triggerEventKind.ToString())
             };
         }
 
         public TResult OneOfEvent<TParameters, TResult>(
-            ITriggerEvent<TId> triggerEvent,
+            ITriggerEvent triggerEvent,
             TParameters parameters,
-            Func<ICounterTriggerEvent<TId>, TParameters, TResult> counterTriggerEventHandler,
-            Func<ITimerTriggerEvent<TId>, TParameters, TResult> timerTriggerEventHandler,
-            Func<ISignalSimpleStreamTriggerEvent<TId>, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
-            Func<IProcessGoWaitStreamTriggerEvent<TId>, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
-            Func<IProcessedOffsetTriggerEvent<TId>, TParameters, TResult> processedOffsetTriggerEventHandler, 
-            Func<ISignalOffsetTriggerEvent<TId>, TParameters, TResult> signalOffsetTriggerEventHandler)
+            Func<ICounterTriggerEvent, TParameters, TResult> counterTriggerEventHandler,
+            Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
+            Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler, 
+            Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler)
         {
             return triggerEvent.Kind switch 
             {
-                ITriggerEvent.KindEnum.CounterEvent => counterTriggerEventHandler((ICounterTriggerEvent<TId>)triggerEvent, parameters),
-                ITriggerEvent.KindEnum.TimerEvent => timerTriggerEventHandler((ITimerTriggerEvent<TId>)triggerEvent, parameters),
-                ITriggerEvent.KindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent<TId>)triggerEvent, parameters),
-                ITriggerEvent.KindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent<TId>)triggerEvent, parameters),
-                ITriggerEvent.KindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent<TId>)triggerEvent, parameters),
-                ITriggerEvent.KindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent<TId>)triggerEvent, parameters),
+                TriggerEventKindEnum.CounterEvent => counterTriggerEventHandler((ICounterTriggerEvent)triggerEvent, parameters),
+                TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler((ITimerTriggerEvent)triggerEvent, parameters),
+                TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent)triggerEvent, parameters),
+                TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent)triggerEvent, parameters),
+                TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters),
+                TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters),
 
                 _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
             };

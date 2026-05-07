@@ -8,21 +8,19 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class ProcessGoWaitStreamTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        IProcessGoWaitStreamTriggerEvent<TId>
+    public class ProcessGoWaitStreamTriggerEvent :
+        TriggerEvent,
+        IProcessGoWaitStreamTriggerEvent
     {
         [Obsolete("Сериализатор.")]
         public ProcessGoWaitStreamTriggerEvent()
         { }
 
         public ProcessGoWaitStreamTriggerEvent(
-            TId processId,
             string triggerKey)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.ProcessGoWaitStreamEvent)
+                  TriggerEventKindEnum.ProcessGoWaitStreamEvent)
         {
         }
     }

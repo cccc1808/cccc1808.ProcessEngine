@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface ICounterTriggerEvent<TId> 
-        : ITriggerEvent<TId>
+    public interface ICounterTriggerEvent 
+        : ITriggerEvent
     {
         bool Reset { get; }
 

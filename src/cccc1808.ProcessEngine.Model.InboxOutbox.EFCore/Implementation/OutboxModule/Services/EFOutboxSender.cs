@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
@@ -19,6 +20,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 {
     public class EFOutboxSender<TId> : IOutboxSender<TId>
     {
+        private readonly OutboxRegistryDto _registryDto;
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
         private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
@@ -26,12 +28,14 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         private readonly IClassifierRepository<TId> _classifierRepository;
 
         public EFOutboxSender(
+            OutboxRegistryDto registryDto,
             IIdGenerator<TId> idGenerator,
             IEFDbContext dbContext,
             ITriggerEventRaiser<TId> triggerEventRaiser,
             IHeaderJsonSerializer headerJsonSerializer,
             IClassifierRepository<TId> classifierRepository)
         {
+            _registryDto = registryDto;
             _idGenerator = idGenerator;
             _dbContext = dbContext;
             _triggerEventRaiser = triggerEventRaiser;
@@ -82,9 +86,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                     {
                         var metadata = outboxes[e.Key];
 
-                        return new SignalSimpleStreamTriggerEvent<TId>(
+                        return new ITriggerEventRaiser<TId>.RaiseContainer(
+                            _registryDto.TriggerEventQueue,
                             metadata.ProcessId,
-                            metadata.TriggerKey);
+                            new SignalSimpleStreamTriggerEvent(                            
+                                metadata.TriggerKey)
+                            );
                     }
                     )
                     .ToArray(),

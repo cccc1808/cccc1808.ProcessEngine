@@ -11,6 +11,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
     /// </summary>
     public interface IStreamTriggerComponent
     {
+        string TriggerEventQueue { get; }
+
         /// <summary>
         /// Триггеры для оповещения о том, что процесс перешел в ожидание.
         /// </summary>

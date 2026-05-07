@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface IProcessedOffsetTriggerEvent<TId> : ITriggerEvent<TId>
+    public interface IProcessedOffsetTriggerEvent : ITriggerEvent
     {
         long ProcessedOffset { get; }
     }

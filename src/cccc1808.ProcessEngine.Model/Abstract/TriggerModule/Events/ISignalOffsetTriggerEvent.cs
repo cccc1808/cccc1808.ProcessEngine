@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface ISignalOffsetTriggerEvent<TId>
-        : ITriggerEvent<TId>
+    public interface ISignalOffsetTriggerEvent
+        : ITriggerEvent
     {
         long UpdateOffset { get; }
     }

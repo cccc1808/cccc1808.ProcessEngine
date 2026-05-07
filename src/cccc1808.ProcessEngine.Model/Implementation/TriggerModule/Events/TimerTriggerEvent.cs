@@ -8,9 +8,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class TimerTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        ITimerTriggerEvent<TId>
+    public class TimerTriggerEvent :
+        TriggerEvent,
+        ITimerTriggerEvent
     {
         public DateTimeOffset Timer { get; set; }
 
@@ -20,13 +20,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         { }
 
         public TimerTriggerEvent(
-            TId processId,
             string triggerKey,
             DateTimeOffset timer)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.TimerEvent)
+                  TriggerEventKindEnum.TimerEvent)
         {
             Timer = timer;
         }

@@ -11,10 +11,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
     public class StreamTriggerComponent
         : IStreamTriggerComponent
     {
-        public string[] TriggersKeys { get; }
+        public string TriggerEventQueue { get; }
 
-        public StreamTriggerComponent(string[] triggerKeys)
+        public string[] TriggersKeys { get; }        
+
+        public StreamTriggerComponent(
+            string triggerEventQueue,
+            string[] triggerKeys)
         {
+            TriggerEventQueue = triggerEventQueue;
             TriggersKeys = triggerKeys;
         }
     }

@@ -105,11 +105,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         .Select(e => e.ProcessId)
                         .Distinct()
                         .Select(e => processData[e])
-                        .Select(e => new SignalOffsetTriggerEvent<TId>(
+                        .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                            _inboxRegistry.TriggerEventQueue,
                             e.ProcessId,
-                            e.TriggerKey,
-                            updateOffset: result.Max(e => e.OrderId)
-                            ))
+                            new SignalOffsetTriggerEvent(
+                                e.TriggerKey,
+                                updateOffset: result.Max(e => e.OrderId)
+                                )
+                            )
+                        )
                         .ToArray();
                     
                     await _triggerRaiser.RaiseAsync(

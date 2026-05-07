@@ -13,7 +13,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
 using Microsoft.EntityFrameworkCore;
@@ -137,14 +139,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                     case 4:
                         {
                             var setter = _serviceProvider.GetRequiredService<IProcessSetter>();
+                            var triggerOptions = _serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                             var triggerEventRaiser = _serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                             var component = process.GetComponent<ChildProcessDbEntity>();
 
                             // Оповещаем родительский процесс о завершении дочернего процесса.
                             await triggerEventRaiser.RaiseAsync(
-                                [new CounterTriggerEvent<Guid>(component.ParentProcessId, component.ParentTriggerKey, value: -1)],
-                                cancellationToken);
+                                [new ITriggerEventRaiser<Guid>.RaiseContainer(
+                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                component.ParentProcessId,
+                                new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
+                                )],
+                                default);
 
                             setter.SetStatus(
                                 process,

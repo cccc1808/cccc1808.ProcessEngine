@@ -8,19 +8,16 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class TriggerEvent<TId> : ITriggerEvent<TId>
+    public class TriggerEvent : ITriggerEvent
     {
-        public TId ProcessId { get; set; }
-
         public string TriggerKey { get; set; }
 
-        public ITriggerEvent.KindEnum Kind { get; set; }        
+        public TriggerEventKindEnum Kind { get; set; }        
 
         [Obsolete("Сериализатор.")]
         public TriggerEvent()
+            : this(null!, default)
         {
-            ProcessId = default!;
-            TriggerKey = null!;
         }
 
         //public TriggerEvent(
@@ -35,11 +32,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         //{}
 
         protected TriggerEvent(
-            TId processId,
             string triggerKey,
-            ITriggerEvent.KindEnum kind)
+            TriggerEventKindEnum kind)
         {
-            ProcessId = processId;
             TriggerKey = triggerKey;
             Kind = kind;
         }

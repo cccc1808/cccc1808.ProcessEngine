@@ -8,9 +8,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class ProcessedOffsetTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        IProcessedOffsetTriggerEvent<TId>
+    public class ProcessedOffsetTriggerEvent :
+        TriggerEvent,
+        IProcessedOffsetTriggerEvent
     {
         public long ProcessedOffset { get; set; }
 
@@ -19,13 +19,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         { }
 
         public ProcessedOffsetTriggerEvent(
-            TId processId,
             string triggerKey,
             long processedOffset)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.ProcessedOffsetEvent)
+                  TriggerEventKindEnum.ProcessedOffsetEvent)
         {
             ProcessedOffset = processedOffset;
         }

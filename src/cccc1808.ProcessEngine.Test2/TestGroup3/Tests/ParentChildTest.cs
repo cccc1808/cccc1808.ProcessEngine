@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -151,12 +152,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions<Guid>>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueueName, default)).ShouldBeTrue();
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(

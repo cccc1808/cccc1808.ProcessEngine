@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
@@ -16,12 +15,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
         private readonly TriggerOptions<TId> _triggerOptions;
-        private readonly IEventJsonSerializer<TId> _eventJsonSerializer;
+        private readonly IEventJsonSerializer _eventJsonSerializer;
 
         public TriggerEventRaiser(
             IQueueProviderFactory queueProviderFactory, 
             TriggerOptions<TId> triggerOptions, 
-            IEventJsonSerializer<TId> eventJsonSerializer)
+            IEventJsonSerializer eventJsonSerializer)
         {
             _queueProviderFactory = queueProviderFactory;
             _triggerOptions = triggerOptions;
@@ -29,22 +28,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
         }
 
         public async ValueTask RaiseAsync(
-            ICollection<ITriggerEvent<TId>> events, 
+            ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events, 
             CancellationToken cancellationToken)
         {
-            var producer = await _queueProviderFactory.GetProducerAsync(_triggerOptions.TriggerEventQueueName, cancellationToken);
+            foreach (var elem in events.GroupBy(e => e.EventQueue))
+            {
+                var producer = await _queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
 
-            await producer.ProduceBatchAsync(
-                events
-                    .Select(e => new MessageDto(
-                        Key: Guid.NewGuid().ToString(),
-                        Queue: _triggerOptions.TriggerEventQueueName,
-                        Headers: [],
-                        Body: _eventJsonSerializer.Serialize(e),
-                        Partition: _triggerOptions.PartitionSelector(e) ?? - 1
-                        ))
-                    .ToArray(),
-                cancellationToken);
+                await producer.ProduceBatchAsync(
+                    elem
+                        .Select(e => new MessageDto(
+                            Key: Guid.NewGuid().ToString(),
+                            Queue: e.EventQueue,
+                            Headers: [],
+                            Body: _eventJsonSerializer.Serialize(e.Event),
+                            Partition: _triggerOptions.PartitionSelector(e) ?? -1
+                            ))
+                        .ToArray(),
+                    cancellationToken);
+            }
         }
     }
 }

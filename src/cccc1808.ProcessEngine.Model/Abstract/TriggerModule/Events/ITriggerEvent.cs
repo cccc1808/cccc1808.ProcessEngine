@@ -6,30 +6,13 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface ITriggerEvent<TId>
+    public interface ITriggerEvent
     {
-        TId ProcessId { get; }
-
         /// <summary>
         /// Ключ триггера.
         /// </summary>
         string TriggerKey { get; }     
 
-        ITriggerEvent.KindEnum Kind { get; }        
-    }
-
-    public interface ITriggerEvent 
-    {
-        public enum KindEnum
-        {
-            ProcessGoWaitStreamEvent,
-            SimpleStreamEvent,
-            
-            CounterEvent,
-            TimerEvent,
-
-            ProcessedOffsetEvent,
-            SignalOffsetEvent,
-        }
-    }
+        TriggerEventKindEnum Kind { get; }        
+    }    
 }

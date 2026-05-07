@@ -258,7 +258,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
                 .AddSingleton(triggerOptions)
-                .AddScoped<IEventJsonSerializer<Guid>, EventJsonSerializer<Guid>>()
+                .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;
 
             return services;

@@ -8,21 +8,19 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class SignalSimpleStreamTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        ISignalSimpleStreamTriggerEvent<TId>
+    public class SignalSimpleStreamTriggerEvent :
+        TriggerEvent,
+        ISignalSimpleStreamTriggerEvent
     {
         [Obsolete("Сериализатор.")]
         public SignalSimpleStreamTriggerEvent()
         { }
 
         public SignalSimpleStreamTriggerEvent(
-            TId processId,
             string triggerKey)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.SimpleStreamEvent)
+                  TriggerEventKindEnum.SimpleStreamEvent)
         {
         }
     }

@@ -8,6 +8,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 {
     public interface IOffsetTriggerComponent
     {
+        string TriggerEventQueue { get; }
+
         IDictionary<string, long> ProcessedOffsets { get; }
 
         long UpdateMaxTimestamp(

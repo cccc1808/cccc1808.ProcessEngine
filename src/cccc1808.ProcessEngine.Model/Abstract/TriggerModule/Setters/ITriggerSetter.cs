@@ -36,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             Func<ITriggerComponent.IOffsetStreamDto, ValueTask> offsetStreamHanler);
 
         TResult OneOfEventKind<TParameters, TResult>(
-            ITriggerEvent.KindEnum triggerEventKind,
+            TriggerEventKindEnum triggerEventKind,
             TParameters parameters,
             Func<TParameters, TResult> counterTriggerEventHandler,
             Func<TParameters, TResult> timerTriggerEventHandler,
@@ -46,14 +46,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             Func<TParameters, TResult> signalOffsetTriggerEventHandler);
 
         TResult OneOfEvent<TParameters, TResult>(
-            ITriggerEvent<TId> triggerEvent, 
+            ITriggerEvent triggerEvent, 
             TParameters parameters,
-            Func<ICounterTriggerEvent<TId>, TParameters, TResult> counterTriggerEventHandler,
-            Func<ITimerTriggerEvent<TId>, TParameters, TResult> timerTriggerEventHandler,
-            Func<ISignalSimpleStreamTriggerEvent<TId>, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
-            Func<IProcessGoWaitStreamTriggerEvent<TId>, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
-            Func<IProcessedOffsetTriggerEvent<TId>, TParameters, TResult> processedOffsetTriggerEventHandler,
-            Func<ISignalOffsetTriggerEvent<TId>, TParameters, TResult> signalOffsetTriggerEventHandler);
+            Func<ICounterTriggerEvent, TParameters, TResult> counterTriggerEventHandler,
+            Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
+            Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
+            Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+            Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
+            Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler);
 
         void SetActivated(ITriggerComponent<TId> trigger, bool value);
 

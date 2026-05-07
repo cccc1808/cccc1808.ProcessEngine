@@ -285,9 +285,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                     .SelectMany(
                         e => e.OffsetTriggerComponent
                             .ProcessedOffsets
-                            .Select(e2 => (ProcessId: e.Process.Id, TriggerKey: e2.Key, ProcessedOffset: e2.Value))
+                            .Select(e2 => (
+                                ProcessId: e.Process.Id, 
+                                e.OffsetTriggerComponent.TriggerEventQueue, 
+                                TriggerKey: e2.Key, 
+                                ProcessedOffset: e2.Value))
                             )
-                    .Select(e => new ProcessedOffsetTriggerEvent<TId>(e.ProcessId, e.TriggerKey, e.ProcessedOffset))
+                    .Select(e => 
+                        new ITriggerEventRaiser<TId>.RaiseContainer(                            
+                            e.TriggerEventQueue,
+                            e.ProcessId,
+                            new ProcessedOffsetTriggerEvent(e.TriggerKey, e.ProcessedOffset)
+                            )
+                        )
                     .ToArray();
 
                 await This._triggerEventRaiser.RaiseAsync(events, cancellationToken);
@@ -304,9 +314,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                     .SelectMany(
                         e => e.StreamTriggerComponent
                             .TriggersKeys
-                            .Select(e2 => (ProcessId: e.Process.Id, TriggerKey: e2))
+                            .Select(e2 => (
+                                ProcessId: e.Process.Id, 
+                                e.StreamTriggerComponent.TriggerEventQueue,
+                                TriggerKey: e2)
+                                )
                             )
-                    .Select(e => new ProcessGoWaitStreamTriggerEvent<TId>(e.ProcessId, e.TriggerKey))
+                    .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                        e.TriggerEventQueue,
+                        e.ProcessId,
+                        new ProcessGoWaitStreamTriggerEvent(e.TriggerKey))
+                        )
                     .ToArray();
 
                 await This._triggerEventRaiser.RaiseAsync(events, cancellationToken);

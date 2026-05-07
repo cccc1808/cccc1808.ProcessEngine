@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
-    public interface ITimerTriggerEvent<TId> 
-        : ITriggerEvent<TId>
+    public interface ITimerTriggerEvent 
+        : ITriggerEvent
     {
         DateTimeOffset Timer { get; }
     }

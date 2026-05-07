@@ -8,9 +8,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class CounterTriggerEvent<TId> :
-        TriggerEvent<TId>,
-        ICounterTriggerEvent<TId>
+    public class CounterTriggerEvent :
+        TriggerEvent,
+        ICounterTriggerEvent
     {
         public bool Reset { get; set; }
 
@@ -21,14 +21,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         { }
 
         public CounterTriggerEvent(
-            TId processId,
             string triggerKey,            
             int value,
             bool reset = false)
             : base(
-                  processId,
                   triggerKey,
-                  ITriggerEvent.KindEnum.CounterEvent)
+                  TriggerEventKindEnum.CounterEvent)
         {
             Reset = reset;
             Value = value;

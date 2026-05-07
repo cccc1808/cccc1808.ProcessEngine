@@ -9,10 +9,10 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
 {
-    public interface IEventJsonSerializer<TId>
+    public interface IEventJsonSerializer
     {
-        JsonElement Serialize(ITriggerEvent<TId> triggerEvent);
+        JsonElement Serialize(ITriggerEvent triggerEvent);
 
-        ITriggerEvent<TId> Deserialize(JsonElement jsonElement);
+        ITriggerEvent Deserialize(JsonElement jsonElement);
     }
 }
