@@ -322,7 +322,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                                 if (activeWithoutMessages.Any())
                                 {
-                                    triggerEvents.Capacity = activeWithoutMessages.Length;
+                                    triggerEvents.Capacity = activeWithoutMessages.Length * 2;
 
                                     var pd = await dbContext.Set<InboxProcessDataDbEntity<TId>>()
                                         .Where(e => activeWithoutMessages.Select(e => e.Process.Id)
@@ -341,10 +341,18 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);
 
+                                            var elemProcessData = pd[elem.Process.Id];
+                                            // По хорощему не нужно, но на случай, если событие было утеряно.
+                                            triggerEvents.Add(
+                                                new ProcessedOffsetTriggerEvent<TId>(
+                                                    elem.Process.Id,
+                                                    elemProcessData.WakeupTriggerKey,
+                                                    processedOffset: elemProcessData.ProcessedOffset
+                                                    ));
                                             triggerEvents.Add(
                                                 new ProcessGoWaitStreamTriggerEvent<TId>(
                                                     elem.Process.Id,
-                                                    pd[elem.Process.Id].WakeupTriggerKey
+                                                    elemProcessData.WakeupTriggerKey
                                                     ));                                            
                                         }
                                     }

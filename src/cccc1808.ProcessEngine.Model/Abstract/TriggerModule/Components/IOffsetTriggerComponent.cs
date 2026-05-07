@@ -10,7 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
     {
         IDictionary<string, long> ProcessedOffsets { get; }
 
-        void UpdateMaxTimestamp(
+        long UpdateMaxTimestamp(
             string triggerKey,
             long timestamp);
     }

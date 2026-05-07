@@ -19,8 +19,6 @@ using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
 using Microsoft.EntityFrameworkCore;
 
-using static LinqToDB.Reflection.Methods.LinqToDB.Insert;
-
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Queries
 {
     public class EFWakeupServiceQueries<TId>

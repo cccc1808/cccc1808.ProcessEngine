@@ -17,15 +17,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
         public OffsetStreamTriggerComponent()
         {}
 
-        public void UpdateMaxTimestamp(string triggerKey, long offset)
+        public long UpdateMaxTimestamp(string triggerKey, long offset)
         {
             if (ProcessedOffsets.TryGetValue(triggerKey, out var exsist))
             {
-                ProcessedOffsets[triggerKey] = Math.Max(offset, exsist);
+                var value = Math.Max(offset, exsist);
+                ProcessedOffsets[triggerKey] = value;
+                return value;
             }
             else 
             {
                 ProcessedOffsets.Add(triggerKey, offset);
+                return offset;
             }
         }
     }

@@ -221,6 +221,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                             processId: await idGenerator.NextAsync(t),
                                             aggregateId: foundedAggreaget[elem.Aggreagate],
                                             queueId: foundedQueue[elem.Queue],
+                                            processedOffset: -1,
                                             wakeupTriggerKey: Guid.NewGuid().ToString()
                                             ));
                                 }
