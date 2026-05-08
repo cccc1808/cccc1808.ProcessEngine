@@ -38,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entitie
 
         public short? RetryCount { get; set; }
 
-        public ProcessErrorDbEntity<TId> Error { get; set; } = default!;
+        public ProcessErrorDbEntity<TId>? Error { get; set; } = default!;
 
         #endregion
 

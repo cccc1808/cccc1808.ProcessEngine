@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Mode
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.InboxOutbox.EFCore", "cccc1808.ProcessEngine.Model.InboxOutbox.EFCore\cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.csproj", "{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Test3", "cccc1808.ProcessEngine.Test3\cccc1808.ProcessEngine.Test3.csproj", "{F03C7564-B643-4CC3-9DD9-55109E2D1751}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +79,10 @@ Global
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F03C7564-B643-4CC3-9DD9-55109E2D1751}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F03C7564-B643-4CC3-9DD9-55109E2D1751}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F03C7564-B643-4CC3-9DD9-55109E2D1751}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F03C7564-B643-4CC3-9DD9-55109E2D1751}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -95,6 +101,7 @@ Global
 		{C3CD5762-2E94-D36A-E586-564DDB4F44A4} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 		{2F745BEC-3FDD-83E8-DBC0-A5A6B183246A} = {34C0F5A9-73A5-4E36-A02D-F78A70155E38}
 		{C4CC4CD0-120A-F6AA-F498-7A4B32FC59A7} = {34C0F5A9-73A5-4E36-A02D-F78A70155E38}
+		{F03C7564-B643-4CC3-9DD9-55109E2D1751} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4E97EAC5-32FC-450A-92A8-B80C6A5EF637}

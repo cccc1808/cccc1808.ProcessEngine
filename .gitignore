@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# rider
+/src/.idea/.idea.cccc1808.ProcessEngine/.idea
+*.lscache
