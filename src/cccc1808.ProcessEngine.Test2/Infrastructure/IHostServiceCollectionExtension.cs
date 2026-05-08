@@ -231,6 +231,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
+                .AddSingleton(
+                    new TriggerSetter<Guid>.SimpleStreamSetterImplementation.OptionsDto() 
+                    {
+                        NoCounterOptimization = true,
+                    }
+                    )
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();

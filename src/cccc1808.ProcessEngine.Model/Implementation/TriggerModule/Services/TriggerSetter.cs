@@ -8,12 +8,18 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
     public class TriggerSetter<TId> : ITriggerSetter<TId>
     {
+        public ITriggerSetter<TId>.ISimpleStreamSetter SimpleStreamSetter { get; }
+
+        public TriggerSetter(SimpleStreamSetterImplementation.OptionsDto options) 
+        {
+            SimpleStreamSetter = new SimpleStreamSetterImplementation(options);
+        }
+
         public void SetActivated(ITriggerComponent<TId> trigger, bool value)
         {
             trigger.IsActivated = value;
@@ -186,6 +192,56 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
             };
+        }
+
+        public class SimpleStreamSetterImplementation 
+            : ITriggerSetter<TId>.ISimpleStreamSetter
+        {
+            private readonly OptionsDto _options;
+
+            public SimpleStreamSetterImplementation(
+                OptionsDto options)
+            {
+                _options = options;
+            }
+
+            public void SignalEventReceived(ITriggerComponent.ISimpleStreamDto state)
+            {
+                if (!_options.NoCounterOptimization)
+                {
+                    state.NewSignalCounter++;
+                }
+                else 
+                {
+                    state.NewSignalCounter = 1;
+                }
+            }
+
+            public void ProcessGoWaitEventReceived(ITriggerComponent.ISimpleStreamDto state)
+            {
+                state.StreamsProcessIsWaiting = true;
+            }
+            
+            public bool NeedActivate(ITriggerComponent.ISimpleStreamDto state)
+            {
+                return state.StreamsProcessIsWaiting && state.NewSignalCounter != 0;
+            }
+
+            public void Activated(ITriggerComponent.ISimpleStreamDto state)
+            {
+                state.StreamsProcessIsWaiting = false;
+                state.NewSignalCounter = 0;
+            }
+
+            public class OptionsDto() 
+            {
+                /// <summary>
+                /// Оптимизация: счетчик не будет считать количетсов сигналов, а только флаг наличия нового сигнала.
+                /// Это позволит делать меньше обновлений БД (если процесс выполняется, то триггер обновиться только на первом сигнале).
+                /// TODO: добавить в ITriggerComponent флаг NeedUpdate (чтобы оптимизация работала не только для EF ChangeTracker).
+                /// </summary>
+                public bool NoCounterOptimization { get; set; }
+            }
         }
     }
 }

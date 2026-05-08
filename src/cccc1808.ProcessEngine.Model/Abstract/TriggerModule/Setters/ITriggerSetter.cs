@@ -11,6 +11,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
     public interface ITriggerSetter<TId>
     {
+        public ISimpleStreamSetter SimpleStreamSetter { get; }
+
         void OneOfTriggerKind<TParamter>(
             ITriggerComponent.TriggerKind kind,
             TParamter paramter,
@@ -59,6 +61,34 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
         void SetCompleted(ITriggerComponent<TId> trigger, bool value);
 
-        void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);
+        void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);        
+
+        public interface ISimpleStreamSetter
+        {
+            /// <summary>
+            /// Поступило событие сигнал.
+            /// </summary>
+            /// <param name="state"></param>
+            void SignalEventReceived(ITriggerComponent.ISimpleStreamDto state);
+
+            /// <summary>
+            /// Поступило событие о том, что процесс прешел в состояние ожидания>
+            /// </summary>
+            /// <param name="state"></param>
+            void ProcessGoWaitEventReceived(ITriggerComponent.ISimpleStreamDto state);
+
+            /// <summary>
+            /// Проверка улосвия небходимости активации триггера.
+            /// </summary>
+            /// <param name="state"></param>
+            /// <returns></returns>
+            bool NeedActivate(ITriggerComponent.ISimpleStreamDto state);
+
+            /// <summary>
+            /// Триггер был активирован.
+            /// </summary>
+            /// <param name="state"></param>
+            void Activated(ITriggerComponent.ISimpleStreamDto state);
+        }
     }
 }

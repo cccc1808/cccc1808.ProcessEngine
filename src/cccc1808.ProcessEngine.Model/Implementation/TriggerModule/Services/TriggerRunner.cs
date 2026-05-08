@@ -290,12 +290,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         },
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.state.NewSignalCounter++;
+                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.state);
                                             return 1;
                                         },
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.state.StreamsProcessIsWaiting = true;
+                                            p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.state);
                                             return 1;
                                         },                                        
                                         processedOffsetTriggerEventHandler: static  (_, _) => 1,
@@ -303,12 +303,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         );
                                 }
 
-                                if (state.NewSignalCounter != 0 && state.StreamsProcessIsWaiting)
+                                if (p.triggerSetter.SimpleStreamSetter.NeedActivate(state))
                                 {
                                     // Процесс на пробуждение, счетчик сбрасывается.
                                     p.triggerSetter.SetActivated(p.trigger, true);
-                                    state.StreamsProcessIsWaiting = false;
-                                    state.NewSignalCounter = 0;
+                                    p.triggerSetter.SimpleStreamSetter.Activated(state);
                                 }
                             },
                             offsetStreamHanler: (state, p) =>
