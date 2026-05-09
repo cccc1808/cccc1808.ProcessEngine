@@ -23,6 +23,7 @@
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Linq2Db\cccc1808.ProcessEngine.Model.Linq2Db.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Test.Common\cccc1808.ProcessEngine.Test.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

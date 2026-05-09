@@ -216,31 +216,28 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    continue;
                         //}
 
-                        triggerSetter.OneOfTrigger(
+                        triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
                             (triggerSetter, trigger, messages: elem.Value),
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.triggerSetter, p.trigger, state),                                        
                                         counterTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            if (typedEvent.Reset)
-                                            {
-                                                p.state.Counter = typedEvent.Value;
-                                            }
-                                            else
-                                            {
-                                                p.state.Counter += typedEvent.Value;
-                                            }
+                                            p.triggerSetter.CounterSetter.CounterEvent(
+                                                p.trigger, 
+                                                p.state, 
+                                                typedEvent.Reset, 
+                                                typedEvent.Value);                                            
                                             return 1;
                                         },
                                         timerTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
                                             return 1;
                                         },
                                         signalSimpleStreamTriggerEventHandler: (typedEvent, p) => 1,
@@ -250,22 +247,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         );
                                 }
 
-                                if (state.Counter <= 0)
+                                if (p.triggerSetter.CounterSetter.NeedActivate(p.trigger, state))
                                 {
-                                    p.triggerSetter.SetActivated(p.trigger, true);
+                                    p.triggerSetter.CounterSetter.Activate(p.trigger, state);
                                 }
                             },
                             timerHandler: static (p) => 
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.triggerSetter, p.trigger),
                                         counterTriggerEventHandler: static (typedEvent, p) => 1,
                                         timerTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
                                             return 1;
                                         },
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 1,
@@ -279,23 +276,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.triggerSetter, p.trigger, state),
                                         counterTriggerEventHandler: static (_, _) => 1,
                                         timerTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
                                             return 1;
                                         },
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.state.NewSignalCounter++;
+                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             return 1;
                                         },
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.state.StreamsProcessIsWaiting = true;
+                                            p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
                                             return 1;
                                         },                                        
                                         processedOffsetTriggerEventHandler: static  (_, _) => 1,
@@ -303,38 +300,35 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         );
                                 }
 
-                                if (state.NewSignalCounter != 0 && state.StreamsProcessIsWaiting)
-                                {
-                                    // Процесс на пробуждение, счетчик сбрасывается.
-                                    p.triggerSetter.SetActivated(p.trigger, true);
-                                    state.StreamsProcessIsWaiting = false;
-                                    state.NewSignalCounter = 0;
+                                if (p.triggerSetter.SimpleStreamSetter.NeedActivate(p.trigger, state))
+                                {                                    
+                                    p.triggerSetter.SimpleStreamSetter.Activate(p.trigger, state);
                                 }
                             },
                             offsetStreamHanler: (state, p) =>
                             {
                                 foreach (var elem2 in elem.Value)
                                 {
-                                    p.triggerSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
                                         (triggerSetter, trigger, state),
                                         counterTriggerEventHandler: static (_, _) => 1,
                                         timerTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.triggerSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
                                             return 1;
                                         },                                        
                                         signalSimpleStreamTriggerEventHandler: static (_, _) => 1,
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.state.StreamsProcessIsWaiting = true;
+                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
                                             return 1;
                                         },                                        
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            if (p.state.ProcessedOffset < typedEvent.ProcessedOffset)
+                                            if (p.state.ProcessedOffset <= typedEvent.ProcessedOffset)
                                             {
-                                                p.state.ProcessedOffset = typedEvent.ProcessedOffset;
+                                                p.triggerSetter.OffsetStreamSetter.UpdateProcessedOffset(p.trigger, p.state, typedEvent.ProcessedOffset);
                                             }
                                             else
                                             {
@@ -345,8 +339,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         },
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
                                         {
-                                            if (p.state.LastOffset < typedEvent.UpdateOffset)
+                                            if (p.state.LastOffset <= typedEvent.UpdateOffset)
                                             {
+                                                p.triggerSetter.OffsetStreamSetter.UpdateLastOffset(p.trigger, p.state, typedEvent.UpdateOffset);
                                                 p.state.LastOffset = typedEvent.UpdateOffset;
                                             }
                                             else
@@ -357,17 +352,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             return 1;
                                         }
                                         );
-                                }
-
-                                // Не все смещенеи обрботано.
-                                var haveNotProcessedSignals = state.ProcessedOffset < state.LastOffset;
+                                }                                
 
                                 // Если процесс уснул и не все смещенеи обрботано.
-                                if (state.StreamsProcessIsWaiting && haveNotProcessedSignals)
+                                if (p.triggerSetter.OffsetStreamSetter.NeedActivate(p.trigger, state))
                                 {
-                                    // Взводим триггер на пробуждение.
-                                    triggerSetter.SetActivated(trigger, true);
-                                    state.StreamsProcessIsWaiting = false;
+                                    p.triggerSetter.OffsetStreamSetter.Activate(trigger, state);                                    
                                 }
                             }
                             );
@@ -646,14 +636,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         {
             if (result.NeedRepeat)
             {
-                setter.SetTimer(trigger, result.ExecuteDelay);
-                setter.SetActivated(trigger, result.IsActivated);
-                setter.SetCompleted(trigger, false);
+                setter.StandartSetter.SetTimer(trigger, result.ExecuteDelay);
+                setter.StandartSetter.SetActivated(trigger, result.IsActivated);
+                setter.StandartSetter.SetCompleted(trigger, false);
             }
             else
             {
-                setter.SetActivated(trigger, false);
-                setter.SetCompleted(trigger, true);
+                setter.StandartSetter.SetActivated(trigger, false);
+                setter.StandartSetter.SetCompleted(trigger, true);
             }
             // TODO: setter
             trigger.SelectLockTimeout = DateTimeOffset.MinValue;

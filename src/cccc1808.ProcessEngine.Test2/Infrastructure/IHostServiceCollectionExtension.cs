@@ -76,6 +76,7 @@ using cccc1808.ProcessEngine.Model.IQueryable.Implementation.TriggersModule.Cond
 using cccc1808.ProcessEngine.Model.IQueryable.Implementation.WakeUpModule.Conditions;
 using cccc1808.ProcessEngine.Model.IQueryable.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Test.Common;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,6 +87,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
+        /// <summary>
+        /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
+        /// Выключить, если нужна првоерка на реальном брокере.
+        /// </summary>
+        private static bool UseInMemoryQueue => true;
+
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
             params Type[] dbProviders)
@@ -123,10 +130,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services, 
             KafkaQueueProviderFactory.OptionsDto options) 
         {
-            services
-                .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
-                .AddSingleton(options);
+            services.AddSingleton(options);
 
+            if (!UseInMemoryQueue)
+            {
+                services.AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>();
+            }
+            else 
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
+            
             return services;
         }
 
@@ -231,6 +245,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
+                .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
+                .AddSingleton(
+                    new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto() 
+                    {
+                        NoCounterOptimization = true,
+                    }
+                    )
+                .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();

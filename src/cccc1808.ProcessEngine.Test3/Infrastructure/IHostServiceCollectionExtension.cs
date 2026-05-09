@@ -61,6 +61,7 @@ using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Storage
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.Storage.Queries;
+using cccc1808.ProcessEngine.Test.Common;
 
 using LinqToDB.Data;
 
@@ -70,6 +71,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
+        /// <summary>
+        /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
+        /// Выключить, если нужна првоерка на реальном брокере.
+        /// </summary>
+        private static bool UseInMemoryQueue => true;
+
         public static void RegistryDbConfiguration<TEntity, TConfigurator, TInitMigration>(IServiceCollection services)
             where TConfigurator : class, ILinq2DbConfigurator<TEntity>
             where TInitMigration : class, ILinq2DbMigration
@@ -149,12 +156,19 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         }
 
         public static IServiceCollection AddKafkaServices(
-            this IServiceCollection services, 
-            KafkaQueueProviderFactory.OptionsDto options) 
+            this IServiceCollection services,
+            KafkaQueueProviderFactory.OptionsDto options)
         {
-            services
-                .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
-                .AddSingleton(options);
+            services.AddSingleton(options);
+
+            if (!UseInMemoryQueue)
+            {
+                services.AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>();
+            }
+            else
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
 
             return services;
         }

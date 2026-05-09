@@ -57,6 +57,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         object State { get; }
 
+        #region InMemory
+
+        bool NeedUpdate { get; set; }
+
+        bool NeedRemove { get; set; }
+
+        #endregion
+
         #endregion
     }
 

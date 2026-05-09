@@ -29,6 +29,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
         public object State { get; } 
             = null!;
 
+        public bool NeedUpdate { get; set; }
+
+        public bool NeedRemove { get; set; }
+
         public TriggerComponent(
             string key,
             ITriggerComponent.TriggerKind kind,

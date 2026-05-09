@@ -178,7 +178,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                             SelectLockTimeout = e.SelectLockTimeout,
                             TimerDate = e.TimerDate,
                         };
-                        _triggerSetter.OneOfTrigger(
+                        _triggerSetter.OneOfSetter.OneOfTrigger(
                             e,
                             result,
                             counterHandler: static (state, r) => 
@@ -214,7 +214,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
             TriggerDbEntity<TId> source)
         {
             var state = LinkContainer.Create<object>(null);
-            triggerSetter.OneOfTriggerKind(
+            triggerSetter.OneOfSetter.OneOfTriggerKind(
                     source.Kind,
                     (trigger: source, state),
                     counterHandler: static p => p.state.Data = new TriggerComponent<TId>.CounterDto(
