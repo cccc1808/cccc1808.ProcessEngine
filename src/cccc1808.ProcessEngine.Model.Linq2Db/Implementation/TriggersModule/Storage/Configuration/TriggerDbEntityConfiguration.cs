@@ -29,6 +29,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                 .Property(e => e.Id).HasSkipOnInsert(false)
                 .Property(e => e.Key).HasDataType(LinqToDB.DataType.NVarChar).HasLength(255).HasSkipOnUpdate()
                 .Property(e => e.HandlerKey).HasDataType(LinqToDB.DataType.NVarChar).HasLength(255).HasSkipOnUpdate()
+                .Property(e => e.Priority).HasSkipOnUpdate()
                 .Property(e => e.Kind).HasSkipOnUpdate()
                 .Property(e => e.ProcessId).HasSkipOnUpdate();
         }      

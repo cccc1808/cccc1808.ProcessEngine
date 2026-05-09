@@ -167,11 +167,14 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
         {
             var forUpdate = new List<TriggerDbEntity<TId>>(triggers.Count);
             var forRemove = new List<string>(triggers.Count);
+            var resetFlags = new List<ITriggerComponent<TId>>(triggers.Count);
+
             foreach (var elem in triggers)
             {
                 if (elem.NeedRemove)
                 {
                     forRemove.Add(elem.Key);
+                    resetFlags.Add(elem);
                 }
                 else if (elem.NeedUpdate)
                 {
@@ -193,7 +196,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                         });
 
                     var result = new TriggerDbEntity<TId>(
-                        default,
+                        default, // Не обновляется в запросе.
                         elem.Key,
                         elem.SelectLockTimeout,
                         elem.TimerDate,
@@ -207,8 +210,8 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                         state.Item2,
                         state.Item3);
                     forUpdate.Add(result);
+                    resetFlags.Add(elem);
                 }
-
             }
             
             if (forUpdate.Any())
@@ -225,6 +228,12 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                 await Set
                     .Where(e => forRemove.Contains(e.Key))
                     .DeleteAsync(cancellationToken);
+            }
+
+            foreach (var elem in resetFlags)
+            {
+                elem.NeedRemove = false;
+                elem.NeedUpdate = false;
             }
         }        
 
