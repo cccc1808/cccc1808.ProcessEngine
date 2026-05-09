@@ -271,6 +271,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, Linq2DbTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
+                .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()
+                .AddSingleton(
+                    new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto()
+                    {
+                        NoCounterOptimization = true,
+                    }
+                    )
+                .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
