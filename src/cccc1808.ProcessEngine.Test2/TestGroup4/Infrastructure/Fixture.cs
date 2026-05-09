@@ -262,7 +262,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         new InboxRunner<Guid>.OptionsDto() 
                         {
                             ConsumeBatchLimit = 100,
-                            ConsumeBatchTimeout = TimeSpan.FromSeconds(2),
+                            ConsumeBatchTimeout = TimeSpan.FromMilliseconds(100),
                             Queues = [InboxQueue],
                         },
                         new EFInboxConsumerService<Guid>.Options() 

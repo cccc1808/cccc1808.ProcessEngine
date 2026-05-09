@@ -76,6 +76,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,6 +87,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
+        /// <summary>
+        /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
+        /// Выключить, если нужна првоерка на реальном брокере.
+        /// </summary>
+        private static bool UseInMemoryQueue => true;
+
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
             params Type[] dbProviders)
@@ -123,10 +130,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services, 
             KafkaQueueProviderFactory.OptionsDto options) 
         {
-            services
-                .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
-                .AddSingleton(options);
+            services.AddSingleton(options);
 
+            if (!UseInMemoryQueue)
+            {
+                services.AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>();
+            }
+            else 
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
+            
             return services;
         }
 
