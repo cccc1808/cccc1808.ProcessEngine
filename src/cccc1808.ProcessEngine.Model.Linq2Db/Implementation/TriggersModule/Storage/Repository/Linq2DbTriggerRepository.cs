@@ -20,7 +20,6 @@ using cccc1808.ProcessEngine.Model.Linq2Db.Abstract.CommonModule.Storage;
 using LinqToDB;
 using LinqToDB.Async;
 using LinqToDB.Data;
-using LinqToDB.DataProvider.PostgreSQL;
 
 namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Storage.Repository
 {
@@ -166,47 +165,67 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
             ICollection<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
-            var updateData = triggers
-                .Select(
-                    e => 
-                    {
-                        var result = new TriggerDbEntity<TId>()
+            var forUpdate = new List<TriggerDbEntity<TId>>(triggers.Count);
+            var forRemove = new List<string>(triggers.Count);
+            foreach (var elem in triggers)
+            {
+                if (elem.NeedRemove)
+                {
+                    forRemove.Add(elem.Key);
+                }
+                else if (elem.NeedUpdate)
+                {
+                    var state = _triggerSetter.OneOfSetter.OneOfTrigger(
+                        elem,
+                        true,
+                        counterHandler: static (state, r) =>
                         {
-                            Key = e.Key,
-                            IsActivated = e.IsActivated,
-                            IsCompleted = e.IsCompleted,
-                            SelectLockTimeout = e.SelectLockTimeout,
-                            TimerDate = e.TimerDate,
-                        };
-                        _triggerSetter.OneOfSetter.OneOfTrigger(
-                            e,
-                            result,
-                            counterHandler: static (state, r) => 
-                            {
-                                r.SignalCounter1 = state.Counter;
-                            },
-                            timerHandler: static (_) => { },
-                            simpleStreamHandler: static (state, r) =>
-                            {
-                                r.StreamProcessIsWaiting = state.StreamsProcessIsWaiting;
-                                r.SignalCounter1 = state.NewSignalCounter;
-                            },
-                            offsetStreamHanler: static (state, r) => 
-                            {
-                                r.StreamProcessIsWaiting = state.StreamsProcessIsWaiting;
-                                r.SignalCounter1 = state.ProcessedOffset;
-                                r.SignalCounter2 = state.LastOffset;
-                            });
-                        return result;
-                    }
-                    )
-                .ToArray();
+                            return (StreamsProcessIsWaiting: (bool?)null, signalCounter1: state.Counter, signalCounter2: (long?)null);
+                        },
+                        timerHandler: static (_) => ((bool?)null, (long?)null, (long?)null),
+                        simpleStreamHandler: static (state, r) =>
+                        {
+                            return (state.StreamsProcessIsWaiting, state.NewSignalCounter, (long?)null);
+                        },
+                        offsetStreamHanler: static (state, r) =>
+                        {
+                             return (state.StreamsProcessIsWaiting, state.ProcessedOffset, state.LastOffset);
+                        });
 
-            await Set.Merge()
-                .Using(updateData)
-                .On((e1, e2) => e1.Key == e2.Key)
-                .UpdateWhenMatched()
-                .MergeAsync(cancellationToken);
+                    var result = new TriggerDbEntity<TId>(
+                        default,
+                        elem.Key,
+                        elem.SelectLockTimeout,
+                        elem.TimerDate,
+                        elem.HandlerKey,
+                        elem.Kind,
+                        default, // Не обновляется в запросе.
+                        elem.IsActivated,
+                        elem.IsCompleted,
+                        elem.ProcessId,
+                        state.Item1,
+                        state.Item2,
+                        state.Item3);
+                    forUpdate.Add(result);
+                }
+
+            }
+            
+            if (forUpdate.Any())
+            {
+                await Set.Merge()
+                    .Using(forUpdate)
+                    .On((e1, e2) => e1.Key == e2.Key)
+                    .UpdateWhenMatched()
+                    .MergeAsync(cancellationToken);
+
+            }
+            if (forRemove.Any())
+            {
+                await Set
+                    .Where(e => forRemove.Contains(e.Key))
+                    .DeleteAsync(cancellationToken);
+            }
         }        
 
         private static TriggerComponent<TId> Map(

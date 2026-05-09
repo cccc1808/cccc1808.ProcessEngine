@@ -14,6 +14,11 @@
   	<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Implementation\TriggersModule\Components\**" />
+    <EmbeddedResource Remove="Implementation\TriggersModule\Components\**" />
+    <None Remove="Implementation\TriggersModule\Components\**" />
+  </ItemGroup>
+  <ItemGroup>
     <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\CopyMe.PostgreSQL.tt.txt" />
     <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\DataAnnotations.ttinclude" />
     <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\DataModel.ttinclude" />
@@ -44,10 +49,6 @@
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Implementation\TriggersModule\Components\" />
   </ItemGroup>
 
 </Project>
