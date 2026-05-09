@@ -2,7 +2,9 @@
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services
@@ -12,13 +14,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IProcessSetter _processSetter;
+        private readonly OutboxRegistryDto _outboxRegistry;
 
         public OutboxSetter(
             IDateTimeProvider dateTimeProvider,
-            IProcessSetter processSetter)
+            IProcessSetter processSetter,
+            OutboxRegistryDto outboxRegistry)
         {
             _dateTimeProvider = dateTimeProvider;
             _processSetter = processSetter;
+            _outboxRegistry = outboxRegistry;
         }
 
         public void OutboxMessageProcessed<TId>(

@@ -25,6 +25,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.E
         public TId QueueId { get; set; } = default!;
         public QueueClassifierDbEntity<TId> Queue { get; set; } = default!;
 
+        public long ProcessedOffset { get; set; } = default!;
+
         public string WakeupTriggerKey { get; set; } = default!;
 
 
@@ -32,13 +34,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.E
             TId id, 
             TId processId, 
             TId aggregateId,
-            TId queueId, 
+            TId queueId,
+            long processedOffset,
             string wakeupTriggerKey)
         {
             Id = id;
             ProcessId = processId;
             AggregateId = aggregateId;
             QueueId = queueId;
+            ProcessedOffset = processedOffset;
             WakeupTriggerKey = wakeupTriggerKey;
         }
     }

@@ -130,7 +130,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         processCountLimiter: 1
                     )
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), typeof(ParentCheckWakeupHandler))
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
+                        []
                     )
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
@@ -143,12 +144,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            QueueConsumePackSize = FixtureCollection.RangeConst,
-                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(3),
+                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            {
+                                new TriggerRunner<Guid>.QueueOptionsDto()
+                                {
+                                    QueueName = "trigger_events",
+                                    QueueConsumePackSize = FixtureCollection.RangeConst,
+                                    QueueConsumeBatchTimeout = TimeSpan.FromSeconds(3),
+                                }
+                            }                            
                         },
-                        new TriggerOptions() 
+                        new TriggerOptions<Guid>() 
                         {
-                            TriggerEventQueueName = "trigger_events",
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
                     .AddProcessServices(

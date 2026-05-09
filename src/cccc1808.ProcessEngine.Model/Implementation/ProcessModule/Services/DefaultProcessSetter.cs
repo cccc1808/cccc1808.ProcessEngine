@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
 {
@@ -56,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
         {
             process.Process.Status = status;
 
-            if (process.UsingWakeup && !process.InAsyncExecuting)
+            if (process.WakeupState == WakeupStateEnum.CheckWakeupWithLock && !process.InAsyncExecuting)
             {
                 // Если не в асинхронном выполнении, то меняем также компонент.
                 var wakeupComponent = process.GetComponent<IWakeupComponent<TId>>();

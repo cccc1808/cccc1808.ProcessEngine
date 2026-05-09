@@ -12,15 +12,16 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
@@ -119,7 +120,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(1),
+                        e => e.SignalCounter1.ShouldBe(1),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -155,7 +156,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(1),
+                        e => e.SignalCounter1.ShouldBe(1),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -164,18 +165,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueueName, default)).ShouldBeTrue();
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(0),
+                        e => e.SignalCounter1.ShouldBe(0),
                         e => e.IsActivated.ShouldBeTrue(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
@@ -203,7 +204,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.Counter.ShouldBe(0),
+                        e => e.SignalCounter1.ShouldBe(0),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeTrue()));
             }
@@ -241,6 +242,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 case 3:
                     {
                         var idGenerator = serviceProvider.GetRequiredService<IIdGenerator<Guid>>();
+                        var triggerRepository = serviceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
 
@@ -253,18 +255,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         {
                             var childCount = 1;
                             var triggerKey = Guid.NewGuid().ToString();
-                            dbcontext.Set<TriggerDbEntity<Guid>>().Add(new TriggerDbEntity<Guid>(
-                                await idGenerator.NextAsync(default),
-                                triggerKey,
-                                DateTimeOffset.MinValue,
-                                DateTimeOffset.MinValue,
-                                ParentProcessTriggerHandler.Name,
-                                Model.Abstract.TriggerModule.Components.ITriggerComponent<Guid>.TriggerKind.Counter,
-                                1,
-                                false,
-                                false,
-                                process.Id,
-                                childCount));
+
+                            await triggerRepository.CreateTriggerAsync(
+                                ITriggerRepository<Guid>.CreateTriggerDto.CounterTrigger(
+                                    triggerKey,
+                                    DateTimeOffset.MinValue,
+                                    process.Id,
+                                    ParentProcessTriggerHandler.Name,
+                                    1,
+                                    false,
+                                    childCount), 
+                                CancellationToken.None);
 
                             for (int i = 0; i < childCount; i++)
                             {
@@ -305,13 +306,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 case 4:
                     {
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
-                        var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser>();
+                        var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
+                        var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                         var component = process.GetComponent<ChildProcessDbEntity>();
 
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
-                            [new TriggerEvent(component.ParentTriggerKey, ignoreDelay: false)],
+                            [new ITriggerEventRaiser<Guid>.RaiseContainer(
+                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                component.ParentProcessId,
+                                new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
+                                )],
                             default);
 
                         setter.SetStatus(

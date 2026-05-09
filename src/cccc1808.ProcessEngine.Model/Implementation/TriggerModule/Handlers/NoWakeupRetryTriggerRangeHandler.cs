@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 
             return triggers.ToDictionary(
                 e => e.Key, 
-                e => new ITriggerHandler.Result(false, false, DateTimeOffset.MinValue));
+                e => new ITriggerHandler.Result(NeedRepeat: false, IsActivated: false, DateTimeOffset.MinValue));
         }
     }
 }

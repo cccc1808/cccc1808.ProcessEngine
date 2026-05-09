@@ -17,8 +17,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -54,8 +54,8 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -76,6 +76,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,6 +87,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
+        /// <summary>
+        /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
+        /// Выключить, если нужна првоерка на реальном брокере.
+        /// </summary>
+        private static bool UseInMemoryQueue => true;
+
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
             params Type[] dbProviders)
@@ -123,10 +130,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services, 
             KafkaQueueProviderFactory.OptionsDto options) 
         {
-            services
-                .AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>()
-                .AddSingleton(options);
+            services.AddSingleton(options);
 
+            if (!UseInMemoryQueue)
+            {
+                services.AddSingleton<IQueueProviderFactory, KafkaQueueProviderFactory>();
+            }
+            else 
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
+            
             return services;
         }
 
@@ -146,7 +160,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddWakeupServices(
             this IServiceCollection services, 
-            params WakeupRegistryDto[] registrations)
+            WakeupRegistryDto[] wakeupRegistrations,
+            StreamRegistryDto[] streamRegistrations)
         {
             services
                 .AddScoped<IWakeupService<Guid>, WakeupService<Guid>>()
@@ -154,13 +169,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IWakeupServiceQueries<Guid>, EFWakeupServiceQueries<Guid>>()
                 .AddSingleton<IWakeupRegistry<Guid>, WakeupRegistry<Guid>>()
                 
-                .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>()
-                ;
+                .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>();
 
-            foreach (var elem in registrations)
+            foreach (var elem in wakeupRegistrations)
             {
                 services.AddSingleton(elem);
                 services.AddScoped(elem.CheckWakeupHandlerType);
+            }
+
+            foreach (var elem in streamRegistrations)
+            {
+                services.AddSingleton(elem);
             }
 
             return services;
@@ -226,6 +245,17 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
+                .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
+                .AddSingleton(
+                    new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto() 
+                    {
+                        NoCounterOptimization = true,
+                    }
+                    )
+                .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
@@ -242,7 +272,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
-            TriggerOptions triggerOptions)
+            TriggerOptions<Guid> triggerOptions)
         {
             services
                 .AddScoped<ITriggerRunner, TriggerRunner<Guid>>()
@@ -250,10 +280,10 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
 
-                .AddScoped<ITriggerEventRaiser, TriggerEventRaiser>()
-                .Decorate<ITriggerEventRaiser, TriggerEventRaiserAfterTransactionCompleteDecorator>()
+                .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
                 .AddSingleton(triggerOptions)
-                .AddScoped<IEventJsonSerializer, EventJsonSerializer>()
+                .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;
 
             return services;
@@ -270,7 +300,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         {
             services
 
-                .AddScoped<IOutboxSender<Guid>, OutboxSender<Guid>>()
+                .AddScoped<IOutboxSender<Guid>, EFOutboxSender<Guid>>()
 
                 .AddScoped<EFInboxDbProvider<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)

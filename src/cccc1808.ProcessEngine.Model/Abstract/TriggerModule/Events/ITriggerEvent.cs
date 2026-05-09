@@ -8,8 +8,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
 {
     public interface ITriggerEvent
     {
-        string TriggerKey { get; }
+        /// <summary>
+        /// Ключ триггера.
+        /// </summary>
+        string TriggerKey { get; }     
 
-        bool IgnoreDelay { get; }
-    }
+        TriggerEventKindEnum Kind { get; }        
+    }    
 }

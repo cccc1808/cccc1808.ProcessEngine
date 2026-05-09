@@ -12,21 +12,31 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
     {
         public string TriggerKey { get; set; }
 
-        public bool IgnoreDelay { get; set; }
+        public TriggerEventKindEnum Kind { get; set; }        
 
         [Obsolete("Сериализатор.")]
-        public TriggerEvent() 
+        public TriggerEvent()
+            : this(null!, default)
         {
-            TriggerKey = null!;
-            IgnoreDelay = false;
         }
 
-        public TriggerEvent(
+        //public TriggerEvent(
+        //    TId processId,
+        //    string triggerKey,
+        //    bool ignoreDelay) 
+        //    : this(
+        //          processId,
+        //          triggerKey,
+        //          ignoreDelay,
+        //          ITriggerEvent.KindEnum.SimpleEvent)
+        //{}
+
+        protected TriggerEvent(
             string triggerKey,
-            bool ignoreDelay)
+            TriggerEventKindEnum kind)
         {
             TriggerKey = triggerKey;
-            IgnoreDelay = ignoreDelay;
+            Kind = kind;
         }
     }
 }

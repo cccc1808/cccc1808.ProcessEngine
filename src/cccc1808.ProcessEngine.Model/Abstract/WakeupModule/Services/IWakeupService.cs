@@ -24,6 +24,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
         /// <param name="data">Id процесса.</param>
         Task WakeupProcessHandlerAsync(
             ICollection<TId> ids,
+            bool useShareLock,
             CancellationToken cancellationToken);
     }
 }

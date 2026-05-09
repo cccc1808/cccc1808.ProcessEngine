@@ -97,6 +97,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                             
                             await wakeUpService.WakeupProcessHandlerAsync(
                                 lockedProcessIds,
+                                useShareLock: false,
                                 cancellationToken);
 
                             await dbContext.SaveChangesAsync(cancellationToken);

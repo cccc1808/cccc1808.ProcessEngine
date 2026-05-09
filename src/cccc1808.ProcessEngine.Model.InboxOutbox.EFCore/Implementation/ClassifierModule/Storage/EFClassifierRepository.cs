@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -23,6 +22,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.CommonModule;
+using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -73,6 +73,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                     var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                    var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var registry = scope.ServiceProvider.GetRequiredService<InboxRegistryDto>();
                     var aggregateClassifierDbEntityCondition = scope.ServiceProvider.GetRequiredService<IAggregateClassifierDbEntityCondition<TId>>();
 
@@ -220,6 +221,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                             processId: await idGenerator.NextAsync(t),
                                             aggregateId: foundedAggreaget[elem.Aggreagate],
                                             queueId: foundedQueue[elem.Queue],
+                                            processedOffset: -1,
                                             wakeupTriggerKey: Guid.NewGuid().ToString()
                                             ));
                                 }
@@ -233,6 +235,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                             .ToArray();
                         if (inserted.Any())
                         {
+                            var createTriggers = new List<ITriggerRepository<TId>.CreateTriggerDto>(inserted.Length);
                             foreach (var elem in inserted)
                             {
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
@@ -246,26 +249,28 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
 
-                                dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
-                                    new ProcessWakeupDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        processId: elem.Value.Entity.ProcessId,
-                                        isAsyncExecuting: false));
+                                //dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
+                                //    new ProcessWakeupDbEntity<TId>(
+                                //        id: await idGenerator.NextAsync(cancellationToken),
+                                //        processId: elem.Value.Entity.ProcessId,
+                                //        isAsyncExecuting: false));
 
-                                dbContext.Set<TriggerDbEntity<TId>>().Add(
-                                    new TriggerDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
-                                        timerDate: DateTimeOffset.MinValue,
-                                        handlerKey: WakeupStreamTriggerRangeHandler<TId>.Name,
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                createTriggers.Add(
+                                    ITriggerRepository<TId>.CreateTriggerDto.OffsetStreamTrigger(
+                                        elem.Value.Entity.WakeupTriggerKey,
+                                        DateTimeOffset.MinValue,
+                                        elem.Value.Entity.ProcessId,
+                                        NoWakeupStreamTriggerRangeHandler<TId>.Name,
                                         priority: 0,
                                         isActivated: false,
-                                        isCompleted: false,
-                                        processId: elem.Value.Entity.ProcessId,
-                                        counter: 0));
+                                        streamProcessIsWaiting: true,
+                                        processedOffset: 0,
+                                        lastOffset: 0
+                                        )
+                                    );
                             }
+
+                            await triggerRepository.CreateTriggerRangeAsync(createTriggers, cancellationToken);
 
                             await dbContext.SaveChangesAsync(cancellationToken);
                             // TODO: [Метка 2] Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.
@@ -318,6 +323,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                     var dateTimeDbProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                     var idGenerator = scope.ServiceProvider.GetRequiredService<IIdGenerator<TId>>();
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                    var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var registry = scope.ServiceProvider.GetRequiredService<OutboxRegistryDto>();
                     var aggregateClassifierDbEntityCondition = scope.ServiceProvider.GetRequiredService<IAggregateClassifierDbEntityCondition<TId>>();
 
@@ -475,6 +481,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                             .ToArray();
                         if (inserted.Any())
                         {
+                            var createTriggers = new List<ITriggerRepository<TId>.CreateTriggerDto>(inserted.Length);
                             foreach (var elem in inserted)
                             {
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
@@ -488,26 +495,26 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
 
-                                dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
-                                    new ProcessWakeupDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        processId: elem.Value.Entity.ProcessId,
-                                        isAsyncExecuting: false));
+                                //dbContext.Set<ProcessWakeupDbEntity<TId>>().Add(
+                                //    new ProcessWakeupDbEntity<TId>(
+                                //        id: await idGenerator.NextAsync(cancellationToken),
+                                //        processId: elem.Value.Entity.ProcessId,
+                                //        isAsyncExecuting: false));
 
-                                dbContext.Set<TriggerDbEntity<TId>>().Add(
-                                    new TriggerDbEntity<TId>(
-                                        id: await idGenerator.NextAsync(cancellationToken),
-                                        key: elem.Value.Entity.WakeupTriggerKey,
-                                        selectLockTimeout: dateTimeDbProvider.UtcNow,
-                                        timerDate: DateTimeOffset.MinValue,
-                                        handlerKey: WakeupStreamTriggerRangeHandler<TId>.Name,
-                                        kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                createTriggers.Add(
+                                    ITriggerRepository<TId>.CreateTriggerDto.SimpleStreamTrigger(
+                                        elem.Value.Entity.WakeupTriggerKey,
+                                        DateTimeOffset.MinValue,
+                                        elem.Value.Entity.ProcessId,
+                                        EFOutboxTriggerWakeupHandler<TId>.Name,
                                         priority: 0,
                                         isActivated: false,
-                                        isCompleted: false,
-                                        processId: elem.Value.Entity.ProcessId,
-                                        counter: 0));
+                                        streamProcessIsWaiting: true,
+                                        newSignalCounter: 0)
+                                    );
                             }
+
+                            await triggerRepository.CreateTriggerRangeAsync(createTriggers, cancellationToken);
 
                             await dbContext.SaveChangesAsync(cancellationToken);
                             // TODO: Если клбюч генерируется на стороне БД, то обновить processId в InboxProcessDataDbEntity и ProcessWakeupDbEntity.
@@ -571,6 +578,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
 
                 _inboxOffset = new ConcurrentDictionary<(AggregateDto Aggreagate, string Queue), long>();
                 _outboxOffset = new ConcurrentDictionary<(AggregateDto Aggreagate, string Queue), long>();
+            }
+
+            public void Clear() 
+            {
+                _queueCache.Clear();
+                _aggregateCache.Clear();
+                _inboxInfo.Clear();
+                _outboxInfo.Clear();
+                _inboxOffset.Clear();
+                _outboxOffset.Clear();
             }
         }        
     }

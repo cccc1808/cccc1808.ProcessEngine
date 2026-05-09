@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components
@@ -12,29 +14,98 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
     public class EFTriggerProxyComponent<TId>
         : ITriggerComponent<TId>
     {
-        private readonly TriggerDbEntity<TId> _entity;
+        private readonly ITriggerSetter<TId> _triggerSetter;
+        public TriggerDbEntity<TId> Entity { get; }       
 
-        public EFTriggerProxyComponent(TriggerDbEntity<TId> entity)
+        public string Key => Entity.Key;
+
+        public TId ProcessId => Entity.ProcessId;
+
+        public bool IsActivated { get => Entity.IsActivated; set => Entity.IsActivated = value; }
+
+        public bool IsCompleted { get => Entity.IsCompleted; set => Entity.IsCompleted = value; }
+
+        public DateTimeOffset TimerDate { get => Entity.TimerDate; set => Entity.TimerDate = value; }
+
+        public string HandlerKey => Entity.HandlerKey;
+
+        public ITriggerComponent.TriggerKind Kind => Entity.Kind;
+        
+        public DateTimeOffset SelectLockTimeout { get => Entity.SelectLockTimeout; set => Entity.SelectLockTimeout = value; }
+
+        public object? State { get; private set; }
+
+        public bool NeedUpdate { get; set; }
+
+        public bool NeedRemove { get; set; }
+
+        public EFTriggerProxyComponent(
+            ITriggerSetter<TId> triggerSetter, 
+            TriggerDbEntity<TId> entity)
         {
-            _entity = entity;
+            _triggerSetter = triggerSetter;
+            Entity = entity;
+
+            _triggerSetter.OneOfSetter.OneOfTriggerKind(
+                Kind,
+                this,
+                counterHandler: static (p) => 
+                {
+                    p.State = new EFCounterProxyDto(p.Entity);
+                },
+                timerHandler: static (_) => { },
+                simpleStreamHandler: static (p) => 
+                {
+                    p.State = new EFSimpleStreamProxyDto(p.Entity);
+                },
+                offsetStreamHanler: static (p) => 
+                {
+                    p.State = new EFOffsetStreamProxyDto(p.Entity);
+                });
         }
 
-        public int? Counter { get => _entity.Counter; set => _entity.Counter = value; }
 
-        public string Key => _entity.Key;
+        private class EFCounterProxyDto 
+            : ITriggerComponent.ICounterDto
+        {
+            private readonly TriggerDbEntity<TId> _entity;
 
-        public TId ProcessId => _entity.ProcessId;
+            public long Counter { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }
 
-        public bool IsActivated { get => _entity.IsActivated; set => _entity.IsActivated = value; }
+            public EFCounterProxyDto(TriggerDbEntity<TId> entity)
+            {
+                _entity = entity;
+            }
+        }
 
-        public bool IsCompleted { get => _entity.IsCompleted; set => _entity.IsCompleted = value; }
+        private class EFSimpleStreamProxyDto : ITriggerComponent.ISimpleStreamDto
+        {
+            private readonly TriggerDbEntity<TId> _entity;
 
-        public DateTimeOffset TimerDate { get => _entity.TimerDate; set => _entity.TimerDate = value; }
+            public bool StreamsProcessIsWaiting { get => _entity.StreamProcessIsWaiting.Value; set => _entity.StreamProcessIsWaiting = value; }
 
-        public string HandlerKey => _entity.HandlerKey;
+            public long NewSignalCounter { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }
 
-        public ITriggerComponent<TId>.TriggerKind Kind => _entity.Kind;
+            public EFSimpleStreamProxyDto(TriggerDbEntity<TId> entity)
+            {
+                _entity = entity;
+            }
+        }
 
-        public DateTimeOffset SelectLockTimeout { get => _entity.SelectLockTimeout; set => _entity.SelectLockTimeout = value; }
+        private class EFOffsetStreamProxyDto : ITriggerComponent.IOffsetStreamDto
+        {
+            private readonly TriggerDbEntity<TId> _entity;
+
+            public bool StreamsProcessIsWaiting { get => _entity.StreamProcessIsWaiting.Value; set => _entity.StreamProcessIsWaiting = value; }
+
+            public long LastOffset { get => _entity.SignalCounter2.Value; set => _entity.SignalCounter2 = value; }
+
+            public long ProcessedOffset { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }            
+
+            public EFOffsetStreamProxyDto(TriggerDbEntity<TId> entity)
+            {
+                _entity = entity;
+            }
+        }
     }
 }

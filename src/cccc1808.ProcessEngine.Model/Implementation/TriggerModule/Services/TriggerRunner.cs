@@ -13,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -27,90 +28,37 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
     public class TriggerRunner<TId> : ITriggerRunner
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly OptionsDto _options;
+
 
         public TriggerRunner(
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider, 
+            OptionsDto options)
         {
             _serviceProvider = serviceProvider;
+            _options = options;
         }
 
         public async Task ConsumerWorkAsync(
             bool executeOne,
             CancellationToken cancellationToken)
         {
-            static async Task ProcessAsync(
-                IServiceProvider serviceProvider,
-                Dictionary<string, List<ITriggerEvent>> groupByTrigger,
-                CancellationToken cancellationToken)
+            static int EventTypeMismathError(ITriggerEvent triggerEvent, ITriggerComponent<TId> trigger)
             {
-                var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
-                var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
-                var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
-
-                await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
-                {
-                    // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке (не содержат долгих операций), иначе тут будет подвисать consumer.
-                    var triggers = await repository.LoadTriggerForQueueConsumerAsync(
-                        groupByTrigger.Select(e => e.Key).ToArray(),
-                        cancellationToken);
-
-                    foreach (var elem in groupByTrigger)
-                    {
-                        if (!triggers.TryGetValue(elem.Key, out var trigger))
-                        {
-                            // Тригер не найден или он завершен (фильтрует запрос).
-                            // TODO: log Warning.
-                            continue;
-                        }
-
-                        // Перед этим его мог пытаться взять в обработку DbWorker, сбрасываем, чтобы убрать не нужную задержку.
-                        trigger.SelectLockTimeout = DateTimeOffset.MinValue;
-
-                        // Такого быть не может - фильтрует запрос.
-                        //if (trigger.IsCompleted)
-                        //{
-                        //    continue;
-                        //}
-
-                        // Событие с игнорированием текущей задержки.
-                        var haveIgnoreDelay = false;
-                        foreach (var elem2 in elem.Value)
-                        {
-                            haveIgnoreDelay = haveIgnoreDelay || elem2.IgnoreDelay;
-                        }
-
-                        if (haveIgnoreDelay)
-                        {
-                            trigger.TimerDate = DateTimeOffset.MinValue;
-                        }
-
-                        var eventsCount = elem.Value.Count();
-                        triggerSetter.OneOf(
-                            trigger,
-                            counterHandler: (counter) =>
-                            {
-                                triggerSetter.ProcessCounter(trigger, eventsCount);
-                                if (triggerSetter.IsCounterActivated(trigger))
-                                {
-                                    triggerSetter.SetActivated(trigger, true);
-                                }
-                            },
-                            timerHandler: () => triggerSetter.SetActivated(trigger, true)
-                            );
-                    }
-
-                    // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                    await repository.SaveAsync(triggers.Values, cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
-                }
+                // TODO: log error.
+                return 1;
             }
 
-            await using (var scope = _serviceProvider.CreateAsyncScope())
+            static async Task ConsumerHandlerAsync(
+                IServiceProvider serviceProvider,
+                QueueOptionsDto consumerQueueOptions,
+                bool executeOne,
+                CancellationToken cancellationToken) 
             {
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerOptions>();
-                var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var serializer = scope.ServiceProvider.GetRequiredService<IEventJsonSerializer>();
+                var triggerOptions = serviceProvider.GetRequiredService<TriggerOptions<TId>>();
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
+                var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
+                var serializer = serviceProvider.GetRequiredService<IEventJsonSerializer>();
 
                 var receivedMessages = new LinkContainer<int>(0);
                 var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
@@ -119,11 +67,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     queueProviderFactory,
                     options.ExceptionDelay,
                     consumer: null,
-                    triggerOptions.TriggerEventQueueName,
+                    consumerQueueOptions.QueueName,
                     executeOne,
                     (ex) => {  /*TODO: log*/ },
                     cancellationToken);
-                
+
                 while (true)
                 {
                     try
@@ -135,10 +83,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         // * например для inbox большое значение QueueConsumeBatchTimeout/QueueConsumePackTimeout не очень подходит,
                         // * а для parent-child процесса (с большим количеством дочерних) QueueConsumeBatchTimeout/QueueConsumePackTimeout может быть больше (чтобы снизить нагрузку записи на БД).
                         await consumer.ConsumeBatchAsync(
-                            (options, serializer, receivedMessages, groupByTrigger),
-                            options.QueueConsumePackTimeout,
-                            options.QueueConsumePackSize,
-                            options.QueueConsumeBatchTimeout,
+                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
+                            consumerQueueOptions.QueueConsumePackTimeout,
+                            consumerQueueOptions.QueueConsumePackSize,
+                            consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
                                 if (!e.Any())
@@ -163,8 +111,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
                                 var stop =
-                                    p.receivedMessages.Data > p.options.QueueConsumeMessagesLimit
-                                    || p.groupByTrigger.Count > p.options.QueueConsumeTriggersCountLimit;
+                                    p.receivedMessages.Data > p.consumerQueueOptions.QueueConsumeMessagesLimit
+                                    || p.groupByTrigger.Count > p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
                                 return !stop;
                             },
                             cancellationToken);
@@ -174,16 +122,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             continue;
                         }
 
-                        await using (var scope2 = scope.ServiceProvider.CreateAsyncScope())
+                        await using (var scope2 = serviceProvider.CreateAsyncScope())
                         {
-                            try 
+                            try
                             {
-                                await ProcessAsync(
+                                await ProcessEventsHandlerAsync(
                                     scope2.ServiceProvider,
                                     groupByTrigger,
                                     cancellationToken);
                             }
-                            catch(Exception ex)
+                            catch (Exception ex)
                             {
                                 // exception в хендлере.
                                 if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
@@ -196,17 +144,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 if (executeOne)
                                 {
                                     throw;
-                                }                                
-
-                                await Task.Delay(options.ExceptionDelay, cancellationToken);
+                                }
                             }
-                        }                        
 
-                        await consumer.CommitAsync(cancellationToken);
+                            await consumer.CommitAsync(cancellationToken);
 
-                        if (executeOne)
-                        {
-                            break;
+                            if (executeOne)
+                            {
+                                break;
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -228,13 +174,219 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             queueProviderFactory,
                             options.ExceptionDelay,
                             consumer,
-                            triggerOptions.TriggerEventQueueName,
-                            oneExecute: false,
+                            consumerQueueOptions.QueueName,
+                            oneExecute: executeOne,
                             (ex) => {  /*TODO: log*/ },
                             cancellationToken);
                     }
                 }
             }
+
+            static async Task ProcessEventsHandlerAsync(
+                IServiceProvider serviceProvider,
+                Dictionary<string, List<ITriggerEvent>> groupByTrigger,
+                CancellationToken cancellationToken)
+            {
+                var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
+                var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
+                var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+
+                await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
+                {
+                    // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке (не содержат долгих операций), иначе тут будет подвисать consumer.
+                    var triggers = await repository.LoadTriggerForQueueConsumerAsync(
+                        groupByTrigger.Keys,
+                        cancellationToken);
+
+                    foreach (var elem in groupByTrigger)
+                    {
+                        if (!triggers.TryGetValue(elem.Key, out var trigger))
+                        {
+                            // Тригер не найден или он завершен (фильтрует запрос).
+                            // TODO: log Warning.
+                            continue;
+                        }
+
+                        // Перед этим его мог пытаться взять в обработку DbWorker, сбрасываем, чтобы убрать не нужную задержку.
+                        trigger.SelectLockTimeout = DateTimeOffset.UtcNow;
+
+                        // Такого быть не может - фильтрует запрос.
+                        //if (trigger.IsCompleted)
+                        //{
+                        //    continue;
+                        //}
+
+                        triggerSetter.OneOfSetter.OneOfTrigger(
+                            trigger,
+                            (triggerSetter, trigger, messages: elem.Value),
+                            counterHandler: static (state, p) =>
+                            {
+                                foreach (var elem in p.messages)
+                                {
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger, state),                                        
+                                        counterTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.CounterSetter.CounterEvent(
+                                                p.trigger, 
+                                                p.state, 
+                                                typedEvent.Reset, 
+                                                typedEvent.Value);                                            
+                                            return 1;
+                                        },
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: (typedEvent, p) => 1,
+                                        processGoWaitStreamTriggerEventHandler: (typedEvent, p) => 1,
+                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
+                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                        );
+                                }
+
+                                if (p.triggerSetter.CounterSetter.NeedActivate(p.trigger, state))
+                                {
+                                    p.triggerSetter.CounterSetter.Activate(p.trigger, state);
+                                }
+                            },
+                            timerHandler: static (p) => 
+                            {
+                                foreach (var elem in p.messages)
+                                {
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger),
+                                        counterTriggerEventHandler: static (typedEvent, p) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 1,
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 1,
+                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
+                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                        );
+                                }
+                            },
+                            simpleStreamHandler: static (state, p) => 
+                            {
+                                foreach (var elem in p.messages)
+                                {
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                        elem,
+                                        (p.triggerSetter, p.trigger, state),
+                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+                                            return 1;
+                                        },
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
+                                            return 1;
+                                        },                                        
+                                        processedOffsetTriggerEventHandler: static  (_, _) => 1,
+                                        signalOffsetTriggerEventHandler: static (_, _) => 1
+                                        );
+                                }
+
+                                if (p.triggerSetter.SimpleStreamSetter.NeedActivate(p.trigger, state))
+                                {                                    
+                                    p.triggerSetter.SimpleStreamSetter.Activate(p.trigger, state);
+                                }
+                            },
+                            offsetStreamHanler: (state, p) =>
+                            {
+                                foreach (var elem2 in elem.Value)
+                                {
+                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                        elem2,
+                                        (triggerSetter, trigger, state),
+                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
+                                            return 1;
+                                        },                                        
+                                        signalSimpleStreamTriggerEventHandler: static (_, _) => 1,
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
+                                            return 1;
+                                        },                                        
+                                        processedOffsetTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.state.ProcessedOffset <= typedEvent.ProcessedOffset)
+                                            {
+                                                p.triggerSetter.OffsetStreamSetter.UpdateProcessedOffset(p.trigger, p.state, typedEvent.ProcessedOffset);
+                                            }
+                                            else
+                                            {
+                                                // TODO: log warnig событие с меньшим смещением.
+                                            }
+
+                                            return 1;
+                                        },
+                                        signalOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                        {
+                                            if (p.state.LastOffset <= typedEvent.UpdateOffset)
+                                            {
+                                                p.triggerSetter.OffsetStreamSetter.UpdateLastOffset(p.trigger, p.state, typedEvent.UpdateOffset);
+                                                p.state.LastOffset = typedEvent.UpdateOffset;
+                                            }
+                                            else
+                                            {
+                                                // TODO: log warnig событие с меньшим смещением.
+                                            }
+
+                                            return 1;
+                                        }
+                                        );
+                                }                                
+
+                                // Если процесс уснул и не все смещенеи обрботано.
+                                if (p.triggerSetter.OffsetStreamSetter.NeedActivate(p.trigger, state))
+                                {
+                                    p.triggerSetter.OffsetStreamSetter.Activate(trigger, state);                                    
+                                }
+                            }
+                            );
+                    }
+                    
+                    await repository.SaveAsync(triggers.Values, cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+                }
+            }
+
+            var runningTasks = new List<Task>(_options.TriggerEventQueues.Count);
+            foreach (var elem in _options.TriggerEventQueues)
+            {
+                var t = Task.Run(
+                    async () => 
+                    {
+                        await using (var scope = _serviceProvider.CreateAsyncScope())
+                        {
+                            await ConsumerHandlerAsync(
+                                scope.ServiceProvider,
+                                elem, 
+                                executeOne, 
+                                cancellationToken);
+                        }
+                    });
+                runningTasks.Add(t);
+            }
+            
+            await Task.WhenAll(runningTasks);
         }
 
         public async Task DbWorkAsync(
@@ -300,6 +452,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             WriteHandlerResult(triggerSetter, elem, elemResult);
                         }
 
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -333,6 +486,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         WriteHandlerResult(triggerSetter, trigger, result);
 
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync([trigger], cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -482,14 +636,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         {
             if (result.NeedRepeat)
             {
-                setter.SetTimer(trigger, result.ExecuteDelay);
-                setter.SetActivated(trigger, result.IsActivated);
-                setter.SetCompleted(trigger, false);
+                setter.StandartSetter.SetTimer(trigger, result.ExecuteDelay);
+                setter.StandartSetter.SetActivated(trigger, result.IsActivated);
+                setter.StandartSetter.SetCompleted(trigger, false);
             }
             else
             {
-                setter.SetActivated(trigger, false);
-                setter.SetCompleted(trigger, true);
+                setter.StandartSetter.SetActivated(trigger, false);
+                setter.StandartSetter.SetCompleted(trigger, true);
             }
             // TODO: setter
             trigger.SelectLockTimeout = DateTimeOffset.MinValue;
@@ -498,26 +652,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class OptionsDto
         {
-            public int QueueConsumePackSize { get; set; }
-                = 200;
-
-            /// <summary>
-            /// Ограничение количества сообщений, закомиченных за один такт.
-            /// </summary>
-            public int QueueConsumeMessagesLimit { get; set; }
-                = 1000;
-
-            /// <summary>
-            /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
-            /// </summary>
-            public int QueueConsumeTriggersCountLimit { get; set; }
-                = 200;
-
-            public TimeSpan QueueConsumePackTimeout { get; set; }
-                = TimeSpan.FromMilliseconds(200);
-
-            public TimeSpan QueueConsumeBatchTimeout { get; set; }
-                = TimeSpan.FromSeconds(1);
+            public List<QueueOptionsDto> TriggerEventQueues { get; set; }
+                = new List<QueueOptionsDto>(0);                 
 
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
@@ -536,6 +672,33 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// </summary>
             public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
+        }
+
+        public class QueueOptionsDto 
+        {
+            public string QueueName { get; set; } 
+                = null;
+
+            /// <summary>
+            /// Ограничение количества сообщений, закомиченных за один такт.
+            /// </summary>
+            public int QueueConsumeMessagesLimit { get; set; }
+                = 1000;
+
+            public int QueueConsumePackSize { get; set; }
+                = 200;
+
+            /// <summary>
+            /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
+            /// </summary>
+            public int QueueConsumeTriggersCountLimit { get; set; }
+                = 200;
+
+            public TimeSpan QueueConsumePackTimeout { get; set; }
+                = TimeSpan.FromMilliseconds(200);
+
+            public TimeSpan QueueConsumeBatchTimeout { get; set; }
+                = TimeSpan.FromSeconds(1);
         }
     }    
 }

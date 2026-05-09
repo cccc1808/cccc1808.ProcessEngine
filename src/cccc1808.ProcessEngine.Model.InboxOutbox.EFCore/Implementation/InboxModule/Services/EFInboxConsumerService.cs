@@ -9,11 +9,12 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
@@ -27,17 +28,19 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IEFDbContext _dbContext;
-        private readonly ITriggerEventRaiser _triggerRaiser;
+        private readonly ITriggerEventRaiser<TId> _triggerRaiser;
         private readonly IClassifierRepository<TId> _classifierRepository;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
+        private readonly InboxRegistryDto _inboxRegistry;
         private readonly Options _options;
 
         public EFInboxConsumerService(
             IIdGenerator<TId> idGenerator,
             IEFDbContext dbContext,
-            ITriggerEventRaiser triggerRaiser,
+            ITriggerEventRaiser<TId> triggerRaiser,
             IClassifierRepository<TId> classifierRepository,
             IHeaderJsonSerializer headerJsonSerializer,
+            InboxRegistryDto inboxRegistry,
             Options options)
         {
             _idGenerator = idGenerator;
@@ -45,6 +48,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _triggerRaiser = triggerRaiser;
             _classifierRepository = classifierRepository;
             _headerJsonSerializer = headerJsonSerializer;
+            _inboxRegistry = inboxRegistry;
             _options = options;
         }
 
@@ -91,23 +95,31 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     .NoUpdate()
                     .RunAndReturnAsync(cancellationToken);
 
-                var processData = inboxData
-                    .ToDictionary(e => e.Value.ProcessId, e => e.Value);
+                if (result.Any())
+                {
+                    var processData = inboxData
+                        .ToDictionary(e => e.Value.ProcessId, e => e.Value);
 
-                var triggerKeys = result
-                    .Select(e => e.ProcessId)
-                    .Distinct()
-                    .Select(e => processData[e])
-                    .Select(e => new TriggerEvent(
-                        e.TriggerKey,
-                        ignoreDelay: false
-                        ))
-                    .ToArray();
-
-                // Пробуждаем inbox процессы.
-                await _triggerRaiser.RaiseAsync(
-                    triggerKeys,
-                    cancellationToken);
+                    // Передаем сигнал о поступлении новых сообщений на триггер.
+                    var triggerEvents = result
+                        .Select(e => e.ProcessId)
+                        .Distinct()
+                        .Select(e => processData[e])
+                        .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                            _inboxRegistry.TriggerEventQueue,
+                            e.ProcessId,
+                            new SignalOffsetTriggerEvent(
+                                e.TriggerKey,
+                                updateOffset: result.Max(e => e.OrderId)
+                                )
+                            )
+                        )
+                        .ToArray();
+                    
+                    await _triggerRaiser.RaiseAsync(
+                        triggerEvents,
+                        cancellationToken);
+                }                
             }            
         }
 

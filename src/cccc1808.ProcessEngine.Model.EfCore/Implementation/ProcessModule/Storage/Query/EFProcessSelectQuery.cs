@@ -157,7 +157,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             Queue<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
-            // var now = DateTimeOffset.UtcNow;
+            var now = _dateTimeProvider.UtcNow;
 
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
@@ -168,7 +168,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.MinValue.UtcDateTime),
+                    e => e.SetProperty(e => e.SelectLockTimeout, now),
                     cancellationToken);
         }
 
@@ -176,6 +176,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<TId> ids, 
             CancellationToken cancellationToken)
         {
+            var now = _dateTimeProvider.UtcNow;
+
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
                 .ApplayQueryCondition(
@@ -185,7 +187,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, DateTimeOffset.MinValue.UtcDateTime),
+                    e => e.SetProperty(e => e.SelectLockTimeout, now),
                     cancellationToken);
         }
 

@@ -69,77 +69,107 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
         public async Task<IWakeupServiceQueries<TId>.IWakeupContext> Wakeup_LoadStateAsync(
             ICollection<TId> ids,
+            bool useShareLock,
             TimeSpan wakeupTryUpdatelockTimeout,
             CancellationToken cancellationToken)
-        {
-            var checkBuffer = ids.ToHashSet();
+        {            
             var updateBuffer = new Dictionary<TId, IWakeupServiceQueries<TId>.IContextEntryDto>(ids.Count);
 
-            while (true)
+            if (useShareLock)
             {
-                //// Замечание: share lock не является обязательно необходимым, может быть достаточной реализация только на основе update lock.
+                var checkBuffer = ids.ToHashSet();
 
-                // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
-                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
+                while (true)
                 {
-                    var wakeups = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
-                        .AsNoTracking()
-                        .ApplayQueryCondition(
-                            _processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
-                            ids
-                            )
-                        .ApplayQueryCondition(_processWakeUpDbEntityConditions.IsAsyncExecuting.Query)
-                        .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
-                        .Select(e => e.ProcessId)
-                        .ToArrayAsync(cancellationToken);
+                    //// Замечание: share lock не является обязательно необходимым, может быть достаточной реализация только на основе update lock.
 
-                    foreach (var elem in wakeups)
+                    // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
+                    using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                     {
-                        // Пробуждение не нужно.
-                        checkBuffer.Remove(elem);
-                    }
-                }
+                        var wakeups = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
+                            .AsNoTracking()
+                            .ApplayQueryCondition(
+                                _processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange,
+                                ids
+                                )
+                            .ApplayQueryCondition(_processWakeUpDbEntityConditions.IsAsyncExecuting.Query)
+                            .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
+                            .Select(e => e.ProcessId)
+                            .ToArrayAsync(cancellationToken);
 
-                // 2) Получаем updlock.
-                var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
-                    (This: this, checkBuffer, updateBuffer),
-                    wakeupTryUpdatelockTimeout,
-                    static async (p, t) =>
-                    {
-                        using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+                        foreach (var elem in wakeups)
                         {
-                            var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
-                                .AsNoTracking()
-                                .ApplayQueryCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer)
-                                .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
-                                .ToArrayAsync(t);
+                            // Пробуждение не нужно.
+                            checkBuffer.Remove(elem);
+                        }
+                    }
 
-                            // У нас монопольная блокировка wakeup через updlock.
-                            foreach (var elem in wakeupsWithLock)
+                    // 2) Получаем updlock.
+                    var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
+                        (This: this, checkBuffer, updateBuffer),
+                        wakeupTryUpdatelockTimeout,
+                        static async (p, t) =>
+                        {
+                            using (var _ = p.This._lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
                             {
-                                if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
+                                var wakeupsWithLock = await p.This._dbContext.Set<ProcessWakeupDbEntity<TId>>()
+                                    .AsNoTracking()
+                                    .ApplayQueryCondition(p.This._processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, p.checkBuffer)
+                                    .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
+                                    .ToArrayAsync(t);
+
+                                // У нас монопольная блокировка wakeup через updlock.
+                                foreach (var elem in wakeupsWithLock)
                                 {
-                                    // Пробуждение не нужно.
-                                    p.checkBuffer.Remove(elem.ProcessId);
-                                }
-                                else
-                                {
-                                    // Пробуждение нужно.
-                                    p.updateBuffer.Add(elem.ProcessId, new EFProxyContextEntryDto(elem));
-                                    p.checkBuffer.Remove(elem.ProcessId);
+                                    if (p.This._processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
+                                    {
+                                        // Пробуждение не нужно.
+                                        p.checkBuffer.Remove(elem.ProcessId);
+                                    }
+                                    else
+                                    {
+                                        // Пробуждение нужно.
+                                        p.updateBuffer.Add(elem.ProcessId, new EFProxyContextEntryDto(elem));
+                                        p.checkBuffer.Remove(elem.ProcessId);
+                                    }
                                 }
                             }
-                        }
-                    },
-                    cancellationToken
-                    );
+                        },
+                        cancellationToken
+                        );
 
-                if (result)
-                {
-                    break;
+                    if (result)
+                    {
+                        break;
+                    }
                 }
             }
+            else 
+            {
+                using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+                {
+                    var wakeupsWithLock = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()
+                        .AsNoTracking()
+                        .ApplayQueryCondition(_processWakeUpDbEntityConditions.ProcessLinkedDbEntity.QueryRange, ids)
+                        .OrderBy(e => e.ProcessId) // Info: Для упорядоченной блокировки
+                        .ToArrayAsync(cancellationToken);
 
+                    // У нас монопольная блокировка wakeup через updlock.
+                    foreach (var elem in wakeupsWithLock)
+                    {
+                        if (_processWakeUpDbEntityConditions.IsAsyncExecuting.Memory.Check(elem))
+                        {
+                            // Пробуждение не нужно.
+                        }
+                        else
+                        {
+                            // Пробуждение нужно.
+                            updateBuffer.Add(elem.ProcessId, new EFProxyContextEntryDto(elem));
+                        }
+                    }
+                }
+            }
+            
             return new EFWakeupContext(updateBuffer);
         }
 

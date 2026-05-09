@@ -142,14 +142,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
 
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), typeof(EFInboxMessageWakeupHandler<Guid>)),
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), typeof(EFOutboxMessageWakeupHandler<Guid>))
+                        [
+                            new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), WakeupStateEnum.CheckWakeupWithoutLock, typeof(EFOutboxMessageWakeupHandler<Guid>))
+                        ],
+                        [
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)),
+                            ]
                     )
 
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>))
+                        new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(EFOutboxTriggerWakeupHandler<Guid>.Name, typeof(EFOutboxTriggerWakeupHandler<Guid>))
                     )
 
                     .AddTriggerEngineServices(
@@ -158,12 +165,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            QueueConsumePackSize = 10,
-                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>() 
+                            {
+                                new TriggerRunner<Guid>.QueueOptionsDto()
+                                {
+                                    QueueName = TriggerQueue,
+                                    QueueConsumePackSize = 10,
+                                    QueueConsumeBatchTimeout = TimeSpan.FromSeconds(0.5),
+                                }
+                            }                            
                         },
-                        new TriggerOptions() 
+                        new TriggerOptions<Guid>() 
                         {
-                            TriggerEventQueueName = TriggerQueue,
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
 
@@ -248,7 +262,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         new InboxRunner<Guid>.OptionsDto() 
                         {
                             ConsumeBatchLimit = 100,
-                            ConsumeBatchTimeout = TimeSpan.FromSeconds(2),
+                            ConsumeBatchTimeout = TimeSpan.FromMilliseconds(100),
                             Queues = [InboxQueue],
                         },
                         new EFInboxConsumerService<Guid>.Options() 
@@ -264,8 +278,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             MessageLimitFunc = (m) => m * 10,
                         },
-                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
-                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1))
+                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), TriggerQueue),
+                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), TriggerQueue)
                     );
 
                 services
@@ -287,12 +301,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     // InMemory
                     {
                         var cachce = scope.ServiceProvider.GetRequiredService<EFClassifierRepository<Guid>.CachState>();
-                        cachce._queueCache.Clear();
-                        cachce._aggregateCache.Clear();
-                        cachce._inboxInfo.Clear();
-                        cachce._outboxInfo.Clear();
-                        cachce._inboxOffset.Clear();
-                        cachce._outboxOffset.Clear();
+                        cachce.Clear();
                     }
 
                     // Db

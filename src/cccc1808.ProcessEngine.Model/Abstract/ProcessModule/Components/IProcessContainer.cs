@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
+
 namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
 {
     /// <summary>
@@ -36,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// <summary>
         /// Процесс использует систему гарантированного пробуждения.
         /// </summary>
-        bool UsingWakeup { get; }
+        WakeupStateEnum WakeupState { get; }
 
         /// <summary>
         /// Добавить компонент.

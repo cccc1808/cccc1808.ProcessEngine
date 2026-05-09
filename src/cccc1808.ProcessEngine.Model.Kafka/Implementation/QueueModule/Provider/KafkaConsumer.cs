@@ -48,7 +48,6 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             await Task.Yield();
             
             var consumeBuffer = new List<MessageDto>(limit);
-            ConsumeResult<string, JsonElement>? lastResult = null;
             var stopwatch = Stopwatch.StartNew();
 
             while (consumeBuffer.Count < limit && stopwatch.Elapsed < timeout)
@@ -68,8 +67,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                             consumeResult.Message.Value,
                             consumeResult.Partition.Value
                             ));
-                    lastResult = consumeResult;
-                    _lastMessagesByPartition[lastResult.Partition.Value] = lastResult.Offset.Value;
+                    _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
                 }
             }
 
@@ -85,8 +83,6 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             Func<TParameter, ICollection<MessageDto>, bool> condition, 
             CancellationToken cancellationToken)
         {
-            await Task.Yield();
-
             var stopwatch = Stopwatch.StartNew();
 
             while (stopwatch.Elapsed < batchTimeout)

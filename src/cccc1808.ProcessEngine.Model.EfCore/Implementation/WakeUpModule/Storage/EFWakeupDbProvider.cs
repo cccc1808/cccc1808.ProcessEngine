@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
@@ -49,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
             }
             
             var ids = byTypeIndex
-                .Where(e => _wakeupRegistry.IsWakeupProcess(e.Key))
+                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.CheckWakeupWithLock)
                 .SelectMany(e => e.Value)
                 .ToArray();
 
@@ -64,6 +65,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                     new WakeupComponent<TId>(
                         elem.Id,
                         elem.IsAsyncExecuting,
+                        haveWakeupEntity: true,
                         needUpdate: false));
             }
         }
@@ -86,11 +88,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
 
             // Иначе обновляем в ChangeTracker.
             var ids = byTypeIndex
-                .Where(e => _wakeupRegistry.IsWakeupProcess(e.Key))
+                .Where(e => _wakeupRegistry.CheckWakeup(e.Key) == WakeupStateEnum.CheckWakeupWithLock)
                 .SelectMany(e => e.Value)
                 .ToArray();
 
-            var set = _dbContext.Set<ProcessWakeupDbEntity<TId>>();
             foreach (var elem in ids.Select(e => processes[e]))
             {
                 if (!elem.TryGetComponent<IWakeupComponent<TId>>(out var component))
@@ -103,18 +104,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                     continue;
                 }
 
-                var entry = set.Entry(
+                var entry = _dbContext.AttachEntity(
                     new ProcessWakeupDbEntity<TId>(
                         component.Id,
                         elem.Id,
-                        component.IsAsyncExecuting));    
-                
-                if (entry.State == EntityState.Detached)
-                {
-                    entry = set.Attach(entry.Entity);
-                    entry.State = EntityState.Modified;
-                }
-
+                        component.IsAsyncExecuting),
+                        throwIfAttached: false);
                 entry.Entity.IsAsyncExecuting = component.IsAsyncExecuting;
             }
 

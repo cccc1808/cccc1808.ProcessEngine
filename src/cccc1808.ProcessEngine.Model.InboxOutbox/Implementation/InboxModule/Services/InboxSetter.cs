@@ -9,7 +9,9 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Components;
+using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services
@@ -18,12 +20,15 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
         : IInboxSetter
     {        
         private readonly IProcessSetter _processSetter;
+        private readonly InboxRegistryDto _inboxRegistry;
 
         public InboxSetter(
-            IProcessSetter processSetter)
+            IProcessSetter processSetter,
+            InboxRegistryDto inboxRegistry)
         {
             _processSetter = processSetter;
-        }        
+            _inboxRegistry = inboxRegistry;
+        }
 
         public void InboxMessageProcessed<TId>(
             IProcessContainer<TId> process,
@@ -50,6 +55,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                 // Если в БД еще есть активные сообщения, то это обнаружит InboxMessageWakeupHandler.
                 _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
             }
-        }              
+
+            // Обновляем смещение для триггера.
+            var streamComponent = process.GetComponent<IOffsetTriggerComponent>();
+            inboxComponent.ProcessedOffset = streamComponent.UpdateMaxTimestamp(inboxComponent.WakeupTriggerKey, message.OrderId);
+        }
     }
 }

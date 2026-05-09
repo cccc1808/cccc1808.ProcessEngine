@@ -145,15 +145,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                         if (errorResult.IsRetry)
                         {
                             retryBuffer.Add(
-                                new ITriggerRepository<TId>.CreateTriggerDto(
+                                ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
                                     key: Guid.NewGuid().ToString(),
                                     timerDate: errorResult.Timeout,
                                     processId: elem2.Id,
-                                    handlerKey: WakeupTriggerRangeHandler<TId>.Name,
-                                    kind: Model.Abstract.TriggerModule.Components.ITriggerComponent<TId>.TriggerKind.Timer,
+                                    handlerKey: NoWakeupRetryTriggerRangeHandler<TId>.Name,
                                     priority: elem2.Process.Info.Priority,
-                                    isActivated: true,
-                                    counter: null));
+                                    isActivated: true));
                         }
                     }
 

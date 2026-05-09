@@ -16,6 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query
 
         Task<IWakeupContext> Wakeup_LoadStateAsync(
             ICollection<TId> ids,
+            bool useShareLock,
             TimeSpan wakeupTryUpdatelockTimeout,
             CancellationToken cancellationToken);
 

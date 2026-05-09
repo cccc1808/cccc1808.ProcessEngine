@@ -128,7 +128,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     )
 
                     .AddWakeupServices(
-                        new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), typeof(ParentCheckWakeupHandler))
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
+                        []
                     )
 
                     .AddTriggerServices(
@@ -153,12 +154,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
                             DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            QueueConsumePackSize = 10,
-                            QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            {
+                                new TriggerRunner<Guid>.QueueOptionsDto()
+                                {
+                                    QueueName = "trigger_events",
+                                    QueueConsumePackSize = 10,
+                                    QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                                }
+                            }                            
                         },
-                        new TriggerOptions() 
+                        new TriggerOptions<Guid>() 
                         {
-                            TriggerEventQueueName = "trigger_events",
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
 

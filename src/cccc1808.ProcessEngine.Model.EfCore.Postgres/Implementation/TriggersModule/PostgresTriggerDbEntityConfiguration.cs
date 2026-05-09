@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
@@ -20,5 +21,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersMo
             return base.DbProcessingForSelectorIndex(builder)
                 .IncludeProperties(e => new { e.Id, e.HandlerKey });
         }
+
+        //protected override PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        //{
+        //    return base.StreamDataProperty(builder)
+        //        .HasColumnType("json");
+        //}
     }
 }

@@ -10,6 +10,10 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
@@ -20,13 +24,14 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.R
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Components;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage
@@ -39,6 +44,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         private readonly IEFDbContext _dbContext;
         private readonly OutboxRegistryDto _outboxRegistry;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
+
         private readonly Options _options;
         private readonly EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options _repositoryOptions;
 
@@ -52,6 +59,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             IEFDbContext dbContext, 
             OutboxRegistryDto outboxRegistry,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
+
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
 
@@ -64,6 +73,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             _dbContext = dbContext;
             _outboxRegistry = outboxRegistry;
             _lockQueryHintStore = lockQueryHintStore;
+            _triggerEventRaiser = triggerEventRaiser;
+
             _options = options;
             _repositoryOptions = repositoryOptions;
 
@@ -222,6 +233,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
                 elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
+                var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
                     new EFProcessProxyComponent<TId>(elem.Process),
@@ -235,7 +247,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue // TODO: condition                                                                                                   
                         ),
                     isAsyncExecuting: true,
-                    usingWakeup: true                       
+                    wakeupState: WakeupStateEnum.CheckWakeupWithoutLock                       
                     );
                 if (softTimeout.HasValue)
                 {
@@ -243,12 +255,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         new SoftTimeoutComponent(softTimeout));
                 }
                 var component = new EFOutboxComponentProxy<TId>(
-                    processData[elem.Process.Id],
+                    processDataElem,
                     elem.Messages
                         .Select(e => (IOutboxMessageComponent<TId>)new EFOutboxMessageProxy<TId>(e))
                         .ToArray()
                     );
                 container.AddComponent<IOutboxComponent<TId>>(component);
+                container.AddComponent<IStreamTriggerComponent>(
+                    new StreamTriggerComponent(
+                        _outboxRegistry.TriggerEventQueue,
+                        [processDataElem.WakeupTriggerKey]));
 
                 loadBuffer.Add(container.Id, container);
 
@@ -268,10 +284,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                         var queryHintStore = scope.ServiceProvider.GetRequiredService<ILockQueryHintStore>();
                         var messageStreamConditions = scope.ServiceProvider.GetRequiredService<IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>>();
+                        var triggerEventRaiser = scope.ServiceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
 
                         await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                         {
                             var haveChanges = false;
+                            var triggerEvents = new List<ITriggerEventRaiser<TId>.RaiseContainer>(0);
                             using (var _ = queryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                             {
                                 var messageQuery = _dbContext.Set<OutboxMessageDbEntity<TId>>()
@@ -284,6 +302,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                         e => e.ProcessId,
                                         (e1, e2) => new { Process = e1, Wakeup = e2 }
                                     )
+                                    .Join(
+                                        dbContext.Set<OutboxProcessDataDbEntity<TId>>(),
+                                        e => e.Process.Id,
+                                        e => e.ProcessId,
+                                        (e1, e2) => new { Process = e1.Process, Wakeup = e1.Wakeup, Data = e2 }
+                                        )
                                     .Where(e => notProcessedOutboxProcessesIds.Contains(e.Process.Id))
                                     .Where(e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
                                     .ToArrayAsync(cancellationToken);
@@ -291,6 +315,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                 if (activeWithoutMessages.Any())
                                 {
                                     haveChanges = true;
+                                    triggerEvents.Capacity = activeWithoutMessages.Length;
+
+                                    var pd = await dbContext.Set<OutboxProcessDataDbEntity<TId>>()
+                                        .Where(e => activeWithoutMessages.Select(e => e.Process.Id)
+                                        .Contains(e.ProcessId))
+                                        .ToDictionaryAsync(e => e.ProcessId, e => e);
+
                                     foreach (var elem in activeWithoutMessages)
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
@@ -301,6 +332,16 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedOutboxProcessesIds.Remove(elem.Process.Id);
+
+                                            triggerEvents.Add(
+                                                new ITriggerEventRaiser<TId>.RaiseContainer(
+                                                    _outboxRegistry.TriggerEventQueue,
+                                                    elem.Process.Id,
+                                                    new ProcessGoWaitStreamTriggerEvent(
+                                                        pd[elem.Process.Id].WakeupTriggerKey
+                                                        )
+                                                    )
+                                                );
                                         }
                                     }
                                 }
@@ -309,6 +350,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
                             if (haveChanges)
                             {
+                                await _triggerEventRaiser.RaiseAsync(
+                                    triggerEvents,
+                                    cancellationToken
+                                    );
+
                                 await dbContext.SaveChangesAsync(cancellationToken);
                             }
 

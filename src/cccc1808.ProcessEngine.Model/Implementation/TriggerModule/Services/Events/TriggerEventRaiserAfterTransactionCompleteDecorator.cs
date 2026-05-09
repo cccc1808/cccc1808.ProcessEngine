@@ -1,7 +1,8 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
+namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
 {
     /// <summary>
     /// Kля производительности генерация отпрака <see cref="ITriggerEvent"/> идет без TransactionOutbox,
@@ -10,24 +11,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
     /// Потеря события считается допустимой (хоть и маловероятной), 
     /// на этот случай для типа процесса создается страхующий триггер (см. Emergency trigger handler).
     /// </summary>
-    public class TriggerEventRaiserAfterTransactionCompleteDecorator : ITriggerEventRaiser
+    public class TriggerEventRaiserAfterTransactionCompleteDecorator<TId> : ITriggerEventRaiser<TId>
     {
-        private readonly ITriggerEventRaiser _source;
+        private readonly ITriggerEventRaiser<TId> _source;
         private readonly ITransactionManager _transactionManager;
 
-        private readonly Dictionary<Guid, ITriggerEvent[]> _sendBuffer;
+        private readonly Dictionary<Guid, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
 
         public TriggerEventRaiserAfterTransactionCompleteDecorator(
-            ITriggerEventRaiser source,
+            ITriggerEventRaiser<TId> source,
             ITransactionManager transactionManager)
         {
             _source = source;
             _transactionManager = transactionManager;
-            _sendBuffer = new Dictionary<Guid, ITriggerEvent[]>();
+            _sendBuffer = new Dictionary<Guid, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>>();
         }
 
         public ValueTask RaiseAsync(
-            ITriggerEvent[] events,
+            ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events,
             CancellationToken cancellationToken)
         {
             if (!_transactionManager.TryGetCurrentTransaction(out var transaction))

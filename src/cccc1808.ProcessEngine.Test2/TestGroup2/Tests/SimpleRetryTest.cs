@@ -103,7 +103,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.ProcessId.ShouldBe(processId),
                         e => e.IsCompleted.ShouldBeFalse(),
                         e => e.IsActivated.ShouldBeTrue(),
-                        e => e.Counter.ShouldBeNull()
+                        e => e.SignalCounter1.ShouldBeNull()
                         )
                     );
 
@@ -139,7 +139,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.ProcessId.ShouldBe(processId),
                         e => e.IsCompleted.ShouldBeTrue(),
                         e => e.IsActivated.ShouldBeFalse(),
-                        e => e.Counter.ShouldBeNull()
+                        e => e.SignalCounter1.ShouldBeNull()
                         )
                     );
 
@@ -181,7 +181,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.ProcessId.ShouldBe(processId),
                         e => e.IsCompleted.ShouldBeFalse(),
                         e => e.IsActivated.ShouldBeTrue(),
-                        e => e.Counter.ShouldBeNull()
+                        e => e.SignalCounter1.ShouldBeNull()
                         )
                     );
 
@@ -217,7 +217,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.ProcessId.ShouldBe(processId),
                         e => e.IsCompleted.ShouldBeTrue(),
                         e => e.IsActivated.ShouldBeFalse(),
-                        e => e.Counter.ShouldBeNull()
+                        e => e.SignalCounter1.ShouldBeNull()
                         )
                     );
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 {
     public class WakeupRegistry<TId> : IWakeupRegistry<TId>
     {
-        private readonly IReadOnlyDictionary<ProcessTypeDto, Type> _checkHandlers;
+        private readonly IReadOnlyDictionary<ProcessTypeDto, (WakeupStateEnum State, Type CheckHandler)> _checkHandlers;
 
         public WakeupRegistry(
             IServiceProvider serviceProvider,
@@ -26,25 +27,36 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             {
                 foreach (var elem in registries)
                 {
+                    if (elem.WakeupState == WakeupStateEnum.NoWakeup)
+                    {
+                        throw new ArgumentException($"Регистрация {elem.ProcessRegistry.ProcessType.ProcessType} не требуется.");
+                    }
+
                     var typedHandler = (IWakeupCheckHandler<TId>)scope.ServiceProvider.GetRequiredService(elem.CheckWakeupHandlerType);
                 }
-            }            
-
-            _checkHandlers = registries.ToDictionary(
+            }
+            
+            _checkHandlers = registries.ToFrozenDictionary(
                 e => e.ProcessRegistry.ProcessType, 
-                e => e.CheckWakeupHandlerType);
+                e => (e.WakeupState, e.CheckWakeupHandlerType));
         }
 
         public IWakeupCheckHandler<TId> GetCheckHandler(
             IServiceProvider serviceProvider,
             ProcessTypeDto processType)
         {
-            return (IWakeupCheckHandler<TId>)serviceProvider.GetRequiredService(_checkHandlers[processType]);
+            return (IWakeupCheckHandler<TId>)serviceProvider
+                .GetRequiredService(_checkHandlers[processType].CheckHandler);
         }
 
-        public bool IsWakeupProcess(ProcessTypeDto processType)
+        public WakeupStateEnum CheckWakeup(ProcessTypeDto processType)
         {
-            return _checkHandlers.ContainsKey(processType);
+            if (_checkHandlers.TryGetValue(processType, out var registration))
+            {
+                return registration.State;
+            }
+
+            return WakeupStateEnum.NoWakeup;
         }        
     }
 }

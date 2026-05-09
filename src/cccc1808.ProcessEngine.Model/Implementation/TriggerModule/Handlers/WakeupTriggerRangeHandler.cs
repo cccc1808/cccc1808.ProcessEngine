@@ -36,6 +36,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
         {
             await _wakeUpService.WakeupProcessHandlerAsync(
                 triggers.Select(e => e.ProcessId).ToArray(),
+                useShareLock: true,
                 cancellationToken);
 
             return triggers.ToDictionary(

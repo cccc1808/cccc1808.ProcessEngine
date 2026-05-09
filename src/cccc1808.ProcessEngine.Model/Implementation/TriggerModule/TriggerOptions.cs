@@ -4,11 +4,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule
 {
-    public class TriggerOptions
+    public class TriggerOptions<TId>
     {
-        public string TriggerEventQueueName { get; set; }
-            = null!;
+        public Func<ITriggerEventRaiser<TId>.RaiseContainer, int?> PartitionSelector { get; set; }
+            = (_) => (int?)null;
+
+        public TriggerOptions()
+        {
+
+        }
     }
 }
