@@ -168,7 +168,27 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         public async Task SaveAsync(ICollection<ITriggerComponent<TId>> triggers, CancellationToken cancellationToken)
         {
+            var forRemove = new List<TriggerDbEntity<TId>>();
+            foreach (var elem in triggers)
+            {
+                if (elem is not EFTriggerProxyComponent<TId> proxy)
+                {
+                    throw new ArgumentException($"Ожидается {nameof(EFTriggerProxyComponent<TId>)}");
+                }
+
+                if (elem.NeedRemove)
+                {
+                    forRemove.Add(proxy.Entity);
+                }
+            }
+            Set.RemoveRange(forRemove);
             await _efDbContext.SaveChangesAsync(cancellationToken);
+
+            foreach (var elem in triggers)
+            {
+                elem.NeedUpdate = false;
+                elem.NeedRemove = false;
+            }
         }        
     }
 }

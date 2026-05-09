@@ -15,48 +15,52 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
         : ITriggerComponent<TId>
     {
         private readonly ITriggerSetter<TId> _triggerSetter;
-        private readonly TriggerDbEntity<TId> _entity;        
+        public TriggerDbEntity<TId> Entity { get; }       
 
-        public string Key => _entity.Key;
+        public string Key => Entity.Key;
 
-        public TId ProcessId => _entity.ProcessId;
+        public TId ProcessId => Entity.ProcessId;
 
-        public bool IsActivated { get => _entity.IsActivated; set => _entity.IsActivated = value; }
+        public bool IsActivated { get => Entity.IsActivated; set => Entity.IsActivated = value; }
 
-        public bool IsCompleted { get => _entity.IsCompleted; set => _entity.IsCompleted = value; }
+        public bool IsCompleted { get => Entity.IsCompleted; set => Entity.IsCompleted = value; }
 
-        public DateTimeOffset TimerDate { get => _entity.TimerDate; set => _entity.TimerDate = value; }
+        public DateTimeOffset TimerDate { get => Entity.TimerDate; set => Entity.TimerDate = value; }
 
-        public string HandlerKey => _entity.HandlerKey;
+        public string HandlerKey => Entity.HandlerKey;
 
-        public ITriggerComponent.TriggerKind Kind => _entity.Kind;
+        public ITriggerComponent.TriggerKind Kind => Entity.Kind;
         
-        public DateTimeOffset SelectLockTimeout { get => _entity.SelectLockTimeout; set => _entity.SelectLockTimeout = value; }
+        public DateTimeOffset SelectLockTimeout { get => Entity.SelectLockTimeout; set => Entity.SelectLockTimeout = value; }
 
-        public object? State { get; private set; }        
+        public object? State { get; private set; }
+
+        public bool NeedUpdate { get; set; }
+
+        public bool NeedRemove { get; set; }
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 
             TriggerDbEntity<TId> entity)
         {
             _triggerSetter = triggerSetter;
-            _entity = entity;
+            Entity = entity;
 
-            _triggerSetter.OneOfTriggerKind(
+            _triggerSetter.OneOfSetter.OneOfTriggerKind(
                 Kind,
                 this,
                 counterHandler: static (p) => 
                 {
-                    p.State = new EFCounterProxyDto(p._entity);
+                    p.State = new EFCounterProxyDto(p.Entity);
                 },
                 timerHandler: static (_) => { },
                 simpleStreamHandler: static (p) => 
                 {
-                    p.State = new EFSimpleStreamProxyDto(p._entity);
+                    p.State = new EFSimpleStreamProxyDto(p.Entity);
                 },
                 offsetStreamHanler: static (p) => 
                 {
-                    p.State = new EFOffsetStreamProxyDto(p._entity);
+                    p.State = new EFOffsetStreamProxyDto(p.Entity);
                 });
         }
 
