@@ -400,13 +400,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var selectQuery = serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
-                await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
+                await parallelLimiter.WaitAsync(cancellationToken);
+                try 
                 {
-                    return await selectQuery.SelectForProcessingAsync(
-                        options.DbExecuteBatchSize(parallelLimiter.CurrentCount),
-                        options.DbExecuteSelectLockTimeout,
-                        cancellationToken);
+                    await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
+                    {
+                        // Количетсво свободных слотов
+                        var emptySlotsCount = parallelLimiter.CurrentCount;
+                        return await selectQuery.SelectForProcessingAsync(
+                            options.DbExecuteBatchSize(emptySlotsCount), 
+                            emptySlotsCount,
+                            options.TransactionUpdateLimit,
+                            options.DbExecuteSelectLockTimeout,
+                            cancellationToken);
+                    }
                 }
+                finally
+                {
+                    parallelLimiter.Release();
+                }                
             }
 
             static async Task ExecuteHandlerAsync(
@@ -418,7 +430,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 static async Task ExecuteRangeHandlerAsync(
                     IServiceProvider serviceProvider,
-                    IGrouping<string, ITriggerSelectQuery<TId>.SelectDto> group,
+                    string handlerKey,
+                    ITriggerSelectQuery<TId>.SelectDto[] group,
                     CancellationToken cancellationToken) 
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -428,7 +441,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
 
-                    var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, group.Key);
+                    var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, handlerKey);
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
@@ -490,6 +503,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     }
                 }
 
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
                 var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                 // Группировка по ключу (Info: точка агрегации):
                 // Если триггер групповой, то обработку будет одним батчем (одной транзакцией).
@@ -501,29 +515,33 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                     if (handler is ITriggerRangeHandler<TId> rangeHandler)
                     {
-                        await parallelLimiter.WaitAsync();
-                        var id = Guid.NewGuid();
+                        foreach (var batch in group.Chunk(options.TransactionUpdateLimit))
+                        {
+                            await parallelLimiter.WaitAsync();
+                            var id = Guid.NewGuid();
 
-                        var task = Task.Run(
-                            async () =>
-                            {
-                                try
+                            var task = Task.Run(
+                                async () =>
                                 {
-                                    await using (var scope = serviceProvider.CreateAsyncScope())
+                                    try
                                     {
-                                        await ExecuteRangeHandlerAsync(
-                                            serviceProvider,
-                                            group,
-                                            cancellationToken);
+                                        await using (var scope = serviceProvider.CreateAsyncScope())
+                                        {
+                                            await ExecuteRangeHandlerAsync(
+                                                serviceProvider,
+                                                group.Key,
+                                                batch,
+                                                cancellationToken);
+                                        }
                                     }
-                                }
-                                finally
-                                {
-                                    tasks.TryRemove(id, out _);
-                                    parallelLimiter.Release();
-                                }
-                            });
-                        tasks.TryAdd(id, task);
+                                    finally
+                                    {
+                                        tasks.TryRemove(id, out _);
+                                        parallelLimiter.Release();
+                                    }
+                                });
+                            tasks.TryAdd(id, task);
+                        }                        
                     }
                     else if (handler is ITriggerSingleHandler<TId> singleHandler)
                     {
@@ -564,7 +582,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             var options = _serviceProvider.GetRequiredService<OptionsDto>();
 
-            using var parallelLimiter = new SemaphoreSlim(options.DbExecuteParallelismLimit);
+            using var parallelLimiter = new SemaphoreSlim(
+                options.DbExecuteParallelismLimit 
+                + 1 // на SelectAsync
+                );
             var tasks = new ConcurrentDictionary<Guid, Task>();
 
             while (true)
@@ -583,6 +604,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             scope.ServiceProvider,
                             parallelLimiter,
                             cancellationToken);
+                    }
+
+                    if (!selectData.Any())
+                    {
+                        await Task.Delay(options.EmptySelectDelay, cancellationToken);
+                        break;
                     }
 
                     await ExecuteHandlerAsync(
@@ -657,14 +684,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 = 10;
 
             /// <summary>
+            /// Ограничение на количетсво триггеров, обновляемое в одной транзакции.
+            /// <see cref="QueueOptionsDto.QueueConsumeTriggersCountLimit"/>.
+            /// </summary>
+            public int TransactionUpdateLimit { get; set; }
+                = 100;
+
+            /// <summary>
             /// Функция определения размера батча для выборки на обработку.
             /// Параметр - количество свободных слотов (DbExecuteParallelismLimit - RunningTasksCount).
-            /// Если нода выполняет только долгие/групповые триггеры, то предпочтительнее (freeSlots) => freeSlots.
+            /// Если нода выполняет только долгие/<see cref="ITriggerSingleHandler{TId}"/>, то предпочтительнее (freeSlots) => freeSlots.
             /// </summary>
             public Func<int, int> DbExecuteBatchSize { get; set; }
-                = static (freeSlots) => freeSlots * 4;
+                = static (freeSlots) => freeSlots * 50;
+
+            public TimeSpan EmptySelectDelay { get; set; } 
+                = TimeSpan.FromMilliseconds(100);
 
             public TimeSpan ExceptionDelay { get; set; }
+                = TimeSpan.FromSeconds(5);
 
             /// <summary>
             /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.SelectLockTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
@@ -693,13 +731,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 = 1000;
 
             public int QueueConsumePackSize { get; set; }
-                = 200;
+                = 150;
 
             /// <summary>
             /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
             /// </summary>
             public int QueueConsumeTriggersCountLimit { get; set; }
-                = 200;
+                = 100;
 
             public TimeSpan QueueConsumePackTimeout { get; set; }
                 = TimeSpan.FromMilliseconds(200);

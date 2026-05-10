@@ -28,9 +28,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .HasMaxLength(255);
 
             KeyIndex(builder);
+
             KeyNotCompleteIndex(builder);
+
+            // TODO: для реального запуска нужен только один в зависимости от выбранной реализации.
             DbProcessingForSelectorIndex(builder);
+            DbProcessingForSelectorIndex2(builder);
+
             DbProcessingForHandlerParameters(builder);
+
             ProcessIdIndex(builder);
             // StreamDataProperty(builder);
         }
@@ -63,8 +69,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="builder"></param>
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
         {
-            // Для выборки DbWorker. selector
+            // 
             return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout })
+                .HasFilter(@"
+    is_activated is true 
+    and is_completed is false");
+        }
+
+        /// <summary>
+        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
+        /// </summary>
+        /// <param name="builder"></param>
+        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex2(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        {
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
                 .HasFilter(@"
     is_activated is true 
     and is_completed is false");
@@ -76,7 +94,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="builder"></param>
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForHandlerParameters(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         {
-            // Для выборки DbWorker. handler executor.
             return builder.HasIndex(e => new { e.TimerDate, e.Id })
                 .HasFilter(@"
     is_activated is true

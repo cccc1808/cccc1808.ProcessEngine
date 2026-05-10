@@ -19,12 +19,28 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
             KeyAndNotComplete
         { get; }
 
+        /// <summary>
+        /// Для выборки DbWorker. selector
+        /// </summary>
         (
             object? _, 
             IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForSelectorParameters> Query
             ) 
             DbProcessingForSelector { get; }
 
+        /// <summary>
+        /// Для выборки DbWorker. selector
+        /// </summary>
+        (
+            object? _,
+            IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForSelectorParameters> Query
+            )
+            DbProcessingForSelector2
+        { get; }
+
+        /// <summary>
+        /// Для выборки DbWorker. handler executor.
+        /// </summary>
         (
             object? _,
             IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForHandlerParameters> Query

@@ -10,6 +10,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
     {
         Task<ICollection<SelectDto>> SelectForProcessingAsync(
             int batchSize,
+            int parallelLimit,
+            int transactionUpdateLimit,
             TimeSpan timeout,
             CancellationToken cancellationToken);
 
