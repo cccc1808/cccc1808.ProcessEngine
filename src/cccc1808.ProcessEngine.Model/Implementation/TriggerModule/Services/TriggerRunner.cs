@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -189,6 +190,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
+                var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
@@ -198,6 +200,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
+                    var now = dateTimeProvider.UtcNow;
                     foreach (var elem in groupByTrigger)
                     {
                         if (!triggers.TryGetValue(elem.Key, out var trigger))
@@ -205,10 +208,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             // Тригер не найден или он завершен (фильтрует запрос).
                             // TODO: log Warning.
                             continue;
-                        }
-
-                        // Перед этим его мог пытаться взять в обработку DbWorker, сбрасываем, чтобы убрать не нужную задержку.
-                        trigger.SelectLockTimeout = DateTimeOffset.UtcNow;
+                        }                        
 
                         // Такого быть не может - фильтрует запрос.
                         //if (trigger.IsCompleted)
@@ -361,6 +361,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
                             }
                             );
+
+                        //if (
+                        //    trigger.NeedUpdate
+                        //    && trigger.IsActivated
+                        //    && trigger.SelectLockTimeout > now)
+                        //{
+                        //    triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
+                        //}
                     }
                     
                     await repository.SaveAsync(triggers.Values, cancellationToken);
@@ -407,7 +415,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
                     return await selectQuery.SelectForProcessingAsync(
-                        parallelLimiter.CurrentCount * 3,
+                        options.DbExecuteBatchSize(parallelLimiter.CurrentCount),
                         options.DbExecuteSelectLockTimeout,
                         cancellationToken);
                 }
@@ -426,6 +434,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     CancellationToken cancellationToken) 
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
+                    var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
@@ -449,7 +458,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         foreach (var elem in triggers)
                         {
                             var elemResult = result[elem.Key];
-                            WriteHandlerResult(triggerSetter, elem, elemResult);
+                            WriteHandlerResult(dateTimeProvider, triggerSetter, elem, elemResult);
                         }
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
@@ -464,6 +473,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     CancellationToken cancellationToken) 
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
+                    var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
@@ -484,7 +494,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);
-                        WriteHandlerResult(triggerSetter, trigger, result);
+                        WriteHandlerResult(dateTimeProvider, triggerSetter, trigger, result);
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync([trigger], cancellationToken);
@@ -630,6 +640,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         }
 
         private static void WriteHandlerResult(
+            IDateTimeProvider dateTimeProvider,
             ITriggerSetter<TId> setter,
             ITriggerComponent<TId> trigger,
             ITriggerHandler.Result result)
@@ -645,8 +656,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 setter.StandartSetter.SetActivated(trigger, false);
                 setter.StandartSetter.SetCompleted(trigger, true);
             }
-            // TODO: setter
-            trigger.SelectLockTimeout = DateTimeOffset.MinValue;
+            setter.StandartSetter.SetSelectLockTimeout(trigger, dateTimeProvider.UtcNow);
         }
 
 
@@ -658,10 +668,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
 
+            /// <summary>
+            /// Функция определения размера батча для выборки на обработку.
+            /// Параметр - количество свободных слотов (DbExecuteParallelismLimit - RunningTasksCount).
+            /// Если нода выполняет только долгие/групповые триггеры, то предпочтительнее (freeSlots) => freeSlots.
+            /// </summary>
+            public Func<int, int> DbExecuteBatchSize { get; set; }
+                = static (freeSlots) => freeSlots * 4;
+
             public TimeSpan ExceptionDelay { get; set; }
 
             /// <summary>
-            /// Select блокировка.
+            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.SelectLockTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
+            /// т.к. он зарезирвирован на выполнение текущей нодой (сбрасываеься при выполнении обработки).
             /// </summary>
             public TimeSpan DbExecuteSelectLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(30);

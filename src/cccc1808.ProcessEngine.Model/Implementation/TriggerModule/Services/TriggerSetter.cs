@@ -235,6 +235,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 trigger.NeedRemove = value;
             }
+
+            public void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value)
+            {
+                if (trigger.SelectLockTimeout != value)
+                {
+                    trigger.SelectLockTimeout = value;
+                    trigger.NeedUpdate = true;
+                }
+            }
         }
 
         public class CounterSetterImpl 

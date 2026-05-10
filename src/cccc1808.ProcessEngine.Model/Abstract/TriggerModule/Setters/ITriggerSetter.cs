@@ -76,6 +76,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
             void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);
 
+            void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value);
+
             void ForRemove(ITriggerComponent<TId> trigger, bool value);
         }
 
@@ -113,6 +115,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             /// <returns></returns>
             bool NeedActivate(ITriggerComponent<TId> trigger, ITriggerComponent.ISimpleStreamDto state);
 
+            /// <summary>
+            /// Выполнить активацию триггера.
+            /// </summary>
+            /// <param name="trigger"></param>
+            /// <param name="state"></param>
             void Activate(ITriggerComponent<TId> trigger, ITriggerComponent.ISimpleStreamDto state);
         }
 
@@ -124,8 +131,20 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             /// <param name="state"></param>
             void ProcessGoWaitEventReceived(ITriggerComponent<TId> trigger, ITriggerComponent.IOffsetStreamDto state);
 
+            /// <summary>
+            /// Поступило событие об обновление обработанного смещения.
+            /// </summary>
+            /// <param name="trigger"></param>
+            /// <param name="state"></param>
+            /// <param name="offset"></param>
             void UpdateProcessedOffset(ITriggerComponent<TId> trigger, ITriggerComponent.IOffsetStreamDto state, long offset);
 
+            /// <summary>
+            /// Поступило событие об обновлении общего смещения.
+            /// </summary>
+            /// <param name="trigger"></param>
+            /// <param name="state"></param>
+            /// <param name="offset"></param>
             void UpdateLastOffset(ITriggerComponent<TId> trigger, ITriggerComponent.IOffsetStreamDto state, long offset);
 
             bool NeedActivate(ITriggerComponent<TId> trigger, ITriggerComponent.IOffsetStreamDto state);
