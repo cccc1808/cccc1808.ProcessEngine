@@ -61,8 +61,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ToArrayAsync(cancellationToken);
 
                 return data
-                    .Select(e => new EFTriggerProxyComponent<TId>(_triggerSetter, e))
-                    .ToDictionary(e => e.Key, e => (ITriggerComponent<TId>)e);
+                    .Select(e => (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(_triggerSetter, e))
+                    .ToDictionary(e => e.Key, e => e);
             }
         }
 

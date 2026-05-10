@@ -145,7 +145,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             Queue<ProcessInstanceInfoDto<TId>> ids,
             CancellationToken cancellationToken)
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = _dateTimeProvider.UtcNow;
 
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
@@ -164,7 +164,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             ICollection<TId> ids, 
             CancellationToken cancellationToken)
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = _dateTimeProvider.UtcNow;
 
             // Снимаем блокировку выборки.
             await _dbContext.Set<TEntity>()
