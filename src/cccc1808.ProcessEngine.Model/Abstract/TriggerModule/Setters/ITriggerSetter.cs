@@ -57,6 +57,16 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler);
 
+            void OneOfEvent<TParameters>(
+                ITriggerEvent triggerEvent,
+                TParameters parameters,
+                Action<ICounterTriggerEvent, TParameters> counterTriggerEventHandler,
+                Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
+                Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
+                Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler,
+                Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler,
+                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler);
+
             TResult OneOfEvent<TParameters, TResult>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,

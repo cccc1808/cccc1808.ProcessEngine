@@ -199,6 +199,55 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
                 };
             }
+
+            public void OneOfEvent<TParameters>(
+                ITriggerEvent triggerEvent, 
+                TParameters parameters, 
+                Action<ICounterTriggerEvent, TParameters> counterTriggerEventHandler,
+                Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
+                Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
+                Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler, 
+                Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler, 
+                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler)
+            {
+                switch (triggerEvent.Kind)
+                {
+                    case TriggerEventKindEnum.CounterEvent:
+                        {
+                            counterTriggerEventHandler((ICounterTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+
+                    case TriggerEventKindEnum.TimerEvent:
+                        {
+                            timerTriggerEventHandler((ITimerTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+                    case TriggerEventKindEnum.SimpleStreamEvent:
+                        {
+                            signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+                    case TriggerEventKindEnum.ProcessGoWaitStreamEvent:
+                        {
+                            processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+                    case TriggerEventKindEnum.ProcessedOffsetEvent:
+                        {
+                            processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+                    case TriggerEventKindEnum.SignalOffsetEvent:
+                        {
+                            signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+
+                    default:
+                        throw new NotImplementedException(triggerEvent.Kind.ToString());
+                }
+            }
         }
 
         public class StandartSetterImpl 
@@ -399,6 +448,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public bool NeedActivate(ITriggerComponent<TId> trigger, ITriggerComponent.IOffsetStreamDto state)
             {
+                // Если процесс уснул и не все смещение обработано.
                 return
                     !trigger.IsActivated
                     && state.StreamsProcessIsWaiting

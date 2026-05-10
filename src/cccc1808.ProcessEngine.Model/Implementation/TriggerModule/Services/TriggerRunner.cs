@@ -44,16 +44,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             bool executeOne,
             CancellationToken cancellationToken)
         {
-            static int EventTypeMismathError(ITriggerEvent triggerEvent, ITriggerComponent<TId> trigger)
+            static void EventTypeMismathError(ITriggerComponent<TId> trigger, ITriggerEvent triggerEvent)
             {
                 // TODO: log error.
-                return 1;
             }
 
             static async Task ConsumerHandlerAsync(
                 IServiceProvider serviceProvider,
+                Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
                 QueueOptionsDto consumerQueueOptions,
-                bool executeOne,
+                bool executeOne,                
                 CancellationToken cancellationToken) 
             {
                 var triggerOptions = serviceProvider.GetRequiredService<TriggerOptions<TId>>();
@@ -129,6 +129,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 await ProcessEventsHandlerAsync(
                                     scope2.ServiceProvider,
+                                    eventTypeMismathErrorHandler,
                                     groupByTrigger,
                                     cancellationToken);
                             }
@@ -185,6 +186,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             static async Task ProcessEventsHandlerAsync(
                 IServiceProvider serviceProvider,
+                Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
                 Dictionary<string, List<ITriggerEvent>> groupByTrigger,
                 CancellationToken cancellationToken)
             {
@@ -218,32 +220,30 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
-                            (triggerSetter, trigger, messages: elem.Value),
+                            (eventTypeMismathErrorHandler, triggerSetter, trigger, messages: elem.Value),
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.triggerSetter, p.trigger, state),                                        
-                                        counterTriggerEventHandler: static (typedEvent, p) =>
-                                        {
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),                                        
+                                        counterTriggerEventHandler: static (typedEvent, p) =>                                        
                                             p.triggerSetter.CounterSetter.CounterEvent(
                                                 p.trigger, 
                                                 p.state, 
-                                                typedEvent.Reset, 
-                                                typedEvent.Value);                                            
-                                            return 1;
-                                        },
+                                                typedEvent.Reset,
+                                                typedEvent.Value),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
-                                            return 1;
-                                        },
-                                        signalSimpleStreamTriggerEventHandler: (typedEvent, p) => 1,
-                                        processGoWaitStreamTriggerEventHandler: (typedEvent, p) => 1,
-                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
-                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                        signalSimpleStreamTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        processGoWaitStreamTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        signalOffsetTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
                                         );
                                 }
 
@@ -258,17 +258,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.triggerSetter, p.trigger),
-                                        counterTriggerEventHandler: static (typedEvent, p) => 1,
-                                        timerTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
-                                            return 1;
-                                        },
-                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 1,
-                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 1,
-                                        processedOffsetTriggerEventHandler: (typedEvent, p) => 1,
-                                        signalOffsetTriggerEventHandler: (_, _) => 1
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger),
+                                        counterTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        timerTriggerEventHandler: static (typedEvent, p) => 
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        processedOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        signalOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
                                         );
                                 }
                             },
@@ -278,25 +280,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.triggerSetter, p.trigger, state),
-                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        counterTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
-                                            return 1;
-                                        },
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
-                                            return 1;
-                                        },
+                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
-                                            return 1;
-                                        },                                        
-                                        processedOffsetTriggerEventHandler: static  (_, _) => 1,
-                                        signalOffsetTriggerEventHandler: static (_, _) => 1
+                                            p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),                                        
+                                        processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        signalOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
                                         );
                                 }
 
@@ -311,19 +307,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
-                                        (triggerSetter, trigger, state),
-                                        counterTriggerEventHandler: static (_, _) => 1,
+                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state),
+                                        counterTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer);
-                                            return 1;
-                                        },                                        
-                                        signalSimpleStreamTriggerEventHandler: static (_, _) => 1,
+                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),                                        
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
-                                        {
-                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state);
-                                            return 1;
-                                        },                                        
+                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),                                        
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                         {
                                             if (p.state.ProcessedOffset <= typedEvent.ProcessedOffset)
@@ -334,8 +326,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 // TODO: log warnig событие с меньшим смещением.
                                             }
-
-                                            return 1;
                                         },
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
                                         {
@@ -348,13 +338,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 // TODO: log warnig событие с меньшим смещением.
                                             }
-
-                                            return 1;
                                         }
                                         );
-                                }                                
-
-                                // Если процесс уснул и не все смещенеи обрботано.
+                                }
+                                
                                 if (p.triggerSetter.OffsetStreamSetter.NeedActivate(p.trigger, state))
                                 {
                                     p.triggerSetter.OffsetStreamSetter.Activate(trigger, state);                                    
@@ -386,6 +373,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         {
                             await ConsumerHandlerAsync(
                                 scope.ServiceProvider,
+                                EventTypeMismathError,
                                 elem, 
                                 executeOne, 
                                 cancellationToken);
