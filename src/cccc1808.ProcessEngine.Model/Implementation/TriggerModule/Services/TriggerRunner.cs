@@ -696,7 +696,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// Если нода выполняет только долгие/<see cref="ITriggerSingleHandler{TId}"/>, то предпочтительнее (freeSlots) => freeSlots.
             /// </summary>
             public Func<int, int> DbExecuteBatchSize { get; set; }
-                = static (freeSlots) => freeSlots * 50;
+                = static (freeSlots) => Math.Min(freeSlots * 50, 100);
 
             public TimeSpan EmptySelectDelay { get; set; } 
                 = TimeSpan.FromMilliseconds(100);

@@ -153,17 +153,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                                     result.Add(elemResult);
 
                                     if (value < transactionUpdateLimit)
-                                    {                                        
+                                    {
+                                        // Общая транзакция
                                         rangeTriggerGroups[elem.HandlerKey] = value + 1;
                                     }
                                     else 
                                     {
+                                        // Новая транзакция (parallel slot)
                                         rangeTriggerGroups[elem.HandlerKey] = 1;
                                         parallelCounter++;
                                     }
                                 }
                                 else 
                                 {
+                                    // Новая транзакция (parallel slot)
                                     result.Add(elemResult);
                                     rangeTriggerGroups.Add(elem.HandlerKey, 1);
                                     parallelCounter++;
@@ -180,6 +183,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                             }
                     }
 
+                    // Все слоты заняты.
                     if (parallelCounter == parallelLimit)
                     {
                         break;
