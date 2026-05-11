@@ -18,6 +18,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
@@ -149,7 +150,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto() 
+                        new TriggerRunner<Guid>.OptionsDto(
+                            new EFTriggerSelectQuery<Guid>.Options3()
+                            {
+                                SingleTriggerBatchSize = (_) => 1,
+                            }
+                            ) 
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),

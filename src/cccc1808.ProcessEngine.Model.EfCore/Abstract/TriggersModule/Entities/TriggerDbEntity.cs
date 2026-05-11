@@ -28,6 +28,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public DateTimeOffset TimerDate { get; set; }
 
+        public bool IsRangeHandler { get; set; }
+
         /// <summary>
         /// TODO: можно переделать на число для экономии.
         /// </summary>
@@ -64,6 +66,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             string key,
             DateTimeOffset selectLockTimeout,
             DateTimeOffset timerDate,
+            bool isRangeHandler,
             string handlerKey,
             ITriggerComponent.TriggerKind kind,
             short priority,
@@ -78,6 +81,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             Key = key;
             SelectLockTimeout = selectLockTimeout;
             TimerDate = timerDate;
+            IsRangeHandler = isRangeHandler;
             HandlerKey = handlerKey;
             Kind = kind;
             Priority = priority;

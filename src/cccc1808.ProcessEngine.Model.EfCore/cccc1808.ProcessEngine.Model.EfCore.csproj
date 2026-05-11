@@ -16,7 +16,6 @@
 
 	<ItemGroup>
     <PackageReference Include="EntityFrameworkCore.MemoryJoin" Version="0.10.0" />
-    <PackageReference Include="linq2db.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
   </ItemGroup>
 

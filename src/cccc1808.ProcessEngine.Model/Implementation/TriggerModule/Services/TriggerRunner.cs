@@ -392,6 +392,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             static async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> SelectAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
+                ITriggerSelectQuery<TId>.IContextState selectContext,
                 CancellationToken cancellationToken) 
             {
                 var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -405,13 +406,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 {
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
-                        // Количетсво свободных слотов
-                        var emptySlotsCount = parallelLimiter.CurrentCount;
+                        selectContext.SetFreeSlots(parallelLimiter.CurrentCount);
                         return await selectQuery.SelectForProcessingAsync(
-                            options.DbExecuteBatchSize(emptySlotsCount), 
-                            emptySlotsCount,
-                            options.TransactionUpdateLimit,
-                            options.DbExecuteSelectLockTimeout,
+                            selectContext,
                             cancellationToken);
                     }
                 }
@@ -581,6 +578,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
 
             var options = _serviceProvider.GetRequiredService<OptionsDto>();
+            var TriggerSelectQuery = _serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
             using var parallelLimiter = new SemaphoreSlim(
                 options.DbExecuteParallelismLimit 
@@ -588,6 +586,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 );
             var tasks = new ConcurrentDictionary<Guid, Task>();
 
+            var selectContext = TriggerSelectQuery.BuildContext(options.SelectOptions);
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -603,6 +602,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         selectData = await SelectAsync(
                             scope.ServiceProvider,
                             parallelLimiter,
+                            selectContext,
                             cancellationToken);
                     }
 
@@ -683,6 +683,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
 
+            public ITriggerSelectQuery<TId>.IOptions SelectOptions { get; set; }
+
             /// <summary>
             /// Ограничение на количетсво триггеров, обновляемое в одной транзакции.
             /// <see cref="QueueOptionsDto.QueueConsumeTriggersCountLimit"/>.
@@ -717,6 +719,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// </summary>
             public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
+
+            public OptionsDto(ITriggerSelectQuery<TId>.IOptions selectOptions)
+            {
+                SelectOptions = selectOptions;
+            }
         }
 
         public class QueueOptionsDto 

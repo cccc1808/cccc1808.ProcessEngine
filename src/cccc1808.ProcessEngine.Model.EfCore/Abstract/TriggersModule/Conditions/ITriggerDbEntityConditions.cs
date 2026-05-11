@@ -39,6 +39,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
         { get; }
 
         /// <summary>
+        /// Для выборки DbWorker. selector
+        /// </summary>
+        (
+            object? _,
+            IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForSelectorParameters3> Query
+            )
+            DbProcessingForSelector3
+        { get; }
+
+        /// <summary>
         /// Для выборки DbWorker. handler executor.
         /// </summary>
         (
@@ -51,6 +61,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
 
         public readonly record struct DbProcessingForSelectorParameters(
             DateTimeOffset NowDate);
+
+        public readonly record struct DbProcessingForSelectorParameters3(
+            DateTimeOffset NowDate,
+            bool IsRangeTrigger);
 
         public readonly record struct DbProcessingForHandlerParameters(
             DateTimeOffset NowDate,

@@ -28,6 +28,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersMo
                 .IncludeProperties(e => new { e.Id });
         }
 
+        protected override IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex31(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        {
+            return base.DbProcessingForSelectorIndex2(builder)
+                .IncludeProperties(e => new { e.Id });
+        }
+
+        protected override IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex32(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        {
+            return base.DbProcessingForSelectorIndex2(builder)
+                .IncludeProperties(e => new { e.Id });
+        }
+
         //protected override PropertyBuilder<JsonElement?> StreamDataProperty(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         //{
         //    return base.StreamDataProperty(builder)

@@ -38,6 +38,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
             DbProcessingForSelector2
         { get; }
 
+        public (
+            object? _, 
+            IQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3> Query
+            ) 
+            DbProcessingForSelector3
+        { get; }
+
 
         public (
             object? _, 
@@ -88,6 +95,27 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                 e =>
                                     e.IsActivated
                                     && !e.IsCompleted
+                                    && e.TimerDate < p.NowDate
+                                    && e.SelectLockTimeout < p.NowDate)
+                            .OrderByDescending(e => e.Priority)
+                            .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
+                            ;
+
+                        return s;
+                    })
+                );
+
+            DbProcessingForSelector3 = (
+                null,
+                new DelegateIQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3>(
+                    (s, p) =>
+                    {
+                        s = s
+                            .Where(
+                                e =>
+                                    e.IsActivated
+                                    && !e.IsCompleted
+                                    && e.IsRangeHandler == p.IsRangeTrigger
                                     && e.TimerDate < p.NowDate
                                     && e.SelectLockTimeout < p.NowDate)
                             .OrderByDescending(e => e.Priority)

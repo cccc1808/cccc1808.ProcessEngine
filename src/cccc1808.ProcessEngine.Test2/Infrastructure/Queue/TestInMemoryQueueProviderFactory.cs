@@ -7,16 +7,11 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-using Castle.Components.DictionaryAdapter.Xml;
-
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 using Nito.AsyncEx;
-
-using static cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers.ITriggerHandler;
-using static LinqToDB.Reflection.Methods.LinqToDB.Insert;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
 {

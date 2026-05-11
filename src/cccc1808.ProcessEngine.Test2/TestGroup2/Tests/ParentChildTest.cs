@@ -261,6 +261,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     triggerKey,
                                     DateTimeOffset.MinValue,
                                     process.Id,
+                                    isRangeTrigger: true,
                                     ParentProcessTriggerHandler.Name,
                                     1,
                                     false,
