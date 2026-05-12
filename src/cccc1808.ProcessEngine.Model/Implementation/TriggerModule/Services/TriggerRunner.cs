@@ -412,7 +412,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             cancellationToken);
 
                         await transaction.CommitAsync(cancellationToken);
-
                         return result;
                     }
                 }
