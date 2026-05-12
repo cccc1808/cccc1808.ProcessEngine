@@ -35,7 +35,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken);
 
         Task SaveAsync(
-            ICollection<ITriggerComponent<TId>> triggers, 
+            ICollection<ITriggerComponent<TId>> triggers,
+            bool fromAsyncRunner,
             CancellationToken cancellationToken);
         
         public readonly record struct CreateTriggerDto(

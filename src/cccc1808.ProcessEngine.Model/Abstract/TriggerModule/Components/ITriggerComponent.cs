@@ -13,6 +13,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
     {
         #region prop
 
+        TId Id { get; }
+
         /// <summary>
         /// Ключ триггера.
         /// </summary>

@@ -110,18 +110,38 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                 new DelegateIQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3>(
                     (s, p) =>
                     {
-                        s = s
-                            .Where(
-                                e =>
-                                    e.IsActivated
-                                    && !e.IsCompleted
-                                    && e.IsRangeHandler == p.IsRangeTrigger
-                                    && e.TimerDate < p.NowDate
-                                    && e.SelectLockTimeout < p.NowDate)
-                            .OrderByDescending(e => e.Priority)
-                            .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
-                            ;
-
+                        if (!p.UseSelectLockTable)
+                        {
+                            s = s
+                                .Where(
+                                    e =>
+                                        e.IsActivated
+                                        && !e.IsCompleted
+                                        && e.IsRangeHandler == p.IsRangeTrigger
+                                        && e.TimerDate < p.NowDate
+                                        && e.SelectLockTimeout < p.NowDate)
+                                .OrderByDescending(e => e.Priority)
+                                .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
+                                ;
+                        }
+                        else
+                        {
+                            s = s
+                                .Where(
+                                    e =>
+                                        e.IsActivated
+                                        && !e.IsCompleted
+                                        && e.IsRangeHandler == p.IsRangeTrigger
+                                        && e.TimerDate < p.NowDate
+                                        && e.SelectLockTimeout < p.NowDate
+                                        // Отсутсвие записей о блокировке с неистекшей датой.
+                                        && !p.DbContext.Set<TriggerLockDbEntity<TId>>()
+                                            .Any(e2 => e2.Id.Equals(e.Id) && e2.LockDate < p.NowDate)
+                                            )
+                                .OrderByDescending(e => e.Priority)
+                                .ThenBy(e => e.HandlerKey);
+                        }
+                        
                         return s;
                     })
                 );

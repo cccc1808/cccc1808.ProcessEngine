@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
@@ -16,7 +17,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -29,6 +29,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerSelectQuery<TId> _triggerSelectQuery;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
 
@@ -40,6 +41,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             IDateTimeProvider dateTimeProvider,
             ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerSelectQuery<TId> triggerSelectQuery,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
         {
@@ -48,6 +50,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
             _triggerSetter = triggerSetter;
+            _triggerSelectQuery = triggerSelectQuery;
+
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
 
@@ -167,7 +171,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             Set.AddRange(create);
         }
 
-        public async Task SaveAsync(ICollection<ITriggerComponent<TId>> triggers, CancellationToken cancellationToken)
+        public async Task SaveAsync(
+            ICollection<ITriggerComponent<TId>> triggers,
+            bool fromRunner,
+            CancellationToken cancellationToken)
         {
             var forRemove = new List<TriggerDbEntity<TId>>();
             foreach (var elem in triggers)
@@ -189,6 +196,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             {
                 elem.NeedUpdate = false;
                 elem.NeedRemove = false;
+            }
+
+            // TODO: if using lock table
+            if (fromRunner)
+            {
+                await _triggerSelectQuery.UnholdSelectLockAsync(
+                    triggers.Select(e => e.Id).ToArray(),
+                    cancellationToken
+                    );
             }
         }        
     }

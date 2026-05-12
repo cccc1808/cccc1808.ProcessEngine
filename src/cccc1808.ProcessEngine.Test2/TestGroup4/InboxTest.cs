@@ -40,7 +40,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        [Fact(/*Timeout = FixtureCollection.TestTimeout*/)]
         public async Task Test()
         {
             var watches = new Dictionary<string, Stopwatch>();

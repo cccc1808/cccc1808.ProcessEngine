@@ -165,6 +165,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             new EFTriggerSelectQuery<Guid>.Options3()
                             {
                                 SingleTriggerBatchSize = (_) => 1,
+                                UseSelectLockTable = true,
                             }) 
                         {
                             DbExecuteParallelismLimit = 1,

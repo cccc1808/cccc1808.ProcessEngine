@@ -16,6 +16,7 @@
 
 	<ItemGroup>
     <PackageReference Include="EntityFrameworkCore.MemoryJoin" Version="0.10.0" />
+    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.100.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
   </ItemGroup>
 

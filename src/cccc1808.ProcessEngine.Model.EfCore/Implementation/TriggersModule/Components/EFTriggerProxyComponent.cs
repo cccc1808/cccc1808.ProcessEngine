@@ -15,7 +15,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
         : ITriggerComponent<TId>
     {
         private readonly ITriggerSetter<TId> _triggerSetter;
-        public TriggerDbEntity<TId> Entity { get; }       
+
+        public TriggerDbEntity<TId> Entity { get; }
+
+        public TId Id => Entity.Id;
 
         public string Key => Entity.Key;
 

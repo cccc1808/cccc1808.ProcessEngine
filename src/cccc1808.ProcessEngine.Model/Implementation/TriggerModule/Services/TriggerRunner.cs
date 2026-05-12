@@ -358,7 +358,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //}
                     }
                     
-                    await repository.SaveAsync(triggers.Values, cancellationToken);
+                    await repository.SaveAsync(triggers.Values, fromAsyncRunner: false, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
             }
@@ -407,9 +407,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
                         selectContext.SetFreeSlots(parallelLimiter.CurrentCount);
-                        return await selectQuery.SelectForProcessingAsync(
+                        var result = await selectQuery.SelectForProcessingAsync(
                             selectContext,
                             cancellationToken);
+
+                        await transaction.CommitAsync(cancellationToken);
+
+                        return result;
                     }
                 }
                 finally
@@ -459,8 +463,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             WriteHandlerResult(dateTimeProvider, triggerSetter, elem, elemResult);
                         }
 
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync(triggers, cancellationToken);
+                        // Тут учитывать сохранение triggerEntity
+                        await repository.SaveAsync(triggers, fromAsyncRunner: true, cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
@@ -494,8 +498,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         WriteHandlerResult(dateTimeProvider, triggerSetter, trigger, result);
 
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync([trigger], cancellationToken);
+                        // Тут учитывать сохранение triggerEntity
+                        await repository.SaveAsync([trigger], fromAsyncRunner: true, cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
