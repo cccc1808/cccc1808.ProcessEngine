@@ -407,9 +407,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
                         selectContext.SetFreeSlots(parallelLimiter.CurrentCount);
-                        return await selectQuery.SelectForProcessingAsync(
+                        var result = await selectQuery.SelectForProcessingAsync(
                             selectContext,
                             cancellationToken);
+
+                        await transaction.CommitAsync(cancellationToken);
+                        return result;
                     }
                 }
                 finally
