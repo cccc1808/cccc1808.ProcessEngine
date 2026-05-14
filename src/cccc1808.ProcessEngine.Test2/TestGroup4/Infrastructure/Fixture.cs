@@ -175,7 +175,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
                                     QueueName = TriggerQueue,
-                                    QueueConsumePackSize = 10,
+                                    QueueConsumeMessagesLimit = 10,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(0.5),
                                 }
                             }                            

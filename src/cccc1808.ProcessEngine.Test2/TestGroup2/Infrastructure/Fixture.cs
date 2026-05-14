@@ -165,7 +165,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
                                     QueueName = "trigger_events",
-                                    QueueConsumePackSize = 10,
+                                    QueueConsumeMessagesLimit = 10,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
                                 }
                             }                            

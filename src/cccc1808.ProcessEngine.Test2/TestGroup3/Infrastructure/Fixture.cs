@@ -154,7 +154,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
                                     QueueName = "trigger_events",
-                                    QueueConsumePackSize = FixtureCollection.RangeConst,
+                                    QueueConsumeMessagesLimit = FixtureCollection.RangeConst,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(3),
                                 }
                             }                            

@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 using Nito.AsyncEx;
 
@@ -106,91 +106,22 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
 
             public async ValueTask<ICollection<MessageDto>> ConsumeBatchAsync(
                 int limit,
-                TimeSpan timeout, 
-                CancellationToken cancellationToken)
-            {
-                return await InnerConsumeBatchAsync(
-                    limit, 
-                    timeout, 
-                    needLock: true,
-                    cancellationToken);
-            }
-
-            public async ValueTask ConsumeBatchAsync<TParameter>(
-                TParameter parameter, 
-                TimeSpan packTimeout, 
-                int packLimit,
-                TimeSpan batchTimeout,
-                Func<TParameter, ICollection<MessageDto>, bool> packCondition,
+                TimeSpan batchTimeout, 
                 CancellationToken cancellationToken)
             {
                 using (_ = _queue.ServiceLock.ReaderLock())
-                {
-                    var stopwatch = Stopwatch.StartNew();
-
-                    while (stopwatch.Elapsed < batchTimeout)
-                    {
-                        var pack = await InnerConsumeBatchAsync(
-                            packLimit,
-                            TimespanHelper.Min(packTimeout, batchTimeout - stopwatch.Elapsed),
-                            false,
-                            cancellationToken);
-
-                        var needContinue = packCondition(parameter, pack);
-                        if (!needContinue)
-                        {
-                            break;
-                        }
-                    }
-
-                    stopwatch.Stop();
-                }                
-            }
-
-            private async ValueTask<ICollection<MessageDto>> InnerConsumeBatchAsync(
-                int limit,
-                TimeSpan timeout,
-                bool needLock,
-                CancellationToken cancellationToken)
-            {
-                if (needLock)
-                {
-                    using (_ = _queue.ServiceLock.ReaderLock())
-                    {
-                        var consumeBuffer = new List<MessageDto>(limit);
-
-                        var stopwatch = Stopwatch.StartNew();
-
-                        while (consumeBuffer.Count < limit && stopwatch.Elapsed < timeout)
-                        {
-                            await Task.WhenAny(
-                                _queue.Queue.Reader.WaitToReadAsync(cancellationToken).AsTask(),
-                                Task.Delay(timeout - stopwatch.Elapsed, cancellationToken)
-                                );
-                            if (_queue.Queue.Reader.TryRead(out var consumeResult))
-                            {
-                                consumeBuffer.Add(consumeResult);
-                                _queue.NotCommitedMesages.Add(consumeResult);
-                            }
-                        }
-
-                        stopwatch.Stop();
-
-                        return consumeBuffer;
-                    }
-                }
-                else 
                 {
                     var consumeBuffer = new List<MessageDto>(limit);
 
                     var stopwatch = Stopwatch.StartNew();
 
-                    while (consumeBuffer.Count < limit && stopwatch.Elapsed < timeout)
+                    while (consumeBuffer.Count < limit && stopwatch.Elapsed < batchTimeout)
                     {
                         await Task.WhenAny(
                             _queue.Queue.Reader.WaitToReadAsync(cancellationToken).AsTask(),
-                            Task.Delay(timeout - stopwatch.Elapsed, cancellationToken)
+                            Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken)
                             );
+
                         if (_queue.Queue.Reader.TryRead(out var consumeResult))
                         {
                             consumeBuffer.Add(consumeResult);
@@ -201,7 +132,38 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
                     stopwatch.Stop();
 
                     return consumeBuffer;
-                }          
+                }
+            }
+
+            public async ValueTask ConsumeBatchAsync<TParameter>(
+                TParameter parameter, 
+                TimeSpan batchTimeout, 
+                Func<TParameter, MessageDto, bool> onReceivedHandler,
+                CancellationToken cancellationToken)
+            {
+                using (_ = _queue.ServiceLock.ReaderLock())
+                {
+                    var stopwatch = Stopwatch.StartNew();
+
+                    while (stopwatch.Elapsed < batchTimeout)
+                    {
+                        await Task.WhenAny(
+                            _queue.Queue.Reader.WaitToReadAsync(cancellationToken).AsTask(),
+                            Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken)
+                            );
+
+                        if (_queue.Queue.Reader.TryRead(out var consumeResult))
+                        {
+                            _queue.NotCommitedMesages.Add(consumeResult);
+                            if (!onReceivedHandler(parameter, consumeResult))
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    stopwatch.Stop();
+                }
             }
 
             public void Disconnect()
