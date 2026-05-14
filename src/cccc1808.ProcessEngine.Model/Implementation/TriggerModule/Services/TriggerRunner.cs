@@ -90,7 +90,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 var triggerEvent = p.serializer.Deserialize(e.Body);
                                 if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
                                 {
-                                    triggerEvents = new List<ITriggerEvent>(p.consumerQueueOptions.QueueConsumeTriggersCountLimit);
+                                    // Если нужно, то тут можно сделать кеширование коллекций.
+                                    triggerEvents = new List<ITriggerEvent>(p.consumerQueueOptions.QueueConsumeMessagesLimit / 2);
                                     p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
                                 }
                                 triggerEvents.Add(triggerEvent);
