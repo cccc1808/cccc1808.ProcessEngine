@@ -77,10 +77,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 
             public async Task InitializeAsync()
             {
-                TestcontainersSettings.WaitStrategyRetries = 1;
-                TestcontainersSettings.WaitStrategyInterval = TimeSpan.FromSeconds(1);
-                TestcontainersSettings.WaitStrategyTimeout = TimeSpan.FromSeconds(4);
-
                 {
                     var postgresBuilder = new PostgreSqlBuilder("postgres:18")
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);

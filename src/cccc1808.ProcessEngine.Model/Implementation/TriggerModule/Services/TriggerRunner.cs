@@ -668,6 +668,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class OptionsDto
         {
+            /// <summary>
+            /// Конфигурация очередей, используемых для передачи <see cref="ITriggerEvent"/>, которые будут обрабатываться текущим экземпляром.
+            /// (Можно сделать несколько одередей с разными значениями буфера и задержки накопления события).
+            /// </summary>
             public List<QueueOptionsDto> TriggerEventQueues { get; set; }
                 = new List<QueueOptionsDto>(0);                 
 
@@ -734,6 +738,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public int QueueConsumeTriggersCountLimit { get; set; }
                 = 100;
 
+            /// <summary>
+            /// Ограничение задержки накопления батча событий.
+            /// </summary>
             public TimeSpan QueueConsumeBatchTimeout { get; set; }
                 = TimeSpan.FromSeconds(1);
         }

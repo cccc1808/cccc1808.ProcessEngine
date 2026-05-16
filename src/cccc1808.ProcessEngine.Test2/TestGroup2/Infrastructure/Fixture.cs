@@ -62,10 +62,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
             public async Task InitializeAsync()
             {
-                TestcontainersSettings.WaitStrategyRetries = 1;
-                TestcontainersSettings.WaitStrategyInterval = TimeSpan.FromSeconds(1);
-                TestcontainersSettings.WaitStrategyTimeout = TimeSpan.FromSeconds(4);
-
                 {
                     var postgresBuilder = new PostgreSqlBuilder("postgres:18")
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
@@ -74,13 +70,29 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
                 }
-                
-                var startTasks = new Task[] 
+
+                var tryStartCount = 0;
+                while(true)
                 {
-                    PostgreSqlContainer.StartAsync(),
-                    KafkaContainer.StartAsync()
-                };
-                await Task.WhenAll(startTasks);
+                    var startTasks = new Task[]
+                    {
+                        PostgreSqlContainer.StartAsync(),
+                        KafkaContainer.StartAsync()
+                    };
+                    try 
+                    {
+                        await Task.WhenAll(startTasks);
+                        break;
+                    }
+                    catch(Docker.DotNet.DockerApiException)
+                    {
+                        if (tryStartCount > 2)
+                        {
+                            throw;
+                        }
+                        tryStartCount++;
+                    }
+                }                
 
                 ServiceProvider = ConfigureServices();
 
