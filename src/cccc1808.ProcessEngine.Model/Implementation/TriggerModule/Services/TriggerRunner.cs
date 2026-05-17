@@ -214,7 +214,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),                                        
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        removeTriggerEventHandler: (_, p) => 
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>                                        
                                             p.triggerSetter.CounterSetter.CounterEvent(
                                                 p.trigger, 
@@ -246,6 +248,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) => 
@@ -268,6 +272,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
@@ -295,6 +301,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
                                         (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
