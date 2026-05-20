@@ -47,5 +47,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// Взведение флага говорит движку прекратить асинхронную обработку экземпляра процесса.
         /// </summary>
         bool StopAsyncProcessingSession { get; set; }
+
+        /// <summary>
+        /// Автоматически сбросить ошибку в конце сессии асинхронной обработки (если не <see cref="CurrentSessionHaveError"/>).
+        /// </summary>
+        bool ClearErrorOnSessionEnd { get; set; }
     }
 }

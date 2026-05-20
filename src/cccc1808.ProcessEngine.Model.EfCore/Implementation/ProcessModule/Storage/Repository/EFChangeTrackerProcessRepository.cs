@@ -207,7 +207,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                 retryLimit: _options.RetryLimit,
                                 stopAsyncProcessingSession: false,
                                 needUpdateErrorData: false,
-                                haveErrorOnStart: elem.StoppedByError || elem.RetryCount.HasValue // TODO: condition                                                                                                   
+                                haveErrorOnStart: elem.StoppedByError || elem.RetryCount.HasValue, // TODO: condition                                                                                               
+                                clearErrorOnSessionEnd: true
                                 ),
                             isAsyncExecuting: true,
                             wakeupState: _wakeupRegistry.CheckWakeup(new ProcessTypeDto(elem.ProcessTypeId, elem.ProcessVersion))
@@ -265,7 +266,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                     retryLimit: _options.RetryLimit,
                                     stopAsyncProcessingSession: false,
                                     needUpdateErrorData: false,
-                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue // TODO: condition                                                                                                   
+                                    haveErrorOnStart: e.StoppedByError || e.RetryCount.HasValue, // TODO: condition                                                                                                   
+                                    clearErrorOnSessionEnd: true
                                     ),
                                 isAsyncExecuting: false,
                                 wakeupState: _wakeupRegistry.CheckWakeup(new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion))                                
