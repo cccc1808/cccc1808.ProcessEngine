@@ -202,33 +202,34 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
-                    s => new ProcessRunner<Guid>(
+                    s => new ProcessRunner2<Guid>(
                         s,
-                        new ProcessRunner<Guid>.OptionsDto(
-                            SelectBatchLimit: 1,
-                            selectEmptyTimeout: TimeSpan.FromSeconds(1),
-                            BatchLimit: 1,
-                            BatchTimeout: TimeSpan.FromSeconds(1),
-                            SelectorExceptionDelay: TimeSpan.Zero,
-                            SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                       
-                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
-                            s,
-                            (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                        new ProcessRunner2<Guid>.OptionsDto(
+                            selectOptions: new EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>.Options1() 
+                            {
+                                RangeBatchSize = (e) => e,
+                                SingleBatchSize = (e) => e,
+                            },
+                            selectFactory: (s) => s.GetRequiredService<EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>>(),
+                            rangeMiddlewareFactory: (s) => throw new Exception(""),
+                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                                 s,
-                                s.GetRequiredService<IDateTimeProvider>(),
-                                s.GetRequiredService<IIsolationService>(),
-                                s.GetRequiredService<IProcessSetter>(),
-                                s.GetRequiredService<IWakeupService<Guid>>(),
-                                (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
-                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                            ),
-                            s.GetRequiredService<ITransactionManager>()
-                            )
-                        ),                    
-                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
-                        s.GetRequiredService<IExecuteLimiterInvoker>(),
-                        s.GetRequiredService<ProcessCountLimiter>()
+                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                    s,
+                                    s.GetRequiredService<IDateTimeProvider>(),
+                                    s.GetRequiredService<IIsolationService>(),
+                                    s.GetRequiredService<IProcessSetter>(),
+                                    s.GetRequiredService<IWakeupService<Guid>>(),
+                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                    ),
+                                s.GetRequiredService<ITransactionManager>()
+                                )
                         )
+                        { 
+                            ExceptionDelay = TimeSpan.Zero,
+                            DbExecuteParallelismLimit = 1,
+                        })
                 );
                 services
                     .AddScoped<Process1Body>()

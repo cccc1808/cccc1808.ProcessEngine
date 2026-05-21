@@ -21,7 +21,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query
 {
-    public class EFProcessSelectQuery<TId, TEntity> 
+    public class EFProcessAsyncProcessingSelectQuery<TId, TEntity> 
         : IProcessAsyncProcessingSelectQuery<TId>
         where TEntity : ProcessDbEntity<TId>
     {        
@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
         private readonly OptionsDto _options;
 
-        public EFProcessSelectQuery(
+        public EFProcessAsyncProcessingSelectQuery(
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             ITransactionManager transactionManager,

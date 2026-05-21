@@ -1,5 +1,6 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
 {
@@ -16,6 +17,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public long ProcessTypeId { get; set; }
         public int ProcessVersion { get; set; }
         public short Priority { get; set; }
+
+        /// <summary>
+        /// Используется в <see cref="EFProcessAsyncProcessingSelectQuery2{TId, TEntity}"/> для распределения между слотами параллельного выполнения.
+        /// TODO: не учитывается в индексах.
+        /// </summary>
+        public bool IsRangeExecution { get; set; }
 
         /// <summary>
         /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.

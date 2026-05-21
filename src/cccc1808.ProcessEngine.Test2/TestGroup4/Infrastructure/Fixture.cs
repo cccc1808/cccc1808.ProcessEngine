@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -20,7 +19,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Q
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
@@ -34,7 +32,6 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.ClassifierModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage;
-using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Wakeup;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
@@ -44,8 +41,6 @@ using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
 using Confluent.Kafka;
-
-using DotNet.Testcontainers.Configurations;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -192,18 +187,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)
                     );
 
-                // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
-                    s => new ProcessRunner<Guid>(
+                    s => new ProcessRunner2<Guid>(
                         s,
-                        new ProcessRunner<Guid>.OptionsDto(
-                            SelectBatchLimit: 1,
-                            selectEmptyTimeout: TimeSpan.FromSeconds(1),
-                            BatchLimit: 1,
-                            BatchTimeout: TimeSpan.FromSeconds(1),
-                            SelectorExceptionDelay: TimeSpan.Zero,
-                            SelectFactory: (s) => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                        
-                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
+                        new ProcessRunner2<Guid>.OptionsDto(
+                            selectOptions: new EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>.Options1()
+                            {
+                                RangeBatchSize = (e) => e,
+                                SingleBatchSize = (e) => e,
+                            },
+                            selectFactory: (s) => s.GetRequiredService<EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>>(),
+                            rangeMiddlewareFactory: (s) => throw new Exception(""),
+                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,
                             (s, ids) =>
                             {
@@ -240,12 +235,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                 }
                             },
                             s.GetRequiredService<ITransactionManager>()
-                            )),                    
-                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
-                        s.GetRequiredService<IExecuteLimiterInvoker>(),
-                        s.GetRequiredService<ProcessCountLimiter>()                        
-                        )
+                            )                       
+                            )
+                        {
+                            ExceptionDelay = TimeSpan.Zero,
+                            DbExecuteParallelismLimit = 1,
+                        })
                 );
+
+
                 services
                     .AddScoped<TestInboxBody>()
                     .AddSingleton(new BaseSingleProcessHandler<Guid>.OptionsDto(

@@ -31,7 +31,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
 
-
         public TriggerRunner(
             IServiceProvider serviceProvider, 
             OptionsDto options)

@@ -230,8 +230,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped(s => new ProcessCountLimiter(processCountLimiter))
                 .AddScoped<IExecuteLimiter>(s => s.GetRequiredService<ProcessCountLimiter>())
                 
-                .AddScoped<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
-                .AddSingleton(s => new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.OptionsDto(TimeSpan.FromSeconds(30)))
+                .AddScoped<EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
             return services;
