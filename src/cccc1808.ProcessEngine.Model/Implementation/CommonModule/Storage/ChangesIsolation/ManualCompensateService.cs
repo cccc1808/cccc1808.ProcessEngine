@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation
 {
@@ -13,12 +14,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
     /// Предоставляет разработчику возможность самостоятельно зарегестировать действие компенсации в момент выполнение какого-либо действия.
     /// Основное применение: откат изменений сделанных напрямую в БД, когда используется EF.ChangeTracker и ChangeTrackerSnapshotCompensateService (например когда нужен InsertOnConflict).
     /// </summary>
-    public class ManualCompensateService
-        : IManualCompensateService
+    public class ManualCompensateService<TId>
+        : IManualCompensateService<TId>
     {      
         private Scope? Current { get; set; }
 
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
             var scope = new Scope(this);
@@ -40,7 +42,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
 
         private record Scope : ICompensateService.ICompensateScope
         {
-            private readonly ManualCompensateService _manualCompensateService;
+            private readonly ManualCompensateService<TId> _manualCompensateService;
             private readonly List<Func<CancellationToken, ValueTask>> _actions 
                 = new List<Func<CancellationToken, ValueTask>>();
 
@@ -48,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
             private readonly List<Scope> _childs 
                 = new List<Scope>(10);
 
-            public Scope(ManualCompensateService manualCompensateService)
+            public Scope(ManualCompensateService<TId> manualCompensateService)
             {
                 _manualCompensateService = manualCompensateService;
 

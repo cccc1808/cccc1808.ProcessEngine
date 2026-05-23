@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation
 {
-    public interface ISavepointCompensateService
-        : ICompensateService
+    public interface ISavepointCompensateService<TId>
+        : ICompensateService<TId>
     {
     }
 }

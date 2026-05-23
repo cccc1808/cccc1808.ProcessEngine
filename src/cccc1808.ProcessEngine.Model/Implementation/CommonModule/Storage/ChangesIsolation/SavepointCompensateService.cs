@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class SavepointCompensateService
-        : ISavepointCompensateService
+    public class SavepointCompensateService<TId>
+        : ISavepointCompensateService<TId>
     {
         private readonly ITransactionManager _transactionManager;
 
@@ -20,6 +21,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
         }
 
         public async ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
             var transaction = await _transactionManager.CreateSavepointAsync(cancellationToken);

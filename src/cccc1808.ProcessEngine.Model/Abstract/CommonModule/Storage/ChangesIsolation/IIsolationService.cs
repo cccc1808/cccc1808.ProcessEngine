@@ -1,28 +1,10 @@
-﻿namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation
+﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+
+namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation
 {
-    /// <summary>
-    /// Паттерны изоляции изменений (атомарности).
-    /// </summary>
     public interface IIsolationService
     {
-        /// <summary>
-        /// Выполнить делегат усползуяю указанную реализацию <see cref="ICompensateService"/> <see cref="IsolationMode"/>.
-        /// </summary>
-        /// <typeparam name="TParam"></typeparam>
-        /// <param name="isolationMode">Тип реализации изоляции <see cref="ICompensateService"/>.</param>
-        /// <param name="param">Параметра для измежания замыания.</param>
-        /// <param name="action">Действие.</param>
-        /// <param name="exceptionHandler">Хендлер ошибки.</param>
-        /// <param name="criticalExceptionHandler">Хендлер критической ошибки (должен быть максимально простым и безопасным).</param>
-        ValueTask ExecuteAsync<TParam>(
-            IsolationMode isolationMode,
-            TParam param,
-            Func<TParam, CancellationToken, ValueTask> action,
-            Func<TParam, Exception, CancellationToken, ValueTask> exceptionHandler,
-            Func<TParam, Exception, CancellationToken, ValueTask>? criticalExceptionHandler,
-            CancellationToken cancellationToken);
-
-        public enum IsolationMode 
+        public enum IsolationMode
         {
             /// <summary>
             /// Не использовать изоляцию.
@@ -68,5 +50,30 @@
             /// </summary>
             ChangeTrackerSnapshotAndManual
         }
+    }
+
+    /// <summary>
+    /// Паттерны изоляции изменений (атомарности).
+    /// </summary>
+    public interface IIsolationService<TId> 
+        : IIsolationService
+    {
+        /// <summary>
+        /// Выполнить делегат усползуяю указанную реализацию <see cref="ICompensateService"/> <see cref="IsolationMode"/>.
+        /// </summary>
+        /// <typeparam name="TParam"></typeparam>
+        /// <param name="isolationMode">Тип реализации изоляции <see cref="ICompensateService"/>.</param>
+        /// <param name="param">Параметра для измежания замыания.</param>
+        /// <param name="action">Действие.</param>
+        /// <param name="exceptionHandler">Хендлер ошибки.</param>
+        /// <param name="criticalExceptionHandler">Хендлер критической ошибки (должен быть максимально простым и безопасным).</param>
+        ValueTask ExecuteAsync<TParam>(
+            IDictionary<TId, IProcessContainer<TId>> processes,
+            IsolationMode isolationMode,
+            TParam param,
+            Func<TParam, CancellationToken, ValueTask> action,
+            Func<TParam, Exception, CancellationToken, ValueTask> exceptionHandler,
+            Func<TParam, Exception, CancellationToken, ValueTask>? criticalExceptionHandler,
+            CancellationToken cancellationToken);        
     }
 }

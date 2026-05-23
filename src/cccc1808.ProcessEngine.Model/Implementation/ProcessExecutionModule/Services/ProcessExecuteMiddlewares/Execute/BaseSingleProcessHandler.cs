@@ -19,10 +19,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     public abstract class BaseSingleProcessHandler<TId> 
         : BaseRangeProcessHandler<TId>
     {
-        private readonly IIsolationService _isolationService;
+        private readonly IIsolationService<TId> _isolationService;
 
         protected BaseSingleProcessHandler(
-            IIsolationService isolationService, 
+            IIsolationService<TId> isolationService, 
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter processSetter)
@@ -52,6 +52,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     );
 
                 await _isolationService.ExecuteAsync(
+                    elemGroup.Group,
                     SingleOptions.ProcessIsolation,
                     (This: this, elem, elemGroup, options),
                     static async (p, cancellationToken) =>

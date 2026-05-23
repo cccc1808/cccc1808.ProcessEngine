@@ -3,8 +3,8 @@
     /// <summary>
     /// Система компенсации с поддержкой дествий с указанием ручной компенсации.
     /// </summary>
-    public interface IManualCompensateService
-        : ICompensateService
+    public interface IManualCompensateService<TId>
+        : ICompensateService<TId>
     {
         /// <summary>
         /// Сохранить хендлер компенсации (после выполнения действия).

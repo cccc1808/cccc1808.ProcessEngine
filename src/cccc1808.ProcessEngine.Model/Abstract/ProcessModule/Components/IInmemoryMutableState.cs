@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
@@ -30,6 +31,29 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// <summary>
         /// Котейнер снимок состояния.
         /// </summary>
-        public interface ISnapshot { }
+        public interface ISnapshot : IDisposable
+        { }
+
+        public record JsonSnapshot : 
+            ISnapshot
+        {
+            public JsonDocument Snapshot { get; init; }
+                = null!;
+
+            public void Dispose()
+            {
+                Snapshot?.Dispose();
+            }
+
+            public static JsonSnapshot Create<T>(T entity)
+            {
+                return new JsonSnapshot() { Snapshot = JsonSerializer.SerializeToDocument(entity) };
+            }
+
+            public static T Restore<T>(JsonSnapshot jsonSnapshot)
+            {
+                return jsonSnapshot.Snapshot.Deserialize<T>()!;
+            }
+        }
     }
 }

@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
         protected readonly IInboxSetter _inboxSetter;
 
         public InboxSingleProcessHandler(
-            IIsolationService isolationService,
+            IIsolationService<TId> isolationService,
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,

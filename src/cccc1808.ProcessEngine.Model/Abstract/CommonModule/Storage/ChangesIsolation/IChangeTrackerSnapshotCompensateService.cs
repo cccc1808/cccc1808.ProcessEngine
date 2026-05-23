@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation
 {
     /// <summary>
-    /// Отчистка ChangeTracker (частный случай для EF).
+    /// Создание InMemory снимка.
     /// </summary>
-    public interface IChangeTrackerCompensateService<TId>
+    public interface IChangeTrackerSnapshotCompensateService<TId>
         : ICompensateService<TId>
     {
     }

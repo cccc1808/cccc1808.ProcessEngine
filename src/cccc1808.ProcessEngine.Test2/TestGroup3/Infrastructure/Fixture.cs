@@ -188,7 +188,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                 (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                     s,
                                     s.GetRequiredService<IDateTimeProvider>(),
-                                    s.GetRequiredService<IIsolationService>(),
+                                    s.GetRequiredService<IIsolationService<Guid>>(),
                                     s.GetRequiredService<IProcessSetter>(),
                                     s.GetRequiredService<IWakeupService<Guid>>(),
                                     (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),

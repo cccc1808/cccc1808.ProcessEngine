@@ -6,27 +6,27 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class EFIsolationService
-        : IIsolationService
+    public class EFIsolationService<TId>
+        : IIsolationService<TId>
     {
         private readonly ITransactionManager _transactionManager;
-        private readonly ISavepointCompensateService _savepointCompensateService;
-        private readonly IChangeTrackerCompensateService _changeTrackerCompensateService;
-        private readonly IChangeTrackerSnapshotCompensateService _changeTrackerSnapshotCompensateService;
-        private readonly IManualCompensateService _manualCompensateService;
+        private readonly ISavepointCompensateService<TId> _savepointCompensateService;
+        private readonly IChangeTrackerCompensateService<TId> _changeTrackerCompensateService;
+        private readonly IChangeTrackerSnapshotCompensateService<TId> _changeTrackerSnapshotCompensateService;
+        private readonly IManualCompensateService<TId> _manualCompensateService;
         private bool _transactionRequired;
 
         public EFIsolationService(
             ITransactionManager transactionManager,
-            ISavepointCompensateService savepointCompensateService, 
-            IChangeTrackerCompensateService changeTrackerCompensateService,
-            IChangeTrackerSnapshotCompensateService changeTrackerSnapshotCompensateService,
-            IManualCompensateService manualCompensateService,
+            ISavepointCompensateService<TId> savepointCompensateService, 
+            IChangeTrackerCompensateService<TId> changeTrackerCompensateService,
+            IChangeTrackerSnapshotCompensateService<TId> changeTrackerSnapshotCompensateService,
+            IManualCompensateService<TId> manualCompensateService,
             bool transactionRequired = true)
         {
             _transactionManager = transactionManager;
@@ -38,6 +38,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         }
 
         public async ValueTask ExecuteAsync<TParam>(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IIsolationService.IsolationMode isolationMode, 
             TParam param, 
             Func<TParam, CancellationToken, ValueTask> action,
@@ -94,7 +95,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ClearChangeTracker:
                     {
-                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken))
+                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(processes, cancellationToken))
                         {
                             try
                             {
@@ -140,7 +141,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.Manual:
                     {
-                        await using (var manual = await _manualCompensateService.StartScopeAsync(cancellationToken))
+                        await using (var manual = await _manualCompensateService.StartScopeAsync(processes, cancellationToken))
                         {
                             try
                             {
@@ -186,8 +187,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker:
                     {
-                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken))
-                        await using (var savepoint = await _savepointCompensateService.StartScopeAsync(cancellationToken))
+                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(processes, cancellationToken))
+                        await using (var savepoint = await _savepointCompensateService.StartScopeAsync(processes, cancellationToken))
                         {
                             try
                             {
@@ -236,7 +237,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ChangeTrackerSnapshot:
                     {
-                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken))
+                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(processes, cancellationToken))
                         {
                             try
                             {
@@ -282,8 +283,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual:
                     {
-                        await using (var manualCompensate = await _manualCompensateService.StartScopeAsync(cancellationToken))
-                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken))
+                        await using (var manualCompensate = await _manualCompensateService.StartScopeAsync(processes, cancellationToken))
+                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(processes, cancellationToken))
                         {
                             try
                             {

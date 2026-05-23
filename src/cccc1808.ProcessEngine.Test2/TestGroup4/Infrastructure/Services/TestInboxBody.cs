@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services
         : InboxSingleProcessHandler<Guid>
     {
         public TestInboxBody(
-            IIsolationService isolationService, 
+            IIsolationService<Guid> isolationService, 
             IProcessRepository<Guid> repository, 
             ITriggerRepository<Guid> triggerRepository,
             IProcessSetter setter, 
