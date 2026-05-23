@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Emit;
@@ -12,11 +13,13 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
@@ -33,16 +36,18 @@ using Shouldly;
 namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 {
     /// <summary>
+    /// /// <summary>
     /// https://wiki.denhome.ru/bin/view/Проекты%20и%20репозитории/Библиотеки/Движок%20cccc1808.%20ProcessEngine/Примеры/
-    /// Пример 1. Вариант 1.
+    /// Пример 1. Вариант 4.
+    /// </summary>
     /// </summary>
     [Collection(FixtureCollection.Name)]
-    public class ParentChildTest1
+    public class ParentChildTest2
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
 
-        public ParentChildTest1(
+        public ParentChildTest2(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
@@ -55,6 +60,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await _fixture.CleanEnvironmentAsync();
         }
         
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         [Fact(Timeout = FixtureCollection.TestTimeout)]
         public async Task Test1()
         {
@@ -126,12 +135,36 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(1),
+                        e => e.SignalCounter1.ShouldBe(0),
+                        e => e.StreamProcessIsWaiting.ShouldBe(false),
+                        e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // 2) Выполнение дочерних процессов.
+            // 2) Обработка событий триггеров.
+            // StreamTrigger фиксирует, что родительский процес уснул.
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
+                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
+                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
+
+                await triggerService.ConsumerWorkAsync(executeOne: true, default);
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
+
+                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
+                triggers.ShouldSatisfyAllConditions(
+                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                        e => e.Key.ShouldBe(parentTriggerKey),
+                        e => e.SignalCounter1.ShouldBe(0),
+                        e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeTrue(),
+                        e => e.IsActivated.ShouldBeFalse(),
+                        e => e.IsCompleted.ShouldBeFalse()));
+            }
+
+            // 3) Выполнение дочерних процессов.
             // По завершению на родитедьский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
@@ -163,13 +196,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 triggers.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(1),
+                        e => e.SignalCounter1.ShouldBe(0),
+                        e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeTrue(),
                         e => e.IsActivated.ShouldBeFalse(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // 3) Обработка событий триггеров.
-            // События по счетчику CounterTrigger, активация триггера.
+            // 4) Обработка событий триггеров.
+            // События по SimpleStreamTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -185,11 +219,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                         e => e.Key.ShouldBe(parentTriggerKey),
                         e => e.SignalCounter1.ShouldBe(0),
+                        e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
                         e => e.IsActivated.ShouldBeTrue(),
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // 4) Обработка активных триггеров. CounterTrigger.
+            // 5) Обработка активных триггеров. SimpleStreamTrigger.
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
@@ -218,7 +253,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.IsCompleted.ShouldBeTrue()));
             }
 
-            // 5) Выполняется родительский процесс.
+            // 6) Выполняется родительский процесс.
             // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
@@ -253,6 +288,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     {
                         var idGenerator = serviceProvider.GetRequiredService<IIdGenerator<Guid>>();
                         var triggerRepository = serviceProvider.GetRequiredService<ITriggerRepository<Guid>>();
+                        var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
 
@@ -267,7 +303,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             var triggerKey = Guid.NewGuid().ToString();
 
                             await triggerRepository.CreateTriggerAsync(
-                                ITriggerRepository<Guid>.CreateTriggerDto.CounterTrigger(
+                                ITriggerRepository<Guid>.CreateTriggerDto.SimpleStreamTrigger(
                                     triggerKey,
                                     DateTimeOffset.MinValue,
                                     process.Id,
@@ -275,7 +311,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     ParentProcessTriggerHandler.Name,
                                     1,
                                     false,
-                                    childCount), 
+                                    streamProcessIsWaiting: false,
+                                    newSignalCounter: 0), 
                                 CancellationToken.None);
 
                             for (int i = 0; i < childCount; i++)
@@ -302,6 +339,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 setter.SetStatus(
                                     process,
                                     ProcessStatusEnum.WaitEvent);
+
+                                process.AddComponent<IStreamTriggerComponent>(
+                                    new StreamTriggerComponent(
+                                        triggerOptions.TriggerEventQueues.Single().QueueName, 
+                                        [triggerKey])
+                                    );
                             }
                         }
                         else
@@ -321,13 +364,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
 
                         var component = process.GetComponent<ChildProcessDbEntity>();
+                        
+                        // TODO: check other child process count;
 
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
                             [new ITriggerEventRaiser<Guid>.RaiseContainer(
                                 triggerOptions.TriggerEventQueues.Single().QueueName,
                                 component.ParentProcessId,
-                                new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
+                                new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
                                 )],
                             default);
 

@@ -5,7 +5,6 @@ using System.Threading;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 using Confluent.Kafka;
 
@@ -40,23 +39,70 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
             _consumer.Subscribe(topic);
         }        
 
-        public async ValueTask<ICollection<MessageDto>> ConsumeBatchAsync(
+        public ValueTask<ICollection<MessageDto>> ConsumeBatchAsync(
             int limit,
-            TimeSpan timeout, 
+            TimeSpan batchTimeout, 
             CancellationToken cancellationToken)
         {
-            await Task.Yield();
-            
-            var consumeBuffer = new List<MessageDto>(limit);
             var stopwatch = Stopwatch.StartNew();
-
-            while (consumeBuffer.Count < limit && stopwatch.Elapsed < timeout)
+            try
             {
-                var consumeResult = _consumer.Consume(timeout - stopwatch.Elapsed); // this can timeout
-                if (consumeResult != null)
+                var consumeBuffer = new List<MessageDto>(limit);                
+
+                while (consumeBuffer.Count < limit && stopwatch.Elapsed < batchTimeout)
                 {
-                    consumeBuffer.Add(
-                        new MessageDto(
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var consumeResult = _consumer.Consume(batchTimeout - stopwatch.Elapsed); // this can timeout
+                    if (consumeResult != null)
+                    {
+                        consumeBuffer.Add(
+                            new MessageDto(
+                                consumeResult.Message.Key,
+                                _topic,
+                                consumeResult.Message.Headers
+                                    .Select(
+                                        e => new HeaderDto(e.Key, Encoding.UTF8.GetString(e.GetValueBytes()))
+                                        )
+                                    .ToArray(),
+                                consumeResult.Message.Value,
+                                consumeResult.Partition.Value
+                                ));
+                        _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
+                    }
+                }
+                
+                return ValueTask.FromResult<ICollection<MessageDto>>(consumeBuffer);
+            }
+            catch (Exception ex) 
+            {
+                return ValueTask.FromException<ICollection<MessageDto>>(ex);
+            }
+            finally 
+            {
+                stopwatch.Stop();
+            }
+        }
+
+        public ValueTask ConsumeBatchAsync<TParameter>(
+            TParameter parameter, 
+            TimeSpan batchTimeout, 
+            Func<TParameter, MessageDto, bool> onReceivedHandler, 
+            CancellationToken cancellationToken)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            try
+            {
+                while (stopwatch.Elapsed < batchTimeout)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var consumeResult = _consumer.Consume(batchTimeout - stopwatch.Elapsed); // this can timeout
+                    if (consumeResult != null)
+                    {
+                        _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
+
+                        var message = new MessageDto(
                             consumeResult.Message.Key,
                             _topic,
                             consumeResult.Message.Headers
@@ -66,61 +112,53 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                                 .ToArray(),
                             consumeResult.Message.Value,
                             consumeResult.Partition.Value
-                            ));
-                    _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
+                            );
+
+                        if (!onReceivedHandler(parameter, message))
+                        {
+                            break;
+                        }                        
+                    }
                 }
+
+                return ValueTask.CompletedTask;
             }
-
-            stopwatch.Stop();
-            return consumeBuffer;
-        }
-
-        public async ValueTask ConsumeBatchAsync<TParameter>(
-            TParameter parameter,
-            TimeSpan packTimeout, 
-            int packLimit,
-            TimeSpan batchTimeout, 
-            Func<TParameter, ICollection<MessageDto>, bool> condition, 
-            CancellationToken cancellationToken)
-        {
-            var stopwatch = Stopwatch.StartNew();
-
-            while (stopwatch.Elapsed < batchTimeout)
+            catch (Exception ex)
             {
-                var pack = await ConsumeBatchAsync(
-                    packLimit, 
-                    TimespanHelper.Min(packTimeout, batchTimeout - stopwatch.Elapsed), 
-                    cancellationToken);
-
-                var needContinue = condition(parameter, pack);
-                if (!needContinue)
-                {
-                    break;
-                }
+                return ValueTask.FromException(ex);
             }
-
-            stopwatch.Stop();
+            finally
+            {
+                stopwatch.Stop();
+            }
         }
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)
         {
-            if (!_lastMessagesByPartition.Any())
+            try
             {
-                throw new InvalidOperationException("Не обнаружено считанное сообщение для коммита.");
+                if (!_lastMessagesByPartition.Any())
+                {
+                    throw new InvalidOperationException("Не обнаружено считанное сообщение для коммита.");
+                }
+
+                _consumer.Commit();
+
+                //_consumer.Commit(
+                //    _lastMessagesByPartition
+                //        .Select(e => new TopicPartitionOffset(
+                //            _topic,
+                //            new Partition(e.Key), 
+                //            new Offset(e.Value + 1)))
+                //        .ToArray());
+                _lastMessagesByPartition.Clear();
+
+                return ValueTask.CompletedTask;
             }
-
-            _consumer.Commit();
-
-            //_consumer.Commit(
-            //    _lastMessagesByPartition
-            //        .Select(e => new TopicPartitionOffset(
-            //            _topic,
-            //            new Partition(e.Key), 
-            //            new Offset(e.Value + 1)))
-            //        .ToArray());
-            _lastMessagesByPartition.Clear();
-
-            return ValueTask.CompletedTask;
+            catch (Exception ex) 
+            {
+                return ValueTask.FromException(ex);
+            }
         }
 
         public ValueTask DisposeAsync()
@@ -139,6 +177,6 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                 _consumer.Dispose();
             }            
             return ValueTask.CompletedTask;
-        }
+        }        
     }
 }

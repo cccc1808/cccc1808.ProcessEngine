@@ -10,6 +10,8 @@
 
             ProcessedOffsetEvent,
             SignalOffsetEvent,
+
+            RemoveTriggerEvent,
         }
     
 }

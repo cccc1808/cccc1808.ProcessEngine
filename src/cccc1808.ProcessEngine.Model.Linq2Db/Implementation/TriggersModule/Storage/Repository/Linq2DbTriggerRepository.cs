@@ -146,6 +146,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                     key: elem.key,
                     selectLockTimeout: DateTimeOffset.MinValue,
                     timerDate: elem.timerDate,
+                    isRangeHandler: elem.isRangeTrigger,
                     handlerKey: elem.handlerKey,
                     kind: elem.kind,
                     priority: elem.priority,
@@ -196,16 +197,17 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                         });
 
                     var result = new TriggerDbEntity<TId>(
-                        default, // Не обновляется в запросе.
-                        elem.Key,
-                        elem.SelectLockTimeout,
-                        elem.TimerDate,
-                        elem.HandlerKey,
-                        elem.Kind,
-                        default, // Не обновляется в запросе.
-                        elem.IsActivated,
-                        elem.IsCompleted,
-                        elem.ProcessId,
+                        id: default, // Не обновляется в запросе.
+                        key: elem.Key,
+                        selectLockTimeout: elem.SelectLockTimeout,
+                        timerDate: elem.TimerDate,
+                        isRangeHandler: default, // Не обновляется в запросе.
+                        handlerKey: elem.HandlerKey,                        
+                        kind: elem.Kind,
+                        priority: default, // Не обновляется в запросе.
+                        isActivated: elem.IsActivated,
+                        isCompleted: elem.IsCompleted,
+                        processId: elem.ProcessId,
                         state.Item1,
                         state.Item2,
                         state.Item3);

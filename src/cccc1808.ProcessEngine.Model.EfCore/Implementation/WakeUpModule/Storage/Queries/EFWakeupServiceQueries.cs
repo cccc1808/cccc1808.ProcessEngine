@@ -82,8 +82,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storag
                 while (true)
                 {
                     //// Замечание: share lock не является обязательно необходимым, может быть достаточной реализация только на основе update lock.
-
-                    // 1) Если намерение выставлено - IsAsyncExecuting, то обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
+                    //// Оптимизирует блокировку от нескольких триггеров (первый триггер берет updatelock и пробуждает процесс, последующие получают sharelock праллельно и ничего не обновляют)
+                    // 1) Если намерение выставлено - IsAsyncExecuting, то процесс выполняется и обновлять ничего не нужно, достаточно ShareLock до конца транзакции.
                     using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForShare))
                     {
                         var wakeups = await _dbContext.Set<ProcessWakeupDbEntity<TId>>()

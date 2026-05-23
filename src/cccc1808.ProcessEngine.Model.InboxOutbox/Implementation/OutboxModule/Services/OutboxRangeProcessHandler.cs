@@ -149,6 +149,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                                     key: Guid.NewGuid().ToString(),
                                     timerDate: errorResult.Timeout,
                                     processId: elem2.Id,
+                                    isRangeTrigger: true,
                                     handlerKey: NoWakeupRetryTriggerRangeHandler<TId>.Name,
                                     priority: elem2.Process.Info.Priority,
                                     isActivated: true));

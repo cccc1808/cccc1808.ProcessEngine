@@ -80,40 +80,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
 
-                        // TODO: не было бы лишним допускать использование нескольких топиков (потребителей),
-                        // * например для inbox большое значение QueueConsumeBatchTimeout/QueueConsumePackTimeout не очень подходит,
-                        // * а для parent-child процесса (с большим количеством дочерних) QueueConsumeBatchTimeout/QueueConsumePackTimeout может быть больше (чтобы снизить нагрузку записи на БД).
                         await consumer.ConsumeBatchAsync(
                             (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
-                            consumerQueueOptions.QueueConsumePackTimeout,
-                            consumerQueueOptions.QueueConsumePackSize,
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
-                                if (!e.Any())
-                                {
-                                    return true;
-                                }
-
                                 // (Info: точка агрегации).
                                 // N событий триггера сжимаются в одном действия (1 db update).
-                                foreach (var elem in e)
+                                var triggerEvent = p.serializer.Deserialize(e.Body);
+                                if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
                                 {
-                                    var triggerEvent = p.serializer.Deserialize(elem.Body);
-
-                                    if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
-                                    {
-                                        triggerEvents = new List<ITriggerEvent>(e.Count);
-                                        p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
-                                    }
-                                    triggerEvents.Add(triggerEvent);
+                                    // Если нужно, то тут можно сделать пулинг коллекций.
+                                    triggerEvents = new List<ITriggerEvent>(p.consumerQueueOptions.QueueConsumeMessagesLimit / 2);
+                                    p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
                                 }
-                                p.receivedMessages.Data += e.Count;
+                                triggerEvents.Add(triggerEvent);
+                                p.receivedMessages.Data++;
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
                                 var stop =
-                                    p.receivedMessages.Data > p.consumerQueueOptions.QueueConsumeMessagesLimit
-                                    || p.groupByTrigger.Count > p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
+                                    p.receivedMessages.Data >= p.consumerQueueOptions.QueueConsumeMessagesLimit
+                                    || p.groupByTrigger.Count >= p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
                                 return !stop;
                             },
                             cancellationToken);
@@ -227,7 +214,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),                                        
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        removeTriggerEventHandler: (_, p) => 
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>                                        
                                             p.triggerSetter.CounterSetter.CounterEvent(
                                                 p.trigger, 
@@ -259,6 +248,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) => 
@@ -281,6 +272,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
@@ -308,6 +301,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
                                         (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
@@ -392,6 +387,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             static async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> SelectAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
+                ITriggerSelectQuery<TId>.IContextState selectContext,
                 CancellationToken cancellationToken) 
             {
                 var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -400,19 +396,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var selectQuery = serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
+                // Ждем освобождения хотя бы одного слота.
                 await parallelLimiter.WaitAsync(cancellationToken);
                 try 
                 {
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
-                        // Количетсво свободных слотов
-                        var emptySlotsCount = parallelLimiter.CurrentCount;
-                        return await selectQuery.SelectForProcessingAsync(
-                            options.DbExecuteBatchSize(emptySlotsCount), 
-                            emptySlotsCount,
-                            options.TransactionUpdateLimit,
-                            options.DbExecuteSelectLockTimeout,
+                        selectContext.SetFreeSlots(parallelLimiter.CurrentCount);
+                        var result = await selectQuery.SelectForProcessingAsync(
+                            selectContext,
                             cancellationToken);
+
+                        await transaction.CommitAsync(cancellationToken);
+                        return result;
                     }
                 }
                 finally
@@ -581,6 +577,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
 
             var options = _serviceProvider.GetRequiredService<OptionsDto>();
+            var TriggerSelectQuery = _serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
             using var parallelLimiter = new SemaphoreSlim(
                 options.DbExecuteParallelismLimit 
@@ -588,6 +585,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 );
             var tasks = new ConcurrentDictionary<Guid, Task>();
 
+            var selectContext = TriggerSelectQuery.BuildContext(options.SelectOptions);
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -603,6 +601,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         selectData = await SelectAsync(
                             scope.ServiceProvider,
                             parallelLimiter,
+                            selectContext,
                             cancellationToken);
                     }
 
@@ -677,11 +676,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class OptionsDto
         {
+            /// <summary>
+            /// Конфигурация очередей, используемых для передачи <see cref="ITriggerEvent"/>, которые будут обрабатываться текущим экземпляром.
+            /// (Можно сделать несколько одередей с разными значениями буфера и задержки накопления события).
+            /// </summary>
             public List<QueueOptionsDto> TriggerEventQueues { get; set; }
                 = new List<QueueOptionsDto>(0);                 
 
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
+
+            public ITriggerSelectQuery<TId>.IOptions SelectOptions { get; set; }
 
             /// <summary>
             /// Ограничение на количетсво триггеров, обновляемое в одной транзакции.
@@ -717,6 +722,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// </summary>
             public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
+
+            public OptionsDto(ITriggerSelectQuery<TId>.IOptions selectOptions)
+            {
+                SelectOptions = selectOptions;
+            }
         }
 
         public class QueueOptionsDto 
@@ -730,18 +740,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public int QueueConsumeMessagesLimit { get; set; }
                 = 1000;
 
-            public int QueueConsumePackSize { get; set; }
-                = 150;
-
             /// <summary>
             /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
             /// </summary>
             public int QueueConsumeTriggersCountLimit { get; set; }
                 = 100;
 
-            public TimeSpan QueueConsumePackTimeout { get; set; }
-                = TimeSpan.FromMilliseconds(200);
-
+            /// <summary>
+            /// Ограничение задержки накопления батча событий.
+            /// </summary>
             public TimeSpan QueueConsumeBatchTimeout { get; set; }
                 = TimeSpan.FromSeconds(1);
         }

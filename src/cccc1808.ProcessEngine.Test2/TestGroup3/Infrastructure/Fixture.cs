@@ -17,6 +17,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
@@ -61,10 +62,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
 
             public async Task InitializeAsync()
             {
-                TestcontainersSettings.WaitStrategyRetries = 1;
-                TestcontainersSettings.WaitStrategyInterval = TimeSpan.FromSeconds(1);
-                TestcontainersSettings.WaitStrategyTimeout = TimeSpan.FromSeconds(4);
-
                 {
                     var postgresBuilder = new PostgreSqlBuilder("postgres:18")
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
@@ -139,7 +136,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto() 
+                        new TriggerRunner<Guid>.OptionsDto(
+                            new EFTriggerSelectQuery<Guid>.Options3()
+                            {
+                                SingleTriggerBatchSize = (_) => 1,
+                            })
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -149,7 +150,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
                                     QueueName = "trigger_events",
-                                    QueueConsumePackSize = FixtureCollection.RangeConst,
+                                    QueueConsumeMessagesLimit = FixtureCollection.RangeConst,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(3),
                                 }
                             }                            

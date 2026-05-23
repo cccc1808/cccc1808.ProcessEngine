@@ -33,6 +33,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             // TODO: для реального запуска нужен только один в зависимости от выбранной реализации.
             DbProcessingForSelectorIndex(builder);
             DbProcessingForSelectorIndex2(builder);
+            DbProcessingForSelectorIndex31(builder);
+            DbProcessingForSelectorIndex32(builder);
 
             DbProcessingForHandlerParameters(builder);
 
@@ -85,6 +87,32 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .HasFilter(@"
     is_activated is true 
     and is_completed is false");
+        }
+
+        /// <summary>
+        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
+        /// </summary>
+        /// <param name="builder"></param>
+        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex31(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        {
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
+                .HasFilter(@"
+    is_activated is true
+    and is_completed is false
+    and is_range_handler is true");
+        }
+
+        /// <summary>
+        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
+        /// </summary>
+        /// <param name="builder"></param>
+        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex32(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        {
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
+                .HasFilter(@"
+    is_activated is true 
+    and is_completed is false
+    and is_range_handler is false");
         }
 
         /// <summary>

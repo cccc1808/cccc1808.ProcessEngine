@@ -382,7 +382,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     retryLimit: options.RetryLimit,
                     stopAsyncProcessingSession: false,
                     needUpdateErrorData: false,
-                    haveErrorOnStart: source.StoppedByError || source.RetryCount.HasValue // TODO: condition                                                                                                   
+                    haveErrorOnStart: source.StoppedByError || source.RetryCount.HasValue, // TODO: condition
+                    clearErrorOnSessionEnd: true
                     ),
                 isAsyncExecuting: isAsyncExecuting,
                 wakeupState: wakeupRegistry.CheckWakeup(new ProcessTypeDto(source.ProcessTypeId, source.ProcessVersion))

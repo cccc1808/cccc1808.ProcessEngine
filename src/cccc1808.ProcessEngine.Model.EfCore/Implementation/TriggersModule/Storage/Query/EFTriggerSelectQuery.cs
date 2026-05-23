@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
@@ -46,19 +47,31 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
 
+        public ITriggerSelectQuery<TId>.IContextState BuildContext(ITriggerSelectQuery<TId>.IOptions options)
+        {
+            return options switch 
+            {
+                Options1 options1 => new State1(options1),
+                Options2 options2 => new State2(options2),
+                Options3 options3 => new State3(options3),
+
+                _ => throw new NotImplementedException(options.GetType().FullName)
+            };
+        }
+
         public async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> SelectForProcessingAsync(
-            int batchSize,
-            int parallelLimit,
-            int transactionUpdateLimit,
-            TimeSpan timeout,
+            ITriggerSelectQuery<TId>.IContextState contextState,
             CancellationToken cancellationToken)
         {
-            return await Implementation2Async(
-                batchSize,
-                parallelLimit,
-                transactionUpdateLimit,
-                timeout, 
-                cancellationToken);
+            var data = contextState switch 
+            {
+                State1 state1 => await Implementation1Async(state1, cancellationToken),
+                State2 state2 => await Implementation2Async(state2, cancellationToken),
+                State3 state3 => await Implementation3Async(state3, canInvoke: true, cancellationToken),
+
+                _ => throw new NotImplementedException(contextState.GetType().FullName)
+            };
+            return data;
         }
 
         /// <summary>
@@ -68,8 +81,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="timeout"></param>
         /// <param name="cancellationToken"></param>
         private async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> Implementation1Async(
-            int batchSize,
-            TimeSpan timeout,
+            State1 state,
             CancellationToken cancellationToken)
         {
             var now = _dateTimeProvider.UtcNow;
@@ -82,7 +94,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         _triggerDbEntityConditions.DbProcessingForSelector.Query,
                         new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters(
                             now))
-                    .Take(batchSize)
+                    .Take(state.Options.BatchSize)
                     .Select(e => new { e.Id, e.HandlerKey })
                     .ToArrayAsync(cancellationToken);
 
@@ -91,19 +103,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ToArray();
             }
 
-            var ids = result
-                .Select(e => e.Id)
-                .ToArray();
-
-            await _dbContext.Set<TriggerDbEntity<TId>>()
-                .ApplayQueryCondition(
-                    _triggerDbEntityConditions.DbProcessingForHandler.Query,
-                    new ITriggerDbEntityConditions<TId>.DbProcessingForHandlerParameters(
-                        now,
-                        ids
-                        )
-                    )
-                .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + timeout), cancellationToken);
+            if (state.Options.SelectLock != TimeSpan.Zero)
+            {
+                await _dbContext.Set<TriggerDbEntity<TId>>()
+                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
+                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SelectLock), cancellationToken);
+            }            
 
             return result;
         }
@@ -115,14 +120,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// Минусы: избыточный updatelock на время проверки parallelLimit.
         /// </summary>
         private async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> Implementation2Async(
-            int batchSize,
-            int parallelLimit,
-            int transactionUpdateLimit,
-            TimeSpan timeout,
+            State2 state,
             CancellationToken cancellationToken)
         {
             var now = _dateTimeProvider.UtcNow;
-            var result = new List<ITriggerSelectQuery<TId>.SelectDto>(batchSize);
+            var result = new List<ITriggerSelectQuery<TId>.SelectDto>(state.Options.BatchSize);
             using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
                 var data = await _dbContext.Set<TriggerDbEntity<TId>>()
@@ -131,13 +133,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         _triggerDbEntityConditions.DbProcessingForSelector2.Query,
                         new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters(
                             now))
-                    .Take(batchSize)
+                    .Take(state.Options.BatchSize)
                     .Select(e => new { e.Id, e.HandlerKey })
                     .ToArrayAsync(cancellationToken);
 
                 // Ограничиваем по количетсву параллельных слотов в зависимости от типа триггера.
                 var parallelCounter = 0;
-                var rangeTriggerGroups = new Dictionary<string, int>(parallelLimit);
+                var rangeTriggerGroups = new Dictionary<string, int>(state.ParallelSlots);
                 foreach (var elem in data)
                 {
                     var handler = _triggerHandlerFactory.GetHandler(_serviceProvider, elem.HandlerKey);
@@ -152,7 +154,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                                 {
                                     result.Add(elemResult);
 
-                                    if (value < transactionUpdateLimit)
+                                    if (value < state.Options.TransactionUpdateLimit)
                                     {
                                         // Общая транзакция
                                         rangeTriggerGroups[elem.HandlerKey] = value + 1;
@@ -184,31 +186,238 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     }
 
                     // Все слоты заняты.
-                    if (parallelCounter == parallelLimit)
+                    if (parallelCounter == state.ParallelSlots)
                     {
                         break;
                     }
                 }
             }
 
+            if (state.Options.SelectLock != TimeSpan.Zero)
             {
-                var ids = result
-                    .Select(e => e.Id)
-                    .ToArray();
-
                 await _dbContext.Set<TriggerDbEntity<TId>>()
-                    .ApplayQueryCondition(
-                        _triggerDbEntityConditions.DbProcessingForHandler.Query,
-                        new ITriggerDbEntityConditions<TId>.DbProcessingForHandlerParameters(
-                            now,
-                            ids
-                            )
-                        )
-                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + timeout), cancellationToken);
+                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
+                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SelectLock), cancellationToken);
             }
 
             return result;
         }
+
+        /// <summary>
+        /// Реализация с учетом ограничения параллелизма.
+        /// Приоритет на RangeTrigger.
+        /// Минимизация избыточныъ блокировок (когда в выборку попадают SingleTrigger).
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> Implementation3Async(
+            State3 state,
+            bool canInvoke,
+            CancellationToken cancellationToken)
+        {
+            var now = _dateTimeProvider.UtcNow;
+
+            if (state.IsRangePhase)
+            {
+                //// Фаза обработки RangeTrigger                
+                ITriggerSelectQuery<TId>.SelectDto[] result;
+                using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                {
+                    var data = await _dbContext.Set<TriggerDbEntity<TId>>()
+                        .AsNoTracking()
+                        .ApplayQueryCondition(
+                            _triggerDbEntityConditions.DbProcessingForSelector3.Query,
+                            new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3(
+                                now,
+                                IsRangeTrigger: true))
+                        .Where(e => e.IsRangeHandler)
+                        .Take(state.Options.RangeTriggerBatchSize(state.ParallelSlots))
+                        .Select(e => new { e.Id, e.HandlerKey })
+                        .ToArrayAsync(cancellationToken);
+                    
+                    result = data
+                        .Select(e => new ITriggerSelectQuery<TId>.SelectDto(e.Id, e.HandlerKey))
+                        .ToArray();
+                }
+
+                if (!result.Any())
+                {
+                    state.PhaseCounter = 0;
+                    state.IsRangePhase = false;
+
+                    if (canInvoke)
+                    {
+                        return await Implementation3Async(
+                            state,
+                            canInvoke: false,
+                            cancellationToken);
+                    }
+
+                    return [];
+                }
+
+                if (state.Options.RangeTriggerSelectLock != TimeSpan.Zero)
+                {
+                    await _dbContext.Set<TriggerDbEntity<TId>>()
+                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
+                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock), cancellationToken);
+                }
+
+                if (state.PhaseCounter == state.Options.StepInRangePhase)
+                {
+                    state.PhaseCounter = 0;
+                    state.IsRangePhase = false;
+                    
+                }
+                else 
+                {
+                    state.PhaseCounter++;
+                }
+
+                return result;
+            }
+            else
+            {
+                //// Фаза обработки SingleTrigger.
+                ITriggerSelectQuery<TId>.SelectDto[] result;
+                using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+                {
+                    var data = await _dbContext.Set<TriggerDbEntity<TId>>()
+                        .AsNoTracking()
+                        .ApplayQueryCondition(
+                            _triggerDbEntityConditions.DbProcessingForSelector3.Query,
+                            new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3(
+                                now,
+                                IsRangeTrigger: false))
+                        .Take(state.Options.SingleTriggerBatchSize(state.ParallelSlots))
+                        .Select(e => new { e.Id, e.HandlerKey })
+                        .ToArrayAsync(cancellationToken);                    
+
+                    result = data
+                        .Select(e => new ITriggerSelectQuery<TId>.SelectDto(e.Id, e.HandlerKey))
+                        .ToArray();
+                }
+
+                if (!result.Any())
+                {
+                    state.PhaseCounter = 0;
+                    state.IsRangePhase = true;
+
+                    if (canInvoke)
+                    {
+                        return await Implementation3Async(
+                            state,
+                            canInvoke: false,
+                            cancellationToken);
+                    }
+
+                    return [];
+                }
+
+                if (state.Options.SingleTriggerSelectLock != TimeSpan.Zero)
+                {
+                    await _dbContext.Set<TriggerDbEntity<TId>>()
+                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
+                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock), cancellationToken);
+                }
+
+                state.PhaseCounter = 0;
+                state.IsRangePhase = true;
+
+                return result;
+            }
+        }
+
+        #region types
+
+        public class Options1 : ITriggerSelectQuery<TId>.IOptions
+        {
+            public TimeSpan SelectLock { get; set; }
+
+            public int BatchSize { get; set; }            
+        }
+
+        public class State1 : ITriggerSelectQuery<TId>.IContextState
+        {
+            public Options1 Options { get; }            
+
+            public State1(Options1 options)
+            {
+                Options = options;
+            }
+
+            public void SetFreeSlots(int freeSlotsCount)
+            {}
+        }
+
+        public class Options2 : ITriggerSelectQuery<TId>.IOptions
+        {
+            public TimeSpan SelectLock { get; set; }
+
+            public int BatchSize { get; set; }            
+
+            public int TransactionUpdateLimit { get; set; }
+        }
+
+        public class State2 : ITriggerSelectQuery<TId>.IContextState
+        {
+            public Options2 Options { get; }
+
+            public int ParallelSlots { get; set; }
+
+            public State2(Options2 options)
+            {
+                Options = options;
+            }
+
+            public void SetFreeSlots(int freeSlotsCount)
+            {
+                ParallelSlots = freeSlotsCount;
+            }
+        }
+
+        public class Options3 : ITriggerSelectQuery<TId>.IOptions
+        {
+            public int StepInRangePhase { get; set; }
+                = 9;
+
+            public TimeSpan RangeTriggerSelectLock { get; set; }
+                = TimeSpan.FromSeconds(10);
+
+            public Func<int, int> RangeTriggerBatchSize { get; set; }
+                = (freeSlots) => 100;
+
+            public TimeSpan SingleTriggerSelectLock { get; set; }
+                = TimeSpan.FromMinutes(1);
+
+            public Func<int, int> SingleTriggerBatchSize { get; set; }
+                = (freeSlots) => freeSlots > 1 
+                ? freeSlots / 2
+                : 0;
+        }
+
+        public class State3 : ITriggerSelectQuery<TId>.IContextState
+        {
+            public Options3 Options { get; }
+
+            public int ParallelSlots { get; set; }            
+
+            public bool IsRangePhase { get; set; }
+
+            public int PhaseCounter { get; set; }
+
+            public State3(Options3 options)
+            {
+                Options = options;
+            }
+
+            public void SetFreeSlots(int freeSlotsCount)
+            {
+                ParallelSlots = freeSlotsCount;
+            }
+        }
+
+        #endregion
     }
 
 }

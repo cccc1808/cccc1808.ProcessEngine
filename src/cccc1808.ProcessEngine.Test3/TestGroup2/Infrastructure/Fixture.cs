@@ -16,6 +16,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
@@ -174,7 +175,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto() 
+                        new TriggerRunner<Guid>.OptionsDto(
+                            new Linq2DbTriggerSelectQuery<Guid>.Options3()
+                            {
+                                SingleTriggerBatchSize = (_) => 1,
+                            })
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -184,10 +189,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
                                     QueueName = "trigger_events",
-                                    QueueConsumePackSize = 10,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
                                 }
-                            }                            
+                            }
                         },
                         new TriggerOptions<Guid>() 
                         {

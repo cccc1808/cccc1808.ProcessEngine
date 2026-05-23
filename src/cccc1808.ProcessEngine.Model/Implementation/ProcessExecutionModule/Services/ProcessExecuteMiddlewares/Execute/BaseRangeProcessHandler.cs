@@ -76,6 +76,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             key: Guid.NewGuid().ToString(),
                             timerDate: errorResult.Timeout,
                             processId: elem.Id,
+                            isRangeTrigger: true,
                             handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
                             priority: elem.Process.Info.Priority,
                             isActivated: true

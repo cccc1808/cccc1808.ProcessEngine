@@ -150,6 +150,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     key: elem.key,
                     selectLockTimeout: DateTimeOffset.MinValue,
                     timerDate: elem.timerDate,
+                    isRangeHandler: elem.isRangeTrigger,
                     handlerKey: elem.handlerKey,
                     kind: elem.kind,
                     priority: elem.priority,

@@ -93,6 +93,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                         triggerKey,
                                         DateTimeOffset.MinValue,
                                         process.Id,
+                                        isRangeTrigger: true,
                                         ParentProcessTriggerHandler.Name,
                                         1,
                                         isActivated: false,

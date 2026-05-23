@@ -85,7 +85,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 testState.StepRange = Handler;
             }
 
-            // Запуск родительского процесса - порожление дочерних процессов.
+            // 1) Выполняется родительский процесс.
+            // Создается триггер (если пакетно, то отдельной транзакций).
+            // Создаются и запускаются дочерние процессы.
             Guid childProcessId;
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
@@ -125,7 +127,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // Выполнение дочерних процессов - порождение триггера.
+            // 2) Выполнение дочерних процессов.
+            // По завершению на родитедьский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ILinq2DbDataConnection>();
@@ -161,7 +164,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // Выполнение триггера - пробуждение родительского процесса.
+            // 3) Обработка событий триггеров.
+            // События по счетчику CounterTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ILinq2DbDataConnection>();
@@ -181,7 +185,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.IsCompleted.ShouldBeFalse()));
             }
 
-            // Завершение родительского процесса.
+            // 4) Обработка активных триггеров. CounterTrigger.
+            // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ILinq2DbDataConnection>();
@@ -209,7 +214,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.IsCompleted.ShouldBeTrue()));
             }
 
-            // assert.
+            // 5) Выполняется родительский процесс.
+            // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<ILinq2DbDataConnection>();
@@ -261,6 +267,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     triggerKey,
                                     DateTimeOffset.MinValue,
                                     process.Id,
+                                    isRangeTrigger: true,
                                     ParentProcessTriggerHandler.Name,
                                     1,
                                     false,

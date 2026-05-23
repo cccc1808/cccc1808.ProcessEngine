@@ -59,6 +59,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             TResult OneOfEventKind<TParameters, TResult>(
                 TriggerEventKindEnum triggerEventKind,
                 TParameters parameters,
+                Func<TParameters, TResult> removeTriggerEventHandler,
                 Func<TParameters, TResult> counterTriggerEventHandler,
                 Func<TParameters, TResult> timerTriggerEventHandler,
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
@@ -69,6 +70,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             void OneOfEvent<TParameters>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,
+                Action<IRemoveTriggerEvent, TParameters> removeTriggerEventHandler,
                 Action<ICounterTriggerEvent, TParameters> counterTriggerEventHandler,
                 Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
@@ -79,6 +81,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             TResult OneOfEvent<TParameters, TResult>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,
+                Func<IRemoveTriggerEvent, TParameters, TResult> removeTriggerEventHandler,
                 Func<ICounterTriggerEvent, TParameters, TResult> counterTriggerEventHandler,
                 Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,

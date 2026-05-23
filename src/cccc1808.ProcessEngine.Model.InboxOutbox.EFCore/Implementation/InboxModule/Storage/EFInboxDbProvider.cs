@@ -208,7 +208,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         retryLimit: _repositoryOptions.RetryLimit,
                         stopAsyncProcessingSession: false,
                         needUpdateErrorData: false,
-                        haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue // TODO: condition                                                                                                   
+                        haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue, // TODO: condition                                                                                                   
+                        clearErrorOnSessionEnd: true
                         ),
                     isAsyncExecuting: true,
                     wakeupState: WakeupStateEnum.NoWakeup
