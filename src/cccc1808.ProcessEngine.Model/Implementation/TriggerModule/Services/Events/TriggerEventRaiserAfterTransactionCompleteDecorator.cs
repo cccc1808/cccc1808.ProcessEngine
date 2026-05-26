@@ -55,8 +55,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         await _source.RaiseAsync(
                             _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
                             default);
+
+                        _sendBuffer.Clear();
                     },
-                    roolbackHandler: CompensateTransactionHandler
+                    roolbackHandler: (_) => 
+                    {
+                        _sendBuffer.Clear();
+                        return ValueTask.CompletedTask;
+                    }
                     );
 
                 HandlerRegistered = true;
@@ -78,12 +84,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                     );
             }
 
-            return ValueTask.CompletedTask;
-        }
-
-        private ValueTask CompensateTransactionHandler(CancellationToken _) 
-        {
-            _sendBuffer.Clear();
             return ValueTask.CompletedTask;
         }
     }
