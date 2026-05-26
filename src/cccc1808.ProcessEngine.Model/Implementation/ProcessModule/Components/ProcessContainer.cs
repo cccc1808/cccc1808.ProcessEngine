@@ -1,4 +1,8 @@
-﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+﻿
+using System.Collections.Generic;
+using System.ComponentModel;
+
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
@@ -18,6 +22,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
         public bool InAsyncExecuting { get; }
 
         public WakeupStateEnum WakeupState { get; }
+
+        public IReadOnlyDictionary<Type, object> AllComponents 
+            => _components;
 
         public ProcessContainer(
             IProcessComponent<TId> process,
@@ -41,7 +48,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public void AddComponent<T>(T component)
         {
-            _components.Add(typeof(T), component!);
+            AddComponent(typeof(T), component!);
+        }
+
+        public void AddComponent(Type type, object component)
+        {
+            _components.Add(type, component!);
         }
 
         public bool TryGetComponent<T>(out T result)
@@ -59,7 +71,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public void RemoveComponent<T>()
         {
-            _components.Remove(typeof(T));
+            RemoveComponent(typeof(T));
+        }        
+
+        public void RemoveComponent(Type type)
+        {
+            _components.Remove(type);
         }
     }
 }

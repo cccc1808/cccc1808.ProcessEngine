@@ -34,7 +34,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
-        private readonly IIsolationService _isolationService;
+        private readonly IIsolationService<TId> _isolationService;
         private readonly IProcessSetter _processSetter;
         private readonly IWakeupService<TId> _wakeupService;        
 
@@ -45,7 +45,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         public ExecuteStepByStepGroupMiddleware(
             IServiceProvider serviceProvider,
             IDateTimeProvider dateTimeProvider,
-            IIsolationService isolationService,
+            IIsolationService<TId> isolationService,
             IProcessSetter processSetter,
             IWakeupService<TId> wakeupService,
 
@@ -147,8 +147,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     break;
                 }
 
+                // 1) Формирование группы выполнения.
                 var executionGroup = new LinkContainer<ExecuteGroup?>(null);
+                executionGroup.Data = await handler.GetExecutionGroupAsync(
+                    executingProcesses.Data,
+                    cancellationToken);
+                
                 await _isolationService.ExecuteAsync(
+                    executionGroup.Data.Value.Group,
                     options.IsolationMode,
                     (
                         This: this,
@@ -161,12 +167,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         executionGroup                      
                         ),
                     static async (p, cancellationToken) =>
-                    {
-                        // 1) Формирование группы выполнения.
-                        p.executionGroup.Data = await p.handler.GetExecutionGroupAsync(
-                            p.executingProcesses.Data,
-                            cancellationToken);
-
+                    {                       
                         // 2) Шаг.
                         await p.handler.StepRangeAsync(
                             p.executionGroup.Data.Value,
@@ -339,6 +340,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 var executionGroup = new ExecuteGroup(allProcesses.Data);
 
                 await _isolationService.ExecuteAsync(
+                    executionGroup.Group,
                     options.IsolationMode, 
                     (
                         allProcesses, 

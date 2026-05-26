@@ -40,11 +40,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// </summary>
         WakeupStateEnum WakeupState { get; }
 
+        IReadOnlyDictionary<Type, object> AllComponents { get; }
+
         /// <summary>
         /// Добавить компонент.
         /// </summary>
         /// <param name="component"></param>
         void AddComponent<T>(T component);
+
+        void AddComponent(Type type, object component);
 
         T GetComponent<T>();
 
@@ -54,5 +58,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// Удалить компонент.
         /// </summary>
         void RemoveComponent<T>();
+
+        void RemoveComponent(Type type);        
     }
 }

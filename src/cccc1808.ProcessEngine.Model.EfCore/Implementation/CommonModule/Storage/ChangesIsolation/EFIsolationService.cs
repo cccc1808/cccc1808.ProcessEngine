@@ -7,22 +7,22 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class EFIsolationService
-        : IIsolationService
+    public class EFIsolationService<TId>
+        : IIsolationService<TId>
     {
         private static AsyncLocal<ICompensateService.ICompensateScope?> CurrentScope { get; }
             = new AsyncLocal<ICompensateService.ICompensateScope?>();
 
         private readonly ITransactionManager _transactionManager;
-        private readonly INoIsolationCompensateService _noIsolationCompensateService;
-        private readonly ISavepointCompensateService _savepointCompensateService;
-        private readonly IChangeTrackerCompensateService _changeTrackerCompensateService;
-        private readonly IChangeTrackerSnapshotCompensateService _changeTrackerSnapshotCompensateService;
+        private readonly INoIsolationCompensateService<TId> _noIsolationCompensateService;
+        private readonly ISavepointCompensateService<TId> _savepointCompensateService;
+        private readonly IChangeTrackerCompensateService<TId> _changeTrackerCompensateService;
+        private readonly IChangeTrackerSnapshotCompensateService<TId> _changeTrackerSnapshotCompensateService;
         private bool _transactionRequired;        
 
         public bool InScope
@@ -30,10 +30,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
         public EFIsolationService(
             ITransactionManager transactionManager,
-            INoIsolationCompensateService noIsolationCompensateService,
-            ISavepointCompensateService savepointCompensateService, 
-            IChangeTrackerCompensateService changeTrackerCompensateService,
-            IChangeTrackerSnapshotCompensateService changeTrackerSnapshotCompensateService,
+            INoIsolationCompensateService<TId> noIsolationCompensateService,
+            ISavepointCompensateService<TId> savepointCompensateService, 
+            IChangeTrackerCompensateService<TId> changeTrackerCompensateService,
+            IChangeTrackerSnapshotCompensateService<TId> changeTrackerSnapshotCompensateService,
             bool transactionRequired = true)
         {
             _transactionManager = transactionManager;
@@ -45,6 +45,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         }
 
         public async ValueTask ExecuteAsync<TParam>(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IIsolationService.IsolationMode isolationMode, 
             TParam param, 
             Func<TParam, CancellationToken, ValueTask> action,
@@ -64,7 +65,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             {
                 case IIsolationService.IsolationMode.No:
                     {
-                        var noIsolationScope = await _noIsolationCompensateService.StartScopeAsync(cancellationToken);
+                        var noIsolationScope = await _noIsolationCompensateService.StartScopeAsync(processes, cancellationToken);
                         CurrentScope.Value = noIsolationScope;
 
                         try 
@@ -112,7 +113,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ClearChangeTracker:
                     {
-                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken);
+                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(processes, cancellationToken);
                         CurrentScope.Value = changeTrackerClearScope;
 
                         try 
@@ -166,8 +167,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker:
                     {
-                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken);
-                        var savepointScope = await _savepointCompensateService.StartScopeAsync(cancellationToken);
+                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(processes, cancellationToken);
+                        var savepointScope = await _savepointCompensateService.StartScopeAsync(processes, cancellationToken);
                         CurrentScope.Value = savepointScope;
 
                         try 
@@ -225,7 +226,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ChangeTrackerSnapshot:
                     {
-                        var changeTrackerSnapshotScope = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken);
+                        var changeTrackerSnapshotScope = await _changeTrackerSnapshotCompensateService.StartScopeAsync(processes, cancellationToken);
                         CurrentScope.Value = changeTrackerSnapshotScope;
 
                         try

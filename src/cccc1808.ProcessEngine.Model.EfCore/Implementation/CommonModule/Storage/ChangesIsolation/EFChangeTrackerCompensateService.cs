@@ -5,21 +5,28 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class EFChangeTrackerCompensateService :
-        IChangeTrackerCompensateService
+    /// <summary>
+    /// Отлищает <see cref="Microsoft.EntityFrameworkCore.DbContext.ChangeTracker"/>.
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
+    public class EFChangeTrackerCompensateService<TId> :
+        IChangeTrackerCompensateService<TId>
     {
         private readonly IEFDbContext _dbContext;
 
-        public EFChangeTrackerCompensateService(IEFDbContext dbContext)
+        public EFChangeTrackerCompensateService(
+            IEFDbContext dbContext)
         {
             _dbContext = dbContext;
         }
 
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
             var scope = new Scope(_dbContext);

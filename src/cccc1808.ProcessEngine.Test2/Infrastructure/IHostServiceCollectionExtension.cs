@@ -147,11 +147,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddIsolationServices(this IServiceCollection services)
         {
             services
-                .AddScoped<IIsolationService, EFIsolationService>()
-                .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
-                .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService>()
-                .AddScoped<IChangeTrackerSnapshotCompensateService, EFChangeTrackerSnapshotCompensateService>()
-                .AddScoped<INoIsolationCompensateService, NoIsolationCompensateService>()
+                .AddScoped<IIsolationService<Guid>, EFIsolationService<Guid>>()
+                .AddScoped<ISavepointCompensateService<Guid>, SavepointCompensateService<Guid>>()
+                .AddScoped<IChangeTrackerCompensateService<Guid>, EFChangeTrackerCompensateService<Guid>>()
+                .AddScoped<IChangeTrackerSnapshotCompensateService<Guid>, EFChangeTrackerSnapshotCompensateService<Guid>>()
+                .AddScoped<INoIsolationCompensateService<Guid>, NoIsolationCompensateService<Guid>>()
                 .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService>()
                 ;
 

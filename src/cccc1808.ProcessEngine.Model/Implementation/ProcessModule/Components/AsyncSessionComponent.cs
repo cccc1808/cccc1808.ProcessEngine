@@ -9,7 +9,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 {
     public class AsyncSessionComponent
-        : IAsyncSessionComponent
+        : IAsyncSessionComponent, 
+        IInmemoryMutableState
     {
         public Guid SessionId { get; set; }
 
@@ -23,7 +24,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public bool NeedUpdateErrorData { get; set; }
 
-        public bool HaveErrorOnStart { get; }
+        public bool HaveErrorOnStart { get; private set; }
 
         public bool ClearErrorOnSessionEnd { get; set; }
 
@@ -46,5 +47,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
             HaveErrorOnStart = haveErrorOnStart;
             ClearErrorOnSessionEnd = clearErrorOnSessionEnd;
         }
+
+        #region IInmemoryMutableState
+
+        public IInmemoryMutableState.ISnapshot Capture()
+        {
+            return IInmemoryMutableState.JsonSnapshot.Create(this);
+        }
+
+        public void Restore(IInmemoryMutableState.ISnapshot snapshot)
+        {
+            var snap = IInmemoryMutableState.JsonSnapshot.Restore<AsyncSessionComponent>((IInmemoryMutableState.JsonSnapshot)snapshot);
+            SessionId = snap.SessionId;
+            IsSessionFirstStep = snap.IsSessionFirstStep;
+            CurrentSessionHaveError = snap.CurrentSessionHaveError;
+            RetryLimit = snap.RetryLimit;
+            StopAsyncProcessingSession = snap.StopAsyncProcessingSession;
+            NeedUpdateErrorData = snap.NeedUpdateErrorData;
+            HaveErrorOnStart = snap.HaveErrorOnStart;
+        }
+
+        #endregion
     }
 }

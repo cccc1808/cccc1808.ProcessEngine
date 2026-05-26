@@ -5,16 +5,18 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation
 {
     /// <summary>
     /// Ручная система компенсации.
     /// </summary>
-    public class NoIsolationCompensateService
-        : INoIsolationCompensateService
+    public class NoIsolationCompensateService<TId>
+        : INoIsolationCompensateService<TId>
     {      
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
+            IDictionary<TId, IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
             var scope = new Scope();

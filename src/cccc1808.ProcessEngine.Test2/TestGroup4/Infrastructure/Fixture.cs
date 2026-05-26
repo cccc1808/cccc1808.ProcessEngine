@@ -215,7 +215,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                     return new ExecuteStepByStepGroupMiddleware<Guid>(
                                         s,
                                         s.GetRequiredService<IDateTimeProvider>(),
-                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IIsolationService<Guid>>(),
                                         s.GetRequiredService<IProcessSetter>(),
                                         s.GetRequiredService<IWakeupService<Guid>>(),
                                         (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
@@ -227,7 +227,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                     return new ExecuteStepByStepGroupMiddleware<Guid>(
                                         s,
                                         s.GetRequiredService<IDateTimeProvider>(),
-                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IIsolationService<Guid>>(),
                                         s.GetRequiredService<IProcessSetter>(),
                                         s.GetRequiredService<IWakeupService<Guid>>(),
                                         (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler<Guid>>()),

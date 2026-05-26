@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
     {
         private readonly ITriggerEventRaiser<TId> _source;
         private readonly ITransactionManager _transactionManager;
-        private readonly IIsolationService _isolationService;
+        private readonly IIsolationService<TId> _isolationService;
         
         private readonly Dictionary<Guid, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
 
@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
         public TriggerEventRaiserAfterTransactionCompleteDecorator(
             ITriggerEventRaiser<TId> source,
             ITransactionManager transactionManager,
-            IIsolationService isolationService)
+            IIsolationService<TId> isolationService)
         {
             _source = source;
             _transactionManager = transactionManager;            

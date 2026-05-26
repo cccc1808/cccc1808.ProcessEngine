@@ -3,8 +3,8 @@
     /// <summary>
     /// Система компенсации с поддержкой дествий с указанием ручной компенсации.
     /// </summary>
-    public interface INoIsolationCompensateService
-        : ICompensateService
+    public interface INoIsolationCompensateService<TId>
+        : ICompensateService<TId>
     {
     }
 }
