@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
@@ -14,26 +15,32 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
     public class EFIsolationService
         : IIsolationService
     {
+        private static AsyncLocal<ICompensateService.ICompensateScope?> CurrentScope { get; }
+            = new AsyncLocal<ICompensateService.ICompensateScope?>();
+
         private readonly ITransactionManager _transactionManager;
+        private readonly INoIsolationCompensateService _noIsolationCompensateService;
         private readonly ISavepointCompensateService _savepointCompensateService;
         private readonly IChangeTrackerCompensateService _changeTrackerCompensateService;
         private readonly IChangeTrackerSnapshotCompensateService _changeTrackerSnapshotCompensateService;
-        private readonly IManualCompensateService _manualCompensateService;
-        private bool _transactionRequired;
+        private bool _transactionRequired;        
+
+        public bool InScope
+            => CurrentScope.Value is not null;
 
         public EFIsolationService(
             ITransactionManager transactionManager,
+            INoIsolationCompensateService noIsolationCompensateService,
             ISavepointCompensateService savepointCompensateService, 
             IChangeTrackerCompensateService changeTrackerCompensateService,
             IChangeTrackerSnapshotCompensateService changeTrackerSnapshotCompensateService,
-            IManualCompensateService manualCompensateService,
             bool transactionRequired = true)
         {
             _transactionManager = transactionManager;
+            _noIsolationCompensateService = noIsolationCompensateService;
             _savepointCompensateService = savepointCompensateService;
             _changeTrackerCompensateService = changeTrackerCompensateService;
             _changeTrackerSnapshotCompensateService = changeTrackerSnapshotCompensateService;
-            _manualCompensateService = manualCompensateService;
             _transactionRequired = transactionRequired;
         }
 
@@ -57,44 +64,58 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             {
                 case IIsolationService.IsolationMode.No:
                     {
-                        try
-                        {
-                            await action(param, cancellationToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                            {
-                                throw;
-                            }
+                        var noIsolationScope = await _noIsolationCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = noIsolationScope;
 
+                        try 
+                        {
                             try
                             {
-                                await exceptionHandler(param, ex, cancellationToken);
+                                await action(param, cancellationToken);
                             }
-                            catch (Exception ex2)
+                            catch (Exception ex)
                             {
-                                if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
+                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
                                 {
                                     throw;
                                 }
 
-                                var aggregateException = new AggregateException(ex, ex2);
-                                if (criticalExceptionHandler == null)
+                                try
                                 {
-                                    throw aggregateException;
+                                    await exceptionHandler(param, ex, cancellationToken);
                                 }
+                                catch (Exception ex2)
+                                {
+                                    if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
+                                    {
+                                        throw;
+                                    }
 
-                                await criticalExceptionHandler(param, aggregateException, cancellationToken);
+                                    var aggregateException = new AggregateException(ex, ex2);
+                                    if (criticalExceptionHandler == null)
+                                    {
+                                        throw aggregateException;
+                                    }
+
+                                    await criticalExceptionHandler(param, aggregateException, cancellationToken);
+                                }
                             }
                         }
+                        finally 
+                        {
+                            await noIsolationScope.DisposeAsync();
+                            CurrentScope.Value = null;
+                        }                        
 
                         break;
                     }
 
                 case IIsolationService.IsolationMode.ClearChangeTracker:
                     {
-                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken))
+                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = changeTrackerClearScope;
+
+                        try 
                         {
                             try
                             {
@@ -107,7 +128,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                     throw;
                                 }
 
-                                await changeTrackerClear.CompensateAsync(cancellationToken);
+                                await changeTrackerClearScope.CompensateAsync(cancellationToken);
 
                                 try
                                 {
@@ -120,7 +141,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                         throw;
                                     }
 
-                                    await changeTrackerClear.CompensateAsync(cancellationToken);
+                                    await changeTrackerClearScope.CompensateAsync(cancellationToken);
 
                                     var aggregateException = new AggregateException(ex, ex2);
                                     if (criticalExceptionHandler == null)
@@ -132,53 +153,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                 }
                             }
 
-                            await changeTrackerClear.CommitAsync(cancellationToken);
+                            await changeTrackerClearScope.CommitAsync(cancellationToken);
                         }
-
-                        break;
-                    }
-
-                case IIsolationService.IsolationMode.Manual:
-                    {
-                        await using (var manual = await _manualCompensateService.StartScopeAsync(cancellationToken))
+                        finally 
                         {
-                            try
-                            {
-                                await action(param, cancellationToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                                {
-                                    throw;
-                                }
-
-                                await manual.CompensateAsync(cancellationToken);
-
-                                try
-                                {
-                                    await exceptionHandler(param, ex, cancellationToken);
-                                }
-                                catch (Exception ex2)
-                                {
-                                    if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
-                                    {
-                                        throw;
-                                    }
-
-                                    await manual.CompensateAsync(cancellationToken);
-
-                                    var aggregateException = new AggregateException(ex, ex2);
-                                    if (criticalExceptionHandler == null)
-                                    {
-                                        throw aggregateException;
-                                    }
-
-                                    await criticalExceptionHandler(param, aggregateException, cancellationToken);
-                                }
-                            }
-
-                            await manual.CommitAsync(cancellationToken);
+                            await changeTrackerClearScope.DisposeAsync();
+                            CurrentScope.Value = null;
                         }
 
                         break;
@@ -186,8 +166,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker:
                     {
-                        await using (var changeTrackerClear = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken))
-                        await using (var savepoint = await _savepointCompensateService.StartScopeAsync(cancellationToken))
+                        var changeTrackerClearScope = await _changeTrackerCompensateService.StartScopeAsync(cancellationToken);
+                        var savepointScope = await _savepointCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = savepointScope;
+
+                        try 
                         {
                             try
                             {
@@ -200,8 +183,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                     throw;
                                 }
 
-                                await savepoint.CompensateAsync(cancellationToken);
-                                await changeTrackerClear.CompensateAsync(cancellationToken);
+                                await savepointScope.CompensateAsync(cancellationToken);
+                                await changeTrackerClearScope.CompensateAsync(cancellationToken);
 
                                 try
                                 {
@@ -214,8 +197,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                         throw;
                                     }
 
-                                    await savepoint.CompensateAsync(cancellationToken);
-                                    await changeTrackerClear.CompensateAsync(cancellationToken);
+                                    await savepointScope.CompensateAsync(cancellationToken);
+                                    await changeTrackerClearScope.CompensateAsync(cancellationToken);
 
                                     var aggregateException = new AggregateException(ex, ex2);
                                     if (criticalExceptionHandler == null)
@@ -227,8 +210,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                 }
                             }
 
-                            await savepoint.CommitAsync(cancellationToken);
-                            await changeTrackerClear.CommitAsync(cancellationToken);
+                            await savepointScope.CommitAsync(cancellationToken);
+                            await changeTrackerClearScope.CommitAsync(cancellationToken);
+                        }
+                        finally 
+                        {
+                            await changeTrackerClearScope.DisposeAsync();
+                            await savepointScope.DisposeAsync();
+                            CurrentScope.Value = null;
                         }
 
                         break;
@@ -236,7 +225,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 case IIsolationService.IsolationMode.ChangeTrackerSnapshot:
                     {
-                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken))
+                        var changeTrackerSnapshotScope = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = changeTrackerSnapshotScope;
+
+                        try
                         {
                             try
                             {
@@ -249,7 +241,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                     throw;
                                 }
 
-                                await changeTrackerSnapshot.CompensateAsync(cancellationToken);
+                                await changeTrackerSnapshotScope.CompensateAsync(cancellationToken);
 
                                 try
                                 {
@@ -262,7 +254,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                         throw;
                                     }
 
-                                    await changeTrackerSnapshot.CompensateAsync(cancellationToken);
+                                    await changeTrackerSnapshotScope.CompensateAsync(cancellationToken);
 
                                     var aggregateException = new AggregateException(ex, ex2);
                                     if (criticalExceptionHandler == null)
@@ -274,57 +266,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                                 }
                             }
 
-                            await changeTrackerSnapshot.CommitAsync(cancellationToken);
+                            await changeTrackerSnapshotScope.CommitAsync(cancellationToken);
                         }
-
-                        break;
-                    }
-
-                case IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual:
-                    {
-                        await using (var manualCompensate = await _manualCompensateService.StartScopeAsync(cancellationToken))
-                        await using (var changeTrackerSnapshot = await _changeTrackerSnapshotCompensateService.StartScopeAsync(cancellationToken))
+                        finally 
                         {
-                            try
-                            {
-                                await action(param, cancellationToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                                {
-                                    throw;
-                                }
-
-                                await manualCompensate.CompensateAsync(cancellationToken);
-                                await changeTrackerSnapshot.CompensateAsync(cancellationToken);
-
-                                try
-                                {
-                                    await exceptionHandler(param, ex, cancellationToken);
-                                }
-                                catch (Exception ex2)
-                                {
-                                    if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
-                                    {
-                                        throw;
-                                    }
-
-                                    await manualCompensate.CompensateAsync(cancellationToken);
-                                    await changeTrackerSnapshot.CompensateAsync(cancellationToken);
-
-                                    var aggregateException = new AggregateException(ex, ex2);
-                                    if (criticalExceptionHandler == null)
-                                    {
-                                        throw aggregateException;
-                                    }
-
-                                    await criticalExceptionHandler(param, aggregateException, cancellationToken);
-                                }
-                            }
-
-                            await manualCompensate.CommitAsync(cancellationToken);
-                            await changeTrackerSnapshot.CommitAsync(cancellationToken);
+                            await changeTrackerSnapshotScope.DisposeAsync();
+                            CurrentScope.Value = null;
                         }
 
                         break;
@@ -332,6 +279,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 default: throw new NotImplementedException("[Bug].");
             }
+        }
+
+        public void RegisterManualCompensate(
+            Func<CancellationToken, ValueTask> compensateHandler)
+        {
+            if (CurrentScope.Value is null)
+            {
+                throw new InvalidOperationException("Для регистрации хендлера должен быть создан scope изоляции.");
+            }
+
+            CurrentScope.Value.RegisterManualCompensateHandler(
+                compensateHandler);
         }
     }
 }

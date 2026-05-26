@@ -98,9 +98,16 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
             void SetTimer(ITriggerComponent<TId> trigger, DateTimeOffset value);
 
+            void SetTimer(ITriggerComponent<TId> trigger, in TimerDto value);
+
             void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value);
 
             void ForRemove(ITriggerComponent<TId> trigger, bool value);
+
+            public readonly record struct TimerDto(
+                in DateTimeOffset Now,
+                in DateTimeOffset Timer,
+                TimeSpan? IfDeltaMore);
         }
 
         public interface ICounterSetter 

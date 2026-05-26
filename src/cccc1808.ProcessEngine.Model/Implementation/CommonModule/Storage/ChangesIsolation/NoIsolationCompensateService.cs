@@ -5,38 +5,32 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation
+namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class EFChangeTrackerCompensateService :
-        IChangeTrackerCompensateService
-    {
-        private readonly IEFDbContext _dbContext;
-
-        public EFChangeTrackerCompensateService(IEFDbContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
-
+    /// <summary>
+    /// Ручная система компенсации.
+    /// </summary>
+    public class NoIsolationCompensateService
+        : INoIsolationCompensateService
+    {      
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
             CancellationToken cancellationToken)
         {
-            var scope = new Scope(_dbContext);
+            var scope = new Scope();
             return ValueTask.FromResult<ICompensateService.ICompensateScope>(scope);
         }
 
-        private class Scope
-            : ICompensateService.ICompensateScope
+        private class Scope : ICompensateService.ICompensateScope
         {
-            private readonly IEFDbContext _dbContext;
             private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
 
-            private bool IsCommited { get; set; }            
+            private bool IsCommited { get; set; }
 
-            public Scope(IEFDbContext dbContext)
+            private bool IsDisposed { get; set; }
+
+            public Scope()
             {
-                _dbContext = dbContext;
                 _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
             }
 
@@ -48,39 +42,36 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
             {
-                if (IsCommited)
-                {
-                    throw new InvalidOperationException();
-                }
-
                 IsCommited = true;
                 return ValueTask.CompletedTask;
             }
 
             public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
-                if (IsCommited)
-                {
-                    throw new InvalidOperationException();
-                }
+                //if (IsCommited)
+                //{
+                //    throw new InvalidOperationException("[Bug]. Компенсация после коммита.");
+                //}
 
                 foreach (var elem in _manualCompensateHandlers)
                 {
                     await elem(cancellationToken);
                 }
-
-                _dbContext.DbContext.ChangeTracker.Clear();
             }
 
             public async ValueTask DisposeAsync()
             {
-                if (IsCommited)
+                if (!IsDisposed)
                 {
-                    return;
-                }
+                    if (!IsCommited)
+                    {
+                        await CompensateAsync(CancellationToken.None);
+                    }
 
-                await CompensateAsync(default);
-            }            
+                    _manualCompensateHandlers.Clear();
+                    IsDisposed = true;
+                }
+            }
         }
     }
 }

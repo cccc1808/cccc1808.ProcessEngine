@@ -33,11 +33,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         private record Scope : ICompensateService.ICompensateScope
         {
             private readonly IChangeTrackerSnapshotService.ISubscribe _subscribe;
+            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
 
             public Scope(
                 IChangeTrackerSnapshotService.ISubscribe subscribe)
             {
                 _subscribe = subscribe;
+                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
+            }
+
+            public void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler)
+            {
+                _manualCompensateHandlers.Add(manualCompensateHandler);
             }
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -46,10 +54,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 return ValueTask.CompletedTask;
             }
 
-            public ValueTask CompensateAsync(CancellationToken cancellationToken)
+            public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
+                foreach (var elem in _manualCompensateHandlers)
+                {
+                    await elem(cancellationToken);
+                }
+
                 _subscribe.Restore();
-                return ValueTask.CompletedTask;
             }
 
             public ValueTask DisposeAsync()

@@ -324,6 +324,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
             }
 
+            public void SetTimer(
+                ITriggerComponent<TId> trigger,
+                in ITriggerSetter<TId>.IStandartSetter.TimerDto value)
+            {
+                if (value.IfDeltaMore.HasValue)
+                {
+                    // Обновляем таймер, только если оставшаяся дельта больше указанного параметра.
+                    if ((trigger.TimerDate - value.Now) > value.IfDeltaMore)
+                    {
+                        SetTimer(trigger, value.Timer);
+                    }
+                }
+                else
+                {
+                    SetTimer(trigger, value.Timer);
+                }
+            }
+
             public void ForRemove(ITriggerComponent<TId> trigger, bool value)
             {
                 trigger.NeedRemove = value;
@@ -336,7 +354,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     trigger.SelectLockTimeout = value;
                     trigger.NeedUpdate = true;
                 }
-            }
+            }            
         }
 
         public class CounterSetterImpl 

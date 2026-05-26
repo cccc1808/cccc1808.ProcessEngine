@@ -59,7 +59,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         public static BaseSingleProcessHandler<TId>.OptionsDto Preset2_Single { get; }
             = new BaseSingleProcessHandler<TId>.OptionsDto(
                 Preset2,
-                IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual,
+                IIsolationService.IsolationMode.ChangeTrackerSnapshot,
                 UseSave: false);
     }
 }
