@@ -14,6 +14,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
             : IAsyncDisposable
         {
             /// <summary>
+            /// Зарегистрировать ручной хендлер компенсации.
+            /// </summary>
+            /// <param name="manualCompensateHandler"></param>
+            void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler);
+
+            /// <summary>
             /// Подвердить изменения.
             /// </summary>
             /// <param name="cancellationToken"></param>
@@ -38,6 +45,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
                 _scopes = scopes;
             }
 
+            public void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler)
+            {
+                _scopes.First().RegisterManualCompensateHandler(manualCompensateHandler);
+            }
+
             public async ValueTask CommitAsync(CancellationToken cancellationToken)
             {
                 foreach (var elem in _scopes) 
@@ -60,7 +73,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
                 {
                     await elem.DisposeAsync();
                 }
-            }
+            }            
         }
     }
 

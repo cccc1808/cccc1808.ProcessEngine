@@ -18,29 +18,55 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
     {
         public TId Id { get; set; }
 
+        /// <summary>
+        /// Уникальный ключ триггера.
+        /// Можно использовать другой тип (например Guid).
+        /// </summary>
         public string Key { get; set; }
 
         /// <summary>
         /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
         /// Дополняет updatelock.
+        /// Отмечает бронь записи, между select транзакций и транзакций выполнения.
         /// </summary>
         public DateTimeOffset SelectLockTimeout { get; set; }
 
+        /// <summary>
+        /// Таймер выполнения.
+        /// </summary>
         public DateTimeOffset TimerDate { get; set; }
 
+        /// <summary>
+        /// Является ли хендлер триггера групповым.
+        /// (Используется для распределения Task/Transaction).
+        /// </summary>
         public bool IsRangeHandler { get; set; }
 
         /// <summary>
+        /// Ключ хендлера.
         /// TODO: можно переделать на число для экономии.
         /// </summary>
         public string HandlerKey { get; set; }
 
+        /// <summary>
+        /// Тип триггера.
+        /// </summary>
         public ITriggerComponent.TriggerKind Kind { get; set; }
 
+        /// <summary>
+        /// Приоритет.
+        /// </summary>
         public short Priority { get; set; }
 
+        /// <summary>
+        /// Триггер активирован (требуется обработка).
+        /// Еще влияет <see cref="TimerDate"/>.
+        /// </summary>
         public bool IsActivated { get; set; }
 
+        /// <summary>
+        /// Триггер завершен. Не обрабатывается, не принимает сигналы.
+        /// </summary>
         public bool IsCompleted { get; set; }
 
         public TId ProcessId { get; set; }
@@ -51,6 +77,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public long? SignalCounter2 { get; set; }
 
+        /// <summary>
+        /// Замечание: можно хранить кастомное состояние в json/bin (StreamProcessIsWaiting, SignalCounter1, SignalCounter2).
+        /// Это позволит более просто добавлять новые типы триггеров.
+        /// Но пока список типов триггеров фиксированный, все поля лежат в строке.
+        /// </summary>
+        //// public JsonElement State { get; set; }
 
         [Obsolete("For entity framework")]
         public TriggerDbEntity() 
@@ -117,63 +149,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
                 default: throw new NotImplementedException($"{Kind}.");
             }            
-        }
-
-        public class SimpleStreamDto 
-        {
-            public bool StreamsProcessIsWaiting { get; set; }
-
-            public long NewSignalCounter { get; set; }
-
-            [Obsolete("Serialization.")]
-            public SimpleStreamDto() { }
-
-            public SimpleStreamDto(
-                bool streamsProcessIsWaiting,
-                long newSignalCounter)
-            {
-                StreamsProcessIsWaiting = streamsProcessIsWaiting;
-                NewSignalCounter = newSignalCounter;
-            }
-        }
-
-        public class OffsetStreamDto
-        {
-            public bool StreamsProcessIsWaiting { get; set; }
-
-            public Dictionary<string, OffsetEntry> ChannelsOffsets { get; set; }
-
-            [Obsolete("Serialization.")]
-            public OffsetStreamDto()
-            {
-                ChannelsOffsets = null!;
-            }
-
-            public OffsetStreamDto(
-                bool streamsProcessIsWaiting,
-                Dictionary<string, OffsetEntry> channelsOffsets)
-            {
-                StreamsProcessIsWaiting = streamsProcessIsWaiting;
-                ChannelsOffsets = channelsOffsets;
-            }
-
-            public class OffsetEntry 
-            {               
-
-                public long LastOffset { get; set; }
-
-                public long ProcessedOffset { get; set; }
-
-                [Obsolete("Serialization.")]
-                public OffsetEntry()
-                {}
-
-                public OffsetEntry(long lastOffset, long processedOffset)
-                {
-                    LastOffset = lastOffset;
-                    ProcessedOffset = processedOffset;
-                }
-            }
         }
     }
 }

@@ -183,7 +183,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 if (StopCheck(p.This, elem))
                                 {
                                     ////  Обработка завершена  
-                                    if (!elem.CurrentSession.CurrentSessionHaveError)
+                                    if (!elem.CurrentSession.CurrentSessionHaveError && elem.CurrentSession.ClearErrorOnSessionEnd )
                                     {
                                         // В сессии нет ошибок, тогда отчищаем ошибку.
                                         // TODO: подумать нужно ли сбрасывать ошибку если это elem.CurrentSession.StopAsyncProcessingSession?
@@ -266,7 +266,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             if (StopCheck(p.This, elem))
                             {
                                 ////  Обработка завершена  
-                                if (!elem.CurrentSession.CurrentSessionHaveError)
+                                if (!elem.CurrentSession.CurrentSessionHaveError && elem.CurrentSession.ClearErrorOnSessionEnd)
                                 {
                                     // В сессии нет ошибок, тогда отчищаем ошибку.
                                     p.This._processSetter.ClearError(elem);

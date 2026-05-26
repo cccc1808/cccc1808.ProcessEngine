@@ -26,15 +26,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
 
         public bool HaveErrorOnStart { get; private set; }
 
+        public bool ClearErrorOnSessionEnd { get; set; }
 
         public AsyncSessionComponent(
-            Guid sessionId, 
+            Guid sessionId,
             bool isSessionFirstStep,
-            bool currentSessionHaveError, 
-            short retryLimit, 
+            bool currentSessionHaveError,
+            short retryLimit,
             bool stopAsyncProcessingSession,
             bool needUpdateErrorData,
-            bool haveErrorOnStart)
+            bool haveErrorOnStart,
+            bool clearErrorOnSessionEnd)
         {
             SessionId = sessionId;
             IsSessionFirstStep = isSessionFirstStep;
@@ -43,6 +45,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components
             StopAsyncProcessingSession = stopAsyncProcessingSession;
             NeedUpdateErrorData = needUpdateErrorData;
             HaveErrorOnStart = haveErrorOnStart;
+            ClearErrorOnSessionEnd = clearErrorOnSessionEnd;
         }
 
         #region IInmemoryMutableState

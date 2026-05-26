@@ -37,13 +37,21 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             : ICompensateService.ICompensateScope
         {
             private readonly IEFDbContext _dbContext;
+            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
 
-            private bool IsCommited { get; set; }
+            private bool IsCommited { get; set; }            
 
             public Scope(IEFDbContext dbContext)
             {
                 _dbContext = dbContext;
-            }            
+                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
+            }
+
+            public void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler)
+            {
+                _manualCompensateHandlers.Add(manualCompensateHandler);
+            }
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
             {
@@ -56,15 +64,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 return ValueTask.CompletedTask;
             }
 
-            public ValueTask CompensateAsync(CancellationToken cancellationToken)
+            public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
                 if (IsCommited)
                 {
                     throw new InvalidOperationException();
                 }
 
+                foreach (var elem in _manualCompensateHandlers)
+                {
+                    await elem(cancellationToken);
+                }
+
                 _dbContext.DbContext.ChangeTracker.Clear();
-                return ValueTask.CompletedTask;
             }
 
             public async ValueTask DisposeAsync()
@@ -75,7 +87,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 }
 
                 await CompensateAsync(default);
-            }
+            }            
         }
     }
 }

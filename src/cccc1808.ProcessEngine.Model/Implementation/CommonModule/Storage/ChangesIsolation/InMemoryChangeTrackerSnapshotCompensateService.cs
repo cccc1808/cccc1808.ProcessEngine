@@ -82,6 +82,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
         private class Scope : ICompensateService.ICompensateScope
         {
             private bool isCommited;
+            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
             private readonly IDictionary<TId, IProcessContainer<TId>> _group;
             private readonly Dictionary<TId, EntryDto> _snapshot;
 
@@ -89,8 +90,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
                 IDictionary<TId, IProcessContainer<TId>> group,
                 Dictionary<TId, EntryDto> snapshot)
             {
+                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
                 _snapshot = snapshot;
                 _group = group;
+            }
+
+            public void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler)
+            {
+                _manualCompensateHandlers.Add(manualCompensateHandler);
             }
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -101,7 +109,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
                 return ValueTask.CompletedTask;
             }
 
-            public ValueTask CompensateAsync(CancellationToken cancellationToken)
+            public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
                 static void ProcessComponenets(
                     in EntryDto entry)
@@ -144,6 +152,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
                     }
                 }
 
+                foreach (var elem in _manualCompensateHandlers)
+                {
+                    await elem(cancellationToken);
+                }
+
                 // Восстанавливаем состояние группы процессов на основе снимка.
                 var currentGroup = _group.ToArray(); // Копия, потому что меняется при перечислении.
                 var snapshotGroup = _snapshot.ToDictionary();
@@ -173,8 +186,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
 
                     ProcessComponenets(elem2.Value);
                 }
-
-                return ValueTask.CompletedTask;
             }
 
             public async ValueTask DisposeAsync()
@@ -191,6 +202,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
 
             private void ClearMemory() 
             {
+                _manualCompensateHandlers.Clear();
+
                 foreach (var elem in _snapshot.Values)
                 {
                     foreach (var elem2 in elem.Snapshots.Values)

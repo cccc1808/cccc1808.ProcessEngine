@@ -4,39 +4,35 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation
 {
-    public class SavepointCompensateService<TId>
-        : ISavepointCompensateService<TId>
-    {
-        private readonly ITransactionManager _transactionManager;
-
-        public SavepointCompensateService(ITransactionManager transactionManager)
-        {
-            _transactionManager = transactionManager;
-        }
-
-        public async ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
+    /// <summary>
+    /// Ручная система компенсации.
+    /// </summary>
+    public class NoIsolationCompensateService<TId>
+        : INoIsolationCompensateService<TId>
+    {      
+        public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
             IDictionary<TId, IProcessContainer<TId>> processes,
             CancellationToken cancellationToken)
         {
-            var transaction = await _transactionManager.CreateSavepointAsync(cancellationToken);
-            return new Scope(transaction);
+            var scope = new Scope();
+            return ValueTask.FromResult<ICompensateService.ICompensateScope>(scope);
         }
 
         private class Scope : ICompensateService.ICompensateScope
         {
-            private readonly ITransactionManager.ISavepointContainer _savepoint;
             private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
 
-            public Scope(
-                ITransactionManager.ISavepointContainer transaction)
+            private bool IsCommited { get; set; }
+
+            private bool IsDisposed { get; set; }
+
+            public Scope()
             {
-                _savepoint = transaction;
                 _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
             }
 
@@ -48,26 +44,36 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
             {
-                _savepoint.NoAutoRollback();
+                IsCommited = true;
                 return ValueTask.CompletedTask;
             }
 
             public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
+                //if (IsCommited)
+                //{
+                //    throw new InvalidOperationException("[Bug]. Компенсация после коммита.");
+                //}
+
                 foreach (var elem in _manualCompensateHandlers)
                 {
                     await elem(cancellationToken);
                 }
-
-                await _savepoint.RollbackAsync(cancellationToken);                
             }
 
             public async ValueTask DisposeAsync()
             {
-                await _savepoint.DisposeAsync();
+                if (!IsDisposed)
+                {
+                    if (!IsCommited)
+                    {
+                        await CompensateAsync(CancellationToken.None);
+                    }
 
-                _manualCompensateHandlers.Clear();
-            }            
+                    _manualCompensateHandlers.Clear();
+                    IsDisposed = true;
+                }
+            }
         }
     }
 }

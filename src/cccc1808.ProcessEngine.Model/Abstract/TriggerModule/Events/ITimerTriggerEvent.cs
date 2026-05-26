@@ -10,5 +10,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
         : ITriggerEvent
     {
         DateTimeOffset Timer { get; }
+
+        /// <summary>
+        /// Обновить таймер, если дельта с текущей датой больше значения.
+        /// Может использоваться для уменьшения количества write операций.
+        /// </summary>
+        TimeSpan? IfDeltaMore { get; }
     }
 }

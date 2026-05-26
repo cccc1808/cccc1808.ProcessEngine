@@ -4,7 +4,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
 {
     public interface IIsolationService
     {
-        public enum IsolationMode
+        public enum IsolationMode 
         {
             /// <summary>
             /// Не использовать изоляцию.
@@ -12,24 +12,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
             /// Пример: используется только, если обработка ошибки идет выше (например пакет из одного элемента),
             ///     или ошибка прерывает транзакцию целиком.
             /// </summary>
-            [Obsolete]
             No,
 
             /// <summary>
-            /// Отчистка ChangeTracker.
+            /// Отчистка EF. ChangeTracker.
             /// Ограничение: Для случая, когда внутри в БД ничего не пишется, и не проблема, что отчистятся все данные текущего DIScope.
             /// </summary>
             ClearChangeTracker,
-
-            /// <summary>
-            /// <see cref="IManualCompensateService"/>
-            /// Предпологается, что если в ручной компенсации происходит ошибка,
-            ///     то это либо обрабатывается другой вышестоящей изоляцией более универсального типа,
-            ///     либо пробрасывается наверх и прерывает транзакцию целиком.
-            /// Ограничение: Только ручная компенсация.
-            /// Пример: (Делаем Insert в БД, регистрируем - Delete).
-            /// </summary>
-            Manual,
 
             /// <summary>
             /// Изоляция через DbSavepoint. 
@@ -41,14 +30,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
             /// <summary>
             /// Изоляция через ChangeTrackerSnapshot.
             /// Автоматически изолирует только изменения InMemory ChangeTracker.
-            /// Ограничение: Писать в БД напрямую запрещено.
+            /// Ограничение: Писать в БД напрямую запрещено или использовать <see cref="RegisterManualCompensate(Func{CancellationToken, ValueTask})"/>
             /// </summary>
             ChangeTrackerSnapshot,
-
-            /// <summary>
-            /// <see cref="ChangeTrackerSnapshot"/>  и <see cref="Manual"/>.
-            /// </summary>
-            ChangeTrackerSnapshotAndManual
         }
     }
 
@@ -74,6 +58,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
             Func<TParam, CancellationToken, ValueTask> action,
             Func<TParam, Exception, CancellationToken, ValueTask> exceptionHandler,
             Func<TParam, Exception, CancellationToken, ValueTask>? criticalExceptionHandler,
-            CancellationToken cancellationToken);        
+            CancellationToken cancellationToken);
+
+        bool InScope { get; }
+
+        void RegisterManualCompensate(
+            Func<CancellationToken, ValueTask> compensateHandler);
     }
 }
