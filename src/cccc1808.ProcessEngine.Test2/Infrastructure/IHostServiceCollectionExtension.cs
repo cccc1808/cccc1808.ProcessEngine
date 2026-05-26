@@ -151,7 +151,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
                 .AddScoped<IChangeTrackerCompensateService, EFChangeTrackerCompensateService>()
                 .AddScoped<IChangeTrackerSnapshotCompensateService, EFChangeTrackerSnapshotCompensateService>()
-                .AddScoped<IManualCompensateService, ManualCompensateService>()
+                .AddScoped<INoIsolationCompensateService, NoIsolationCompensateService>()
                 .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService>()
                 ;
 

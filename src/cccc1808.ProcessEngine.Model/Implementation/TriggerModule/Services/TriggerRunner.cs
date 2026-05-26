@@ -206,14 +206,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
-                            (eventTypeMismathErrorHandler, triggerSetter, trigger, messages: elem.Value),
+                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value),
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
                                         removeTriggerEventHandler: (_, p) => 
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>                                        
@@ -223,7 +223,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 typedEvent.Reset,
                                                 typedEvent.Value),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,                                                
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore                                                    
+                                                    )                                                    
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static  (typedEvent, p) => 
@@ -246,13 +252,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        timerTriggerEventHandler: static (typedEvent, p) => 
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 
@@ -270,13 +282,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state, p.now),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
@@ -299,13 +317,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
-                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state),
+                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),                                        
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),                                        
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
