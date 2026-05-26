@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
@@ -118,16 +119,24 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
                 oneExecute: oneExecute,
                 (ex) => {  /*TODO: log*/ },
                 cancelationToken);
+
+            var buffer = new List<MessageDto>(options.ConsumeBatchLimit);
             while (!cancelationToken.IsCancellationRequested)
             {
                 try
                 {
-                    var batch = await consumer.ConsumeBatchAsync(
-                        options.ConsumeBatchLimit,
+                    buffer.Clear();
+                    await consumer.ConsumeBatchAsync(
+                        (options, buffer),
                         options.ConsumeBatchTimeout,
+                        static (p, m) => 
+                        {
+                            p.buffer.Add(m);
+                            return p.buffer.Count < p.options.ConsumeBatchLimit;
+                        },
                         cancelationToken);
 
-                    if (!batch.Any())
+                    if (!buffer.Any())
                     {
                         continue;
                     }
@@ -143,7 +152,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Se
 
                                 await using (var transaction = await transactionService.StartTransactionAsync(cancelationToken))
                                 {
-                                    await consumerService.ProcessBatchAsync(batch, cancelationToken);
+                                    await consumerService.ProcessBatchAsync(buffer, cancelationToken);
                                     await transaction.CommitAsync(cancelationToken);
                                 }
 

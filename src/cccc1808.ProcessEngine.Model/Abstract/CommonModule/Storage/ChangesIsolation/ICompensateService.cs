@@ -22,6 +22,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
             : IAsyncDisposable
         {
             /// <summary>
+            /// Зарегистрировать ручной хендлер компенсации.
+            /// </summary>
+            /// <param name="manualCompensateHandler"></param>
+            void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler);
+
+            /// <summary>
             /// Подвердить изменения.
             /// </summary>
             /// <param name="cancellationToken"></param>

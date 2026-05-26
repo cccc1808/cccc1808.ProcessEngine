@@ -80,40 +80,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
 
-                        // TODO: не было бы лишним допускать использование нескольких топиков (потребителей),
-                        // * например для inbox большое значение QueueConsumeBatchTimeout/QueueConsumePackTimeout не очень подходит,
-                        // * а для parent-child процесса (с большим количеством дочерних) QueueConsumeBatchTimeout/QueueConsumePackTimeout может быть больше (чтобы снизить нагрузку записи на БД).
                         await consumer.ConsumeBatchAsync(
                             (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
-                            consumerQueueOptions.QueueConsumePackTimeout,
-                            consumerQueueOptions.QueueConsumePackSize,
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
-                                if (!e.Any())
-                                {
-                                    return true;
-                                }
-
                                 // (Info: точка агрегации).
                                 // N событий триггера сжимаются в одном действия (1 db update).
-                                foreach (var elem in e)
+                                var triggerEvent = p.serializer.Deserialize(e.Body);
+                                if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
                                 {
-                                    var triggerEvent = p.serializer.Deserialize(elem.Body);
-
-                                    if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
-                                    {
-                                        triggerEvents = new List<ITriggerEvent>(e.Count);
-                                        p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
-                                    }
-                                    triggerEvents.Add(triggerEvent);
+                                    // Если нужно, то тут можно сделать пулинг коллекций.
+                                    triggerEvents = new List<ITriggerEvent>(p.consumerQueueOptions.QueueConsumeMessagesLimit / 2);
+                                    p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
                                 }
-                                p.receivedMessages.Data += e.Count;
+                                triggerEvents.Add(triggerEvent);
+                                p.receivedMessages.Data++;
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
                                 var stop =
-                                    p.receivedMessages.Data > p.consumerQueueOptions.QueueConsumeMessagesLimit
-                                    || p.groupByTrigger.Count > p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
+                                    p.receivedMessages.Data >= p.consumerQueueOptions.QueueConsumeMessagesLimit
+                                    || p.groupByTrigger.Count >= p.consumerQueueOptions.QueueConsumeTriggersCountLimit;
                                 return !stop;
                             },
                             cancellationToken);
@@ -220,14 +207,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
-                            (eventTypeMismathErrorHandler, triggerSetter, trigger, messages: elem.Value),
+                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value),
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),                                        
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
+                                        removeTriggerEventHandler: (_, p) => 
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>                                        
                                             p.triggerSetter.CounterSetter.CounterEvent(
                                                 p.trigger, 
@@ -235,7 +224,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 typedEvent.Reset,
                                                 typedEvent.Value),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,                                                
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore                                                    
+                                                    )                                                    
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static  (typedEvent, p) => 
@@ -258,11 +253,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        timerTriggerEventHandler: static (typedEvent, p) => 
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                        timerTriggerEventHandler: static (typedEvent, p) =>
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 
@@ -280,11 +283,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state, p.now),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
@@ -307,11 +318,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
-                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state),
+                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now),
+                                        removeTriggerEventHandler: (_, p) =>
+                                            p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.StandartSetter.SetTimer(p.trigger, typedEvent.Timer),                                        
+                                            p.triggerSetter.StandartSetter.SetTimer(
+                                                p.trigger,
+                                                new ITriggerSetter<TId>.IStandartSetter.TimerDto(
+                                                    p.now,
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
+                                                ),                                        
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
@@ -401,6 +420,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var selectQuery = serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
+                // Ждем освобождения хотя бы одного слота.
                 await parallelLimiter.WaitAsync(cancellationToken);
                 try 
                 {
@@ -680,6 +700,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public class OptionsDto
         {
+            /// <summary>
+            /// Конфигурация очередей, используемых для передачи <see cref="ITriggerEvent"/>, которые будут обрабатываться текущим экземпляром.
+            /// (Можно сделать несколько одередей с разными значениями буфера и задержки накопления события).
+            /// </summary>
             public List<QueueOptionsDto> TriggerEventQueues { get; set; }
                 = new List<QueueOptionsDto>(0);                 
 
@@ -740,18 +764,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public int QueueConsumeMessagesLimit { get; set; }
                 = 1000;
 
-            public int QueueConsumePackSize { get; set; }
-                = 150;
-
             /// <summary>
             /// Ограничение количетва триггеров, обновленных за один такт (кол-во обновленных строк в БД).
             /// </summary>
             public int QueueConsumeTriggersCountLimit { get; set; }
                 = 100;
 
-            public TimeSpan QueueConsumePackTimeout { get; set; }
-                = TimeSpan.FromMilliseconds(200);
-
+            /// <summary>
+            /// Ограничение задержки накопления батча событий.
+            /// </summary>
             public TimeSpan QueueConsumeBatchTimeout { get; set; }
                 = TimeSpan.FromSeconds(1);
         }

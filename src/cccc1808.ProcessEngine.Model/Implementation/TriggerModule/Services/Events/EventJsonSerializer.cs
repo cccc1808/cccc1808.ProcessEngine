@@ -28,7 +28,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             return _setter.OneOfSetter.OneOfEventKind(
                 commonEvent.Kind,
                 (commonEvent, jsonElement),
-                counterTriggerEventHandler: static (p) => (ITriggerEvent)p.jsonElement.Deserialize<CounterTriggerEvent>(),
+                removeTriggerEventHandler: static (p) => p.jsonElement.Deserialize<RemoveTriggerEvent>(),
+                counterTriggerEventHandler: static (p) => (ITriggerEvent)p.jsonElement.Deserialize<CounterTriggerEvent>()!,
                 timerTriggerEventHandler: static (p) => p.jsonElement.Deserialize<TimerTriggerEvent>(),
                 signalSimpleStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalSimpleStreamTriggerEvent>(),
                 processGoWaitStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<ProcessGoWaitStreamTriggerEvent>(),

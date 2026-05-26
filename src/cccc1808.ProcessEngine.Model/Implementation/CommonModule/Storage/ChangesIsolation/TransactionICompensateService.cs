@@ -26,14 +26,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
             return new Scope(transaction);
         }
 
-        private record Scope : ICompensateService.ICompensateScope
+        private class Scope : ICompensateService.ICompensateScope
         {
             private readonly ITransactionManager.ITransactionContainer _transaction;
+            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
 
             public Scope(
                 ITransactionManager.ITransactionContainer transaction)
             {
                 _transaction = transaction;
+                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
+            }
+
+            public void RegisterManualCompensateHandler(
+                Func<CancellationToken, ValueTask> manualCompensateHandler)
+            {
+                _manualCompensateHandlers.Add(manualCompensateHandler);
             }
 
             public async ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -43,13 +51,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
 
             public async ValueTask CompensateAsync(CancellationToken cancellationToken)
             {
-                await _transaction.RollbackAsync(cancellationToken);
+                foreach (var elem in _manualCompensateHandlers)
+                {
+                    await elem(cancellationToken);
+                }
+
+                await _transaction.RollbackAsync(cancellationToken);                
             }
 
             public async ValueTask DisposeAsync()
             {
                 await _transaction.DisposeAsync();
-            }
+
+                _manualCompensateHandlers.Clear();
+            }            
         }
     }
 }

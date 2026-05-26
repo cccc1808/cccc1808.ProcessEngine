@@ -157,6 +157,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public TResult OneOfEventKind<TParameters, TResult>(
                 TriggerEventKindEnum triggerEventKind,
                 TParameters parameters,
+                Func<TParameters, TResult> removeTriggerEventHandler,
                 Func<TParameters, TResult> counterTriggerEventHandler,
                 Func<TParameters, TResult> timerTriggerEventHandler,
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
@@ -166,6 +167,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 return triggerEventKind switch
                 {
+                    TriggerEventKindEnum.RemoveTriggerEvent => removeTriggerEventHandler(parameters),
                     TriggerEventKindEnum.CounterEvent => counterTriggerEventHandler(parameters),
                     TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
@@ -180,6 +182,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public TResult OneOfEvent<TParameters, TResult>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,
+                Func<IRemoveTriggerEvent, TParameters, TResult> removeTriggerEventHandler,
                 Func<ICounterTriggerEvent, TParameters, TResult> counterTriggerEventHandler,
                 Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
@@ -189,6 +192,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 return triggerEvent.Kind switch
                 {
+                    TriggerEventKindEnum.RemoveTriggerEvent => removeTriggerEventHandler((IRemoveTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.CounterEvent => counterTriggerEventHandler((ICounterTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler((ITimerTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent)triggerEvent, parameters),
@@ -202,7 +206,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public void OneOfEvent<TParameters>(
                 ITriggerEvent triggerEvent, 
-                TParameters parameters, 
+                TParameters parameters,
+                Action<IRemoveTriggerEvent, TParameters> removeTriggerEventHandler,
                 Action<ICounterTriggerEvent, TParameters> counterTriggerEventHandler,
                 Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
@@ -212,6 +217,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             {
                 switch (triggerEvent.Kind)
                 {
+                    case TriggerEventKindEnum.RemoveTriggerEvent:
+                        {
+                            removeTriggerEventHandler((IRemoveTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+
                     case TriggerEventKindEnum.CounterEvent:
                         {
                             counterTriggerEventHandler((ICounterTriggerEvent)triggerEvent, parameters);
@@ -280,6 +291,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
             }
 
+            public void SetTimer(
+                ITriggerComponent<TId> trigger,
+                in ITriggerSetter<TId>.IStandartSetter.TimerDto value)
+            {
+                if (value.IfDeltaMore.HasValue)
+                {
+                    // Обновляем таймер, только если оставшаяся дельта больше указанного параметра.
+                    if ((trigger.TimerDate - value.Now) > value.IfDeltaMore)
+                    {
+                        SetTimer(trigger, value.Timer);
+                    }
+                }
+                else
+                {
+                    SetTimer(trigger, value.Timer);
+                }
+            }
+
             public void ForRemove(ITriggerComponent<TId> trigger, bool value)
             {
                 trigger.NeedRemove = value;
@@ -292,7 +321,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     trigger.SelectLockTimeout = value;
                     trigger.NeedUpdate = true;
                 }
-            }
+            }            
         }
 
         public class CounterSetterImpl 

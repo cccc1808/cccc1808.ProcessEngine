@@ -14,6 +14,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
     {
         public DateTimeOffset Timer { get; set; }
 
+        public TimeSpan? IfDeltaMore { get; set; }
 
         [Obsolete("Сериализатор.")]
         public TimerTriggerEvent()
@@ -21,12 +22,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 
         public TimerTriggerEvent(
             string triggerKey,
-            DateTimeOffset timer)
+            DateTimeOffset timer,
+            TimeSpan? ifDeltaMore = null)
             : base(
                   triggerKey,
                   TriggerEventKindEnum.TimerEvent)
         {
             Timer = timer;
+            IfDeltaMore = ifDeltaMore;
         }
 
     }
