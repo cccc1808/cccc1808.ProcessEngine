@@ -19,6 +19,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public string Key => Entity.Key;
 
+        public string? RootTriggerKey { get => Entity.RootTriggerKey; }
+
         public TId ProcessId => Entity.ProcessId;
 
         public bool IsActivated { get => Entity.IsActivated; set => Entity.IsActivated = value; }
@@ -85,6 +87,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
             public bool StreamsProcessIsWaiting { get => _entity.StreamProcessIsWaiting.Value; set => _entity.StreamProcessIsWaiting = value; }
 
             public long NewSignalCounter { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }
+
+            public bool IsRootTrigger { get => _entity.Kind == ITriggerComponent.TriggerKind.SimpleStreamRoot; }
 
             public EFSimpleStreamProxyDto(TriggerDbEntity<TId> entity)
             {

@@ -23,6 +23,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .Property(e => e.Key)
                 .HasMaxLength(255);
 
+            // TODO: индекс.
+            builder
+                .Property(e => e.RootTriggerKey)
+                .HasMaxLength(255);
+
             builder
                 .Property(e => e.HandlerKey)
                 .HasMaxLength(255);

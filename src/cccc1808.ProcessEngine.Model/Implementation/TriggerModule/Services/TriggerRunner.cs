@@ -181,6 +181,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+                var rootTriggerService = serviceProvider.GetRequiredService<IRootTriggerService<TId>>();
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
@@ -190,6 +191,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         cancellationToken);
 
                     var now = dateTimeProvider.UtcNow;
+                    var rootTriggersProcessGoSleep = new List<ITriggerComponent<TId>>(20);
+                    
+                    // 1) Обработка событий.
                     foreach (var elem in groupByTrigger)
                     {
                         if (!triggers.TryGetValue(elem.Key, out var trigger))
@@ -207,7 +211,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
-                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value),
+                            (eventTypeMismathErrorHandler, triggerSetter, rootTriggersProcessGoSleep, trigger, now, messages: elem.Value),
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
@@ -311,6 +315,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {                                    
                                     p.triggerSetter.SimpleStreamSetter.Activate(p.trigger, state);
                                 }
+                                else 
+                                {
+                                    if (state.IsRootTrigger)
+                                    {
+                                        if (state.StreamsProcessIsWaiting)
+                                        {
+                                            // Не активирован (новых сигналов нет) и процесс засыпает.
+                                            p.rootTriggersProcessGoSleep.Add(p.trigger);
+                                        }
+                                    }
+                                }
                             },
                             offsetStreamHanler: (state, p) =>
                             {
@@ -376,7 +391,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
                         //}
                     }
-                    
+
+                    // 2) Оповещение дочерних триггеров о том, что процесс уснул.
+                    await rootTriggerService.RootTriggerProcessGoSleepAsync(
+                        rootTriggersProcessGoSleep, 
+                        cancellationToken);
+
                     await repository.SaveAsync(triggers.Values, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }

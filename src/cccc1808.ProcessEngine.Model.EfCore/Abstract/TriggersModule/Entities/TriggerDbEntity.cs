@@ -19,6 +19,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         public TId Id { get; set; }
 
         /// <summary>
+        /// Сигнал подается не на процесс напрямую,
+        /// а через корневой триггер, который является <see cref="ITriggerComponent.TriggerKind.SimpleStream"/>.
+        /// </summary>
+        public string? RootTriggerKey { get; set; }
+
+        /// <summary>
         /// Уникальный ключ триггера.
         /// Можно использовать другой тип (например Guid).
         /// </summary>

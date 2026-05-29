@@ -64,6 +64,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                     case ITriggerComponent.TriggerKind.SimpleStream:
+                    case ITriggerComponent.TriggerKind.SimpleStreamRoot:
                         {
                             simpleStreamHandler(paramter);
                             break;
@@ -102,6 +103,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                     case ITriggerComponent.TriggerKind.SimpleStream:
+                    case ITriggerComponent.TriggerKind.SimpleStreamRoot:
                         {
                             simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State, parameter);
                             break;
@@ -139,7 +141,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                     case ITriggerComponent.TriggerKind.SimpleStream:
-                        {
+                    case ITriggerComponent.TriggerKind.SimpleStreamRoot:
+                    {
                             await simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State);
                             break;
                         }

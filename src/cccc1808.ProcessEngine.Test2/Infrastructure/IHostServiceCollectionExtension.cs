@@ -256,7 +256,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     }
                     )
                 .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
-                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
+                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()                
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
 
@@ -284,6 +284,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
+
+                .AddScoped<IRootTriggerService<Guid>, RootTriggerService<Guid>>()
+                .AddScoped<IRootTriggerService<Guid>.IQueries, EFRootTriggerServiceQueries<Guid>>()
+                .AddSingleton(
+                    new RootTriggerService<Guid>.OptionsDto(
+                        triggerServiceOptions.TriggerEventQueues.First().QueueName,
+                        triggerServiceOptions.TriggerEventQueues.First().QueueName
+                        )
+                    )
                 ;
 
             return services;
