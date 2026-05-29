@@ -19,8 +19,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public string Key => Entity.Key;
 
-        public string? RootTriggerKey { get => Entity.RootTriggerKey; }
-
         public TId ProcessId => Entity.ProcessId;
 
         public bool IsActivated { get => Entity.IsActivated; set => Entity.IsActivated = value; }

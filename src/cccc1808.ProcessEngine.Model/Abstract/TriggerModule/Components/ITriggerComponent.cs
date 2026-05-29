@@ -19,11 +19,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         string Key { get; }
 
         /// <summary>
-        /// Ключ корневого триггера.
-        /// </summary>
-        string? RootTriggerKey { get; }
-
-        /// <summary>
         /// Тип.
         /// </summary>
         ITriggerComponent.TriggerKind Kind { get; }        

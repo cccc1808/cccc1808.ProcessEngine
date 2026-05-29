@@ -44,6 +44,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                 throw new InvalidOperationException("[Bug] Необходима транзакция.");
             }
 
+            if (!events.Any())
+            {
+                return ValueTask.CompletedTask;
+            }
+
             if (!HandlerRegistered)
             {
                 // 1) Привязка к транзакции.
