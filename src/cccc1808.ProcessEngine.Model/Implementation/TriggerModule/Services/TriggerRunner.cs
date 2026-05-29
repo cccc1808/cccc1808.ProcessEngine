@@ -189,7 +189,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
-                    var now = dateTimeProvider.UtcNow;
+                    var now = dateTimeProvider.UtcNow;                    
                     foreach (var elem in groupByTrigger)
                     {
                         if (!triggers.TryGetValue(elem.Key, out var trigger))
@@ -376,7 +376,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
                         //}
                     }
-                    
+
                     await repository.SaveAsync(triggers.Values, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }

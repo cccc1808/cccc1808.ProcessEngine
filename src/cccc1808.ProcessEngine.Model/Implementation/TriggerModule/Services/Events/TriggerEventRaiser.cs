@@ -31,6 +31,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events, 
             CancellationToken cancellationToken)
         {
+            if(!events.Any())
+            {
+                return;
+            }
+
             foreach (var elem in events.GroupBy(e => e.EventQueue))
             {
                 var producer = await _queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
