@@ -23,10 +23,16 @@ using Shouldly;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
-    public class TestService
+    /// <summary>
+    /// Содержит шаблоны, которые часто используются в тестах, для упрощения кода тестов.
+    /// </summary>
+    internal class TestService
     {
         #region process runner
 
+        /// <summary>
+        /// Асинхронная обработка процессов.
+        /// </summary>
         public async Task RunProcessRunnerAsync(IServiceProvider serviceProvider)
         {
             var runner = serviceProvider.GetRequiredService<IProcessRunner>();
@@ -40,6 +46,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         #region trigger runner
 
+        /// <summary>
+        /// Обработка <see cref="ITriggerEvent"/>.
+        /// </summary>
         public async Task RunTriggerConsumerRunnerAsync(IServiceProvider serviceProvider)
         {
             var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
@@ -50,6 +59,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
         }
 
+        /// <summary>
+        /// Асинхронная обработка триггеров.
+        /// </summary>
         public async Task RunTriggerDbRunnerAsync(IServiceProvider serviceProvider)
         {
             var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();
