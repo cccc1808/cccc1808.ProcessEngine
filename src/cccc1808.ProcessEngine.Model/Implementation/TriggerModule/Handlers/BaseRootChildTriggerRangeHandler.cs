@@ -41,7 +41,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 .Where(e => e.NeedSignal)
                 .Select(
                     e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                            e.RootTroggerQueueName,
+                            e.RootTriggerQueueName,
                             e.ProcessId,
                             new SignalSimpleStreamTriggerEvent(e.RootTriggerKey)
                             )
@@ -73,13 +73,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
         /// <param name="ProcessId">Id процесса.</param>
         /// <param name="NeedSignal">Нужно ли передавать сигнал на root триггер (есть ли необработанный сигнал на триггере).</param>
         /// <param name="RootTriggerKey">Ключ root триггера.</param>
-        /// <param name="RootTroggerQueueName">Имя очередь для публикации <see cref="ITriggerEvent"/>.</param>
+        /// <param name="RootTriggerQueueName">Имя очередь для публикации <see cref="ITriggerEvent"/>.</param>
         public record ResultDto(
             ITriggerHandler.Result Result,
             TId ProcessId,
             bool NeedSignal,
             string RootTriggerKey,
-            string RootTroggerQueueName
+            string RootTriggerQueueName
             );
     }
 }

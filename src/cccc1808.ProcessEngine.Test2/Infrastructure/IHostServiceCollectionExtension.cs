@@ -355,5 +355,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             return services;
         }
+
+        public static IServiceCollection AddTestService(this IServiceCollection services)
+        {
+            services.AddSingleton<TestService>();
+
+            return services;
+        }
     }
 }

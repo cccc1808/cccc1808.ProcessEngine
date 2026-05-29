@@ -45,7 +45,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _fixture = fixture;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public Task InitializeAsync() 
+            => Task.CompletedTask;
 
         public async Task DisposeAsync()
         {

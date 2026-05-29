@@ -312,7 +312,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     1,
                                     false,
                                     streamProcessIsWaiting: false,
-                                    newSignalCounter: 0), 
+                                    newSignalCounter: 0,
+                                    isRootTrigger: false), 
                                 CancellationToken.None);
 
                             for (int i = 0; i < childCount; i++)

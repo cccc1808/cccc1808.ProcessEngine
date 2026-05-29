@@ -512,7 +512,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         priority: 0,
                                         isActivated: false,
                                         streamProcessIsWaiting: true,
-                                        newSignalCounter: 0)
+                                        newSignalCounter: 0,
+                                        isRootTrigger: false)
                                     );
                             }
 

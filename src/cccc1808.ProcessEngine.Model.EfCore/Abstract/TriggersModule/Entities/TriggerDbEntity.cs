@@ -130,7 +130,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
                     }
 
                 case ITriggerComponent.TriggerKind.SimpleStream:
-                    {
+                case ITriggerComponent.TriggerKind.SimpleStreamRoot:
+                {
                         StreamProcessIsWaiting = streamProcessIsWaiting.Value;
                         SignalCounter1 = signalCounter1.Value;
                         break;
