@@ -101,6 +101,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Либо нужна специальаня реализация хендлера триггера, которая будет повторно проверять наличие необработанных сообщений для процесса перед пробуждением.
             /// </summary>
             SimpleStream,
+            SimpleStreamRoot,
 
             /// <summary>
             /// Стрим с отслеживанием смещения (по аналогии с kafka offset).
@@ -135,6 +136,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Взводится при поступлении сигнала.
             /// </summary>
             long NewSignalCounter { get; set; }
+
+            /// <summary>
+            /// Является ли триггер корневым.
+            /// </summary>
+            bool IsRootTrigger { get; }
         }
 
         public interface IOffsetStreamDto

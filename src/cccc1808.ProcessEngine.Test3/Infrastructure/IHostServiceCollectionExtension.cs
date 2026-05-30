@@ -178,7 +178,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             services
                 .AddScoped<IIsolationService, Linq2DbIsolationService>()
                 .AddScoped<ISavepointCompensateService, SavepointCompensateService>()
-                .AddScoped<IManualCompensateService, ManualCompensateService>()
+                .AddScoped<INoIsolationCompensateService, NoIsolationCompensateService>()
                 ;
 
             return services;

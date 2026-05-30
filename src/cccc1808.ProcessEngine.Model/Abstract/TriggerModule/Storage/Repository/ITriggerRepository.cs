@@ -101,13 +101,17 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                 short priority,
                 bool isActivated,
                 bool streamProcessIsWaiting,
-                long newSignalCounter) => new CreateTriggerDto(
+                long newSignalCounter,
+                bool isRootTrigger) 
+                => new CreateTriggerDto(
                     key,
                     timerDate,
                     processId,
                     isRangeTrigger,
                     handlerKey,
-                    ITriggerComponent.TriggerKind.SimpleStream,
+                    !isRootTrigger 
+                        ? ITriggerComponent.TriggerKind.SimpleStream 
+                        : ITriggerComponent.TriggerKind.SimpleStreamRoot,
                     priority,
                     isActivated,
                     streamProcessIsWaiting,

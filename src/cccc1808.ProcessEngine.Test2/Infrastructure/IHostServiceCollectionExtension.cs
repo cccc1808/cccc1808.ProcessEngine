@@ -256,7 +256,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     }
                     )
                 .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
-                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
+                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()                
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
 
@@ -352,6 +352,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>>()
                 .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()
                 ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddTestService(this IServiceCollection services)
+        {
+            services.AddSingleton<TestService>();
 
             return services;
         }

@@ -13,26 +13,32 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
     public class Linq2DbIsolationService
         : IIsolationService
     {
+        private static AsyncLocal<ICompensateService.ICompensateScope?> CurrentScope { get; }
+            = new AsyncLocal<ICompensateService.ICompensateScope?>();
+
         private readonly ITransactionManager _transactionManager;
+        private readonly INoIsolationCompensateService _noIsolationCompensateService;
         private readonly ISavepointCompensateService _savepointCompensateService;
-        private readonly IManualCompensateService _manualCompensateService;
         private bool _transactionRequired;
+
+        public bool InScope
+            => CurrentScope.Value is not null;
 
         public Linq2DbIsolationService(
             ITransactionManager transactionManager,
+            INoIsolationCompensateService noIsolationCompensateService,
             ISavepointCompensateService savepointCompensateService,
-            IManualCompensateService manualCompensateService,
             bool transactionRequired = true)
         {
             _transactionManager = transactionManager;
+            _noIsolationCompensateService = noIsolationCompensateService;
             _savepointCompensateService = savepointCompensateService;
-            _manualCompensateService = manualCompensateService;
             _transactionRequired = transactionRequired;
         }
 
         public async ValueTask ExecuteAsync<TParam>(
-            IIsolationService.IsolationMode isolationMode, 
-            TParam param, 
+            IIsolationService.IsolationMode isolationMode,
+            TParam param,
             Func<TParam, CancellationToken, ValueTask> action,
             Func<TParam, Exception, CancellationToken, ValueTask> exceptionHandler,
             Func<TParam, Exception, CancellationToken, ValueTask>? criticalExceptionHandler,
@@ -50,49 +56,10 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
             {
                 case IIsolationService.IsolationMode.No:
                     {
+                        var noIsolationScope = await _noIsolationCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = noIsolationScope;
+
                         try
-                        {
-                            await action(param, cancellationToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                            {
-                                throw;
-                            }
-
-                            try
-                            {
-                                await exceptionHandler(param, ex, cancellationToken);
-                            }
-                            catch (Exception ex2)
-                            {
-                                if (OperationCancelHelper.IsCancelException(ex2, cancellationToken))
-                                {
-                                    throw;
-                                }
-
-                                var aggregateException = new AggregateException(ex, ex2);
-                                if (criticalExceptionHandler == null)
-                                {
-                                    throw aggregateException;
-                                }
-
-                                await criticalExceptionHandler(param, aggregateException, cancellationToken);
-                            }
-                        }
-
-                        break;
-                    }
-
-                case IIsolationService.IsolationMode.ClearChangeTracker:
-                    {                       
-                        break;
-                    }
-
-                case IIsolationService.IsolationMode.Manual:
-                    {
-                        await using (var manual = await _manualCompensateService.StartScopeAsync(cancellationToken))
                         {
                             try
                             {
@@ -105,8 +72,6 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                     throw;
                                 }
 
-                                await manual.CompensateAsync(cancellationToken);
-
                                 try
                                 {
                                     await exceptionHandler(param, ex, cancellationToken);
@@ -118,8 +83,6 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                         throw;
                                     }
 
-                                    await manual.CompensateAsync(cancellationToken);
-
                                     var aggregateException = new AggregateException(ex, ex2);
                                     if (criticalExceptionHandler == null)
                                     {
@@ -129,8 +92,11 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                     await criticalExceptionHandler(param, aggregateException, cancellationToken);
                                 }
                             }
-
-                            await manual.CommitAsync(cancellationToken);
+                        }
+                        finally
+                        {
+                            await noIsolationScope.DisposeAsync();
+                            CurrentScope.Value = null;
                         }
 
                         break;
@@ -138,7 +104,10 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
 
                 case IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker:
                     {
-                        await using (var savepoint = await _savepointCompensateService.StartScopeAsync(cancellationToken))
+                        var savepointScope = await _savepointCompensateService.StartScopeAsync(cancellationToken);
+                        CurrentScope.Value = savepointScope;
+
+                        try
                         {
                             try
                             {
@@ -151,7 +120,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                     throw;
                                 }
 
-                                await savepoint.CompensateAsync(cancellationToken);
+                                await savepointScope.CompensateAsync(cancellationToken);
 
                                 try
                                 {
@@ -164,7 +133,7 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                         throw;
                                     }
 
-                                    await savepoint.CompensateAsync(cancellationToken);
+                                    await savepointScope.CompensateAsync(cancellationToken);
 
                                     var aggregateException = new AggregateException(ex, ex2);
                                     if (criticalExceptionHandler == null)
@@ -176,7 +145,12 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                                 }
                             }
 
-                            await savepoint.CommitAsync(cancellationToken);
+                            await savepointScope.CommitAsync(cancellationToken);
+                        }
+                        finally
+                        {
+                            await savepointScope.DisposeAsync();
+                            CurrentScope.Value = null;
                         }
 
                         break;
@@ -187,13 +161,25 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Stora
                         throw new NotSupportedException("IIsolationService.IsolationMode.ChangeTrackerSnapshot");
                     }
 
-                case IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual:
+                case IIsolationService.IsolationMode.ClearChangeTracker:
                     {
-                        throw new NotSupportedException("IIsolationService.IsolationMode.ChangeTrackerSnapshotAndManual");
+                        throw new NotSupportedException("IIsolationService.IsolationMode.ClearChangeTracker");
                     }
 
                 default: throw new NotImplementedException("[Bug].");
             }
+        }
+
+        public void RegisterManualCompensate(
+            Func<CancellationToken, ValueTask> compensateHandler)
+        {
+            if (CurrentScope.Value is null)
+            {
+                throw new InvalidOperationException("Для регистрации хендлера должен быть создан scope изоляции.");
+            }
+
+            CurrentScope.Value.RegisterManualCompensateHandler(
+                compensateHandler);
         }
     }
 }

@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -112,6 +113,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     b => 
                     {
                         new ParentProcessDataDbEntityConfiguration().Configure(b);
+                    });
+
+                // ----------
+
+                modelBuilder.Entity<RootTriggerDbEntity>(
+                    b =>
+                    {                        
                     });
             }
         }

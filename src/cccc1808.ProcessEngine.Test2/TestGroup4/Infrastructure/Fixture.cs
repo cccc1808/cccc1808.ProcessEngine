@@ -44,8 +44,6 @@ using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
 using Confluent.Kafka;
 
-using DotNet.Testcontainers.Configurations;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Testcontainers.Kafka;
@@ -114,6 +112,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                 var services = new ServiceCollection();
 
                 services
+                    .AddTestService()
 
                     .AddDbServices(
                         (s) => new TestDbContext(

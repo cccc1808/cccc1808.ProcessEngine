@@ -86,6 +86,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
             public long NewSignalCounter { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }
 
+            public bool IsRootTrigger { get => _entity.Kind == ITriggerComponent.TriggerKind.SimpleStreamRoot; }
+
             public EFSimpleStreamProxyDto(TriggerDbEntity<TId> entity)
             {
                 _entity = entity;

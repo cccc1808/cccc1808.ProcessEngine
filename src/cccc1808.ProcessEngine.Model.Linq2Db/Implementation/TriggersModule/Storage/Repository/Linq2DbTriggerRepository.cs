@@ -252,7 +252,8 @@ namespace cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Sto
                     timerHandler: static e => { },
                     simpleStreamHandler: static p => p.state.Data = new TriggerComponent<TId>.SimpleStreamDto(
                         p.trigger.StreamProcessIsWaiting.Value,
-                        p.trigger.SignalCounter1.Value),
+                        p.trigger.SignalCounter1.Value,
+                        p.trigger.Kind == ITriggerComponent.TriggerKind.SimpleStreamRoot),
                     offsetStreamHanler: static p => p.state.Data = new TriggerComponent<TId>.OffsetStreamDto(
                         p.trigger.StreamProcessIsWaiting.Value,
                         p.trigger.SignalCounter1.Value,

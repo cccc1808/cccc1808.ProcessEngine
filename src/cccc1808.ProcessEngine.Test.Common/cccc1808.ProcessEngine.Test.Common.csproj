@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
   </ItemGroup>
 

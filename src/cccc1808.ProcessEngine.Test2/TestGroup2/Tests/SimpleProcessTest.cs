@@ -13,10 +13,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using Shouldly;
@@ -28,11 +28,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public SimpleProcessTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -75,20 +77,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var testState = scope.ServiceProvider.GetRequiredService<Process1Body.TestState>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
             }
             
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
 
                 processes.ShouldSatisfyAllConditions(
                     e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
@@ -100,7 +94,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     );
             }
         }
-
 
         private ValueTask Handler(
             IServiceProvider serviceProvider, 

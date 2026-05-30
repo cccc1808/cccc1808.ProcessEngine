@@ -80,11 +80,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
 
             public long NewSignalCounter { get; set; }
 
-            public SimpleStreamDto(bool streamsProcessIsWaiting, long newSignalCounter)
+            public bool IsRootTrigger { get; set; }
+
+            public SimpleStreamDto(
+                bool streamsProcessIsWaiting,
+                long newSignalCounter,
+                bool isRootTrigger)
             {
                 StreamsProcessIsWaiting = streamsProcessIsWaiting;
                 NewSignalCounter = newSignalCounter;
-            }            
+                IsRootTrigger = isRootTrigger;
+            }
         }
 
         public class OffsetStreamDto : ITriggerComponent.IOffsetStreamDto
