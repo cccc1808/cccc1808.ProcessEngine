@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Linq2Db.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.TriggerHandlers;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
+namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services
 {
     internal class ParentProcessEmegencyTriggerHandler
         : BaseEmergencyKeysetTriggerHandler<Guid, ParentProcessDataDbEntity>

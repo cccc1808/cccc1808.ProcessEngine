@@ -57,6 +57,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
                 ITriggerComponent.TriggerKind.Counter => (ITriggerComponent.ICounterDto)state,
                 ITriggerComponent.TriggerKind.Timer => null!,
                 ITriggerComponent.TriggerKind.SimpleStream => (ITriggerComponent.ISimpleStreamDto)state,
+                ITriggerComponent.TriggerKind.SimpleStreamRoot => (ITriggerComponent.ISimpleStreamDto)state,
                 ITriggerComponent.TriggerKind.OffsetStream => (ITriggerComponent.IOffsetStreamDto)state,
 
                 _ => throw new NotImplementedException($"{kind}")

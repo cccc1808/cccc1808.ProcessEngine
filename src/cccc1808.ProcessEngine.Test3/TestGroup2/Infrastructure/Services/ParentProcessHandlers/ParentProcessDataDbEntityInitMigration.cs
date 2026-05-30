@@ -3,7 +3,7 @@
 using LinqToDB;
 using LinqToDB.Data;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
+namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services
 {
     internal class ParentProcessDataDbEntityInitMigration
         : ILinq2DbMigration

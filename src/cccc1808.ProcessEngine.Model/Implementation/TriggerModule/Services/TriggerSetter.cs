@@ -139,7 +139,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return timerHandler(parameter);
                         }
 
-                    case ITriggerComponent.TriggerKind.SimpleStream:
+                    case ITriggerComponent.TriggerKind.SimpleStream:                        
+                    case ITriggerComponent.TriggerKind.SimpleStreamRoot:
                         {
                             return simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State, parameter);
                         }

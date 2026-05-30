@@ -6,23 +6,28 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Linq2Db.Abstract.CommonModule.Storage;
 
 using LinqToDB;
 using LinqToDB.Async;
 
-namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services
+namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services.RootTrigger
 {
-    internal class ChildProcessDbProvider
-        : IProcessDbProvider<Guid>
+    public class RootTroggerDbProvider : IProcessDbProvider<Guid>
     {
-        private readonly ILinq2DbDataConnection _dbDataConnection;
+        private readonly ILinq2DbDataConnection _dbContext;
+        private readonly TriggerRunner<Guid>.OptionsDto _triggerOptions;
 
-        public ChildProcessDbProvider(
-            ILinq2DbDataConnection dbDataConnection)
+        public RootTroggerDbProvider(
+            ILinq2DbDataConnection dbContext, 
+            TriggerRunner<Guid>.OptionsDto triggerOptions)
         {
-            _dbDataConnection = dbDataConnection;
+            _dbContext = dbContext;
+            _triggerOptions = triggerOptions;
         }
 
         public async Task LoadProcessDataAsync(
@@ -31,28 +36,34 @@ namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services
             bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
-            var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(4, 1), out var group)
+            var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(5, 1), out var group)
                 ? group
                     .Select(e => processes[e])
                     .ToArray()
                 : [];
 
-            var data = await _dbDataConnection.Set<ChildProcessDbEntity>()
+            var data = await _dbContext.Set<RootTriggerDbEntity>()
                 .Where(e => typedProcesses.Select(e => e.Id).Contains(e.ProcessId))
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
 
             foreach (var elem in typedProcesses)
             {
                 elem.AddComponent(data[elem.Id]);
+                elem.AddComponent<IStreamTriggerComponent>(
+                    new StreamTriggerComponent(
+                        _triggerOptions.TriggerEventQueues.Single().QueueName,
+                        []
+                        )
+                    );
             }
         }
 
         public async Task UpdateAsync(
-            IDictionary<Guid, IProcessContainer<Guid>> processes, 
+            IDictionary<Guid, IProcessContainer<Guid>> processes,
             IDictionary<ProcessTypeDto, ICollection<Guid>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(4, 1), out var group)
+            var typedProcesses = byTypeIndex.TryGetValue(new ProcessTypeDto(5, 1), out var group)
                 ? group
                     .Select(e => processes[e])
                     .ToArray()
@@ -60,14 +71,14 @@ namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services
 
             var entities = typedProcesses
                 .Select(
-                    e => e.TryGetComponent<ChildProcessDbEntity>(out var component)
+                    e => e.TryGetComponent<RootTriggerDbEntity>(out var component)
                     ? (component, true)
                     : (component, false))
                 .Where(e => e.Item2)
                 .Select(e => e.Item1)
                 .ToArray();
 
-            await _dbDataConnection.Set<ChildProcessDbEntity>()
+            await _dbContext.Set<RootTriggerDbEntity>()
                 .Merge()
                 .Using(entities)
                 .OnTargetKey()

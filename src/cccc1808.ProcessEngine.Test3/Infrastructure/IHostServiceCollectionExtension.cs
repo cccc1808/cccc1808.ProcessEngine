@@ -62,12 +62,13 @@ using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.TriggersModule.Storage
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.Storage.Queries;
 using cccc1808.ProcessEngine.Test.Common;
+using cccc1808.ProcessEngine.Test3.Infrastructure;
 
 using LinqToDB.Data;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace cccc1808.ProcessEngine.Test2.Infrastructure
+namespace cccc1808.ProcessEngine.Test3.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
     {
@@ -311,6 +312,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddTestService(this IServiceCollection services)
+        {
+            services.AddSingleton<TestService>();
 
             return services;
         }
