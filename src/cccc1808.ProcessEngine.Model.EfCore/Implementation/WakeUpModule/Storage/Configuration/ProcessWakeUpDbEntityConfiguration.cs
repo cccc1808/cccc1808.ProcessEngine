@@ -4,8 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

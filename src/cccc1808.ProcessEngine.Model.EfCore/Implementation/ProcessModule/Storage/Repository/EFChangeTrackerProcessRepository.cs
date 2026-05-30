@@ -13,13 +13,14 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.WakeupModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -148,38 +149,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             {
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                 {
-                    // В1.1: нормальный join
-                    // TODO: такой запрос имеет смысл, если есть фильтрующие индексы на разные типы процессов (тип, версия, приоритет) (можно выделить ноды под разные процессы и приоритеты),
-                    // иначе наверное лучше просто по id.
-                    var idsQuery = _dbContext
-                        .QueryFromCollection(notLoadedProcesses.Values.Select(
-                            e => new
-                            {
-                                ProcessTypeId = e.ProcessType.ProcessType,
-                                ProcessVersion = e.ProcessType.ProcessVersion,
-                                Priority = e.Priority,
-                                Id = e.Id,
-                            })
-                        .ToArray());
-                    var query = _dbContext.Set<TDbEntity>()
-                        .Join(
-                            idsQuery,
-                            e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id },
-                            e => e,
-                            (e1, e2) => new { Process = e1, e2 }
-                        );
-                    query = query.ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForHandlerProjection(query),
-                        e => e.Process,
-                        new IProcessDbEntityConditions<TId, TDbEntity>.DbProcessingForHandlerParameters(
-                            _dbContext,
-                            [], // join выше
-                            [] // join выше                              
-                            )
-                        );
-                    var data = await query
-                        .Select(e => e.Process)
-                        .ToArrayAsync(cancellationToken);
+                    var data = await _dbContext.Set<TDbEntity>()
+                        .Where(e => notLoadedProcesses.Values.Select(e => e.Id).Contains(e.Id))
+                        .ToArrayAsync();
 
                     // В2 Коррелированный подзапрос
                     //var data = await _dbContext.Set<TDbEntity>()

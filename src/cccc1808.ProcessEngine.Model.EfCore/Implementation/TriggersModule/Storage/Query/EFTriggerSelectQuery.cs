@@ -11,9 +11,9 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -327,7 +327,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 return result;
             }
         }
-
 
         #region types
 

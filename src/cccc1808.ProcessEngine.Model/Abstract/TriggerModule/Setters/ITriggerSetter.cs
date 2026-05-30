@@ -40,6 +40,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<ITriggerComponent.IOffsetStreamDto, TParameter> offsetStreamHanler
                 );
 
+            TResult OneOfTrigger<TParameter, TResult>(
+                ITriggerComponent<TId> trigger,
+                TParameter parameter,
+                Func<ITriggerComponent.ICounterDto, TParameter, TResult> counterHandler,
+                Func<TParameter, TResult> timerHandler,
+                Func<ITriggerComponent.ISimpleStreamDto, TParameter, TResult> simpleStreamHandler,
+                Func<ITriggerComponent.IOffsetStreamDto, TParameter, TResult> offsetStreamHanler
+                );
+
             ValueTask OneOfTriggerAsync(
                 ITriggerComponent<TId> trigger,
                 Func<ITriggerComponent.ICounterDto, ValueTask> counterHandler,

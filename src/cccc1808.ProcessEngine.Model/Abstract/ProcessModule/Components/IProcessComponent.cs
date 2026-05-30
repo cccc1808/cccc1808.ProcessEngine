@@ -15,7 +15,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
     /// <typeparam name="TId"></typeparam>
     public interface IProcessComponent<TId>
     {
-        ProcessInstanceInfoDto<TId> Info { get; set; }
+        ProcessInstanceInfoDto<TId> Info { get; }
 
         #region Status
 

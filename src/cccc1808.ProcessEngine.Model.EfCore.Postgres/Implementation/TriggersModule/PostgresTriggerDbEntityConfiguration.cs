@@ -5,8 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Configuration;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

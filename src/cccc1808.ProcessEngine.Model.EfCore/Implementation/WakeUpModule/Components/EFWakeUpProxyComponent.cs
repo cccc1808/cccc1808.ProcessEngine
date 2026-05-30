@@ -4,9 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
-
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Components
 {
     //public class EFWakeupProxyComponent<TId>

@@ -119,6 +119,41 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
             }
 
+            public TResult OneOfTrigger<TParameter, TResult>(
+                ITriggerComponent<TId> trigger,
+                TParameter parameter,
+                Func<ITriggerComponent.ICounterDto, TParameter, TResult> counterHandler,
+                Func<TParameter, TResult> timerHandler, 
+                Func<ITriggerComponent.ISimpleStreamDto, TParameter, TResult> simpleStreamHandler,
+                Func<ITriggerComponent.IOffsetStreamDto, TParameter, TResult> offsetStreamHanler)
+            {
+                switch (trigger.Kind)
+                {
+                    case ITriggerComponent.TriggerKind.Counter:
+                        {
+                            return counterHandler((ITriggerComponent.ICounterDto)trigger.State, parameter);
+                        }
+
+                    case ITriggerComponent.TriggerKind.Timer:
+                        {
+                            return timerHandler(parameter);
+                        }
+
+                    case ITriggerComponent.TriggerKind.SimpleStream:                        
+                    case ITriggerComponent.TriggerKind.SimpleStreamRoot:
+                        {
+                            return simpleStreamHandler((ITriggerComponent.ISimpleStreamDto)trigger.State, parameter);
+                        }
+
+                    case ITriggerComponent.TriggerKind.OffsetStream:
+                        {
+                            return offsetStreamHanler((ITriggerComponent.IOffsetStreamDto)trigger.State, parameter);
+                        }
+
+                    default: throw new NotImplementedException("[Bug]");
+                }
+            }
+
             public async ValueTask OneOfTriggerAsync(
                 ITriggerComponent<TId> trigger,
                 Func<ITriggerComponent.ICounterDto, ValueTask> counterHandler,
@@ -218,7 +253,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler, 
                 Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler)
             {
-                switch (triggerEvent.Kind)
+                switch(triggerEvent.Kind)
                 {
                     case TriggerEventKindEnum.RemoveTriggerEvent:
                         {
@@ -231,7 +266,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             counterTriggerEventHandler((ICounterTriggerEvent)triggerEvent, parameters);
                             break;
                         }
-
                     case TriggerEventKindEnum.TimerEvent:
                         {
                             timerTriggerEventHandler((ITimerTriggerEvent)triggerEvent, parameters);

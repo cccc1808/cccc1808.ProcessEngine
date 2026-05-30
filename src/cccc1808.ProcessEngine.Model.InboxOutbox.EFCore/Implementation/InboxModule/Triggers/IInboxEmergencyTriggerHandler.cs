@@ -10,11 +10,11 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.MessageStreamModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 

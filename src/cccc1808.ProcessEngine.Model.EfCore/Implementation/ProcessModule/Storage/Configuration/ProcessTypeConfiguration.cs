@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

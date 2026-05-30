@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger
 {

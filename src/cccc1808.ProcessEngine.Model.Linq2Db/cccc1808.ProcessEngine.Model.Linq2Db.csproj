@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--Constructor init as error-->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+  	<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+  	<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Implementation\TriggersModule\Components\**" />
+    <EmbeddedResource Remove="Implementation\TriggersModule\Components\**" />
+    <None Remove="Implementation\TriggersModule\Components\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\CopyMe.PostgreSQL.tt.txt" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\DataAnnotations.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\DataModel.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\EditableObject.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\Equatable.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\Humanizer.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\LinqToDB.PostgreSQL.Tools.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\LinqToDB.PostgreSQL.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\LinqToDB.Tools.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\LinqToDB.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\MultipleFiles.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\NotifyDataErrorInfo.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\NotifyPropertyChanged.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\ObsoleteAttributes.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\PluralizationService.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\README.md" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\T4Model.ttinclude" />
+    <None Remove="C:\Users\cccc1808\.nuget\packages\linq2db.postgresql\6.2.1\contentFiles\any\any\LinqToDB.Templates\Validation.ttinclude" />
+  </ItemGroup>
+
+	<ItemGroup>
+    <PackageReference Include="CaseConverter" Version="2.0.1" />
+    <PackageReference Include="linq2db" Version="6.2.1" />
+    <PackageReference Include="linq2db.PostgreSQL" Version="6.2.1" />
+    <PackageReference Include="Npgsql" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -6,9 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services.Triggers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Triggers
 {

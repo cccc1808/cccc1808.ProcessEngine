@@ -12,9 +12,10 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Entities;
+using cccc1808.ProcessEngine.Test.Common;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +27,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
     /// <summary>
     /// Содержит шаблоны, которые часто используются в тестах, для упрощения кода тестов.
     /// </summary>
-    internal class TestService
+    internal class TestService : ITestService
     {
         #region process runner
 
@@ -75,7 +76,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         #region Trigger events
 
         public async Task SendTriggerEventAsync(
-            IServiceProvider serviceProvider, 
+            IServiceProvider serviceProvider,
             ITriggerEventRaiser<Guid>.RaiseContainer[] events)
         {
             var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();

@@ -1,0 +1,313 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Linq2Db.Abstract.CommonModule.Configuration;
+using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Linq2Db.Implementation.WakeUpModule.Storage;
+using cccc1808.ProcessEngine.Test3.Infrastructure;
+using cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services;
+using cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure.Services.RootTrigger;
+using cccc1808.ProcessEngine.Test3.Новая_папка;
+
+using Confluent.Kafka;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using Testcontainers.Kafka;
+using Testcontainers.PostgreSql;
+
+using Xunit.Sdk;
+
+namespace cccc1808.ProcessEngine.Test3.TestGroup2.Infrastructure
+{
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
+    {       
+        public const string Name = "FixtureCollection 2";
+        public const int TestTimeout = 115000;
+
+        public class Fixture : IAsyncLifetime
+        {           
+            private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;
+
+            private KafkaContainer KafkaContainer { get; set; } = null!;
+
+            public ServiceProvider ServiceProvider { get; private set; } = null!;
+
+            public ExecuteStepByStepGroupMiddleware<Guid>.IHandler StubHander { get; private set; } = null!;
+
+            public async Task InitializeAsync()
+            {
+                {
+                    var postgresBuilder = new PostgreSqlBuilder("postgres:18")
+                        .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
+                    PostgreSqlContainer = postgresBuilder.Build();
+
+                    var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
+                    KafkaContainer = kafkaBuilder.Build();
+                }
+                
+                var startTasks = new Task[] 
+                {
+                    PostgreSqlContainer.StartAsync(),
+                    KafkaContainer.StartAsync()
+                };
+                await Task.WhenAll(startTasks);
+
+                ServiceProvider = ConfigureServices();
+
+                try
+                {
+                    await using (var scope = ServiceProvider.CreateAsyncScope())
+                    {
+                        var migrator = scope.ServiceProvider.GetRequiredService<ILinq2DbMigrator>();                            
+                        migrator.ConfigureSchema();
+                        await migrator.MigrateAsync(CancellationToken.None);
+                    }
+                }
+                catch
+                {
+                    await DisposeAsync();
+                    throw;
+                }
+            }
+
+            private ServiceProvider ConfigureServices()
+            {
+                var services = new ServiceCollection();
+
+                services
+
+                    .AddTestService()
+
+                    .AddDbServices<TestDataContext>(
+                        (s) => new TestDataContext(
+                            new LinqToDB.DataOptions(),
+                            $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;",
+                            s.GetRequiredService<Linq2DbMigrator.MappingSchemaContainer>()),
+                        s => new Linq2DbMigrator.OptionsDto() 
+                        {
+                            ConnectionString = $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=postgres;Username=postgres;Password=postgres;Include Error Detail=True;",
+                            DatabaseName = "test",
+                        },
+                        configureTables: () => 
+                        {
+                            IHostServiceCollectionExtension.RegistryDbConfiguration<
+                                ChildProcessDbEntity,
+                                ChildProcessDbEntityConfiguration,
+                                ChildProcessDbEntityInitMigration
+                                >(services);
+
+                            IHostServiceCollectionExtension.RegistryDbConfiguration<
+                                ParentProcessDataDbEntity,
+                                ParentProcessDataDbEntityConfiguration,
+                                ParentProcessDataDbEntityInitMigration
+                                >(services);
+
+                            IHostServiceCollectionExtension.RegistryDbConfiguration<
+                                RootTriggerDbEntity,
+                                RootTriggerDbEntityConfiguration,
+                                RootTriggerDbEntityInitMigration
+                                >(services);
+                        },                           
+                            
+                        typeof(Linq2DbWakeupDbProvider<Guid>),                            
+                        typeof(ChildProcessDbProvider),
+                        typeof(RootTroggerDbProvider)
+                        )
+
+                    .AddKafkaServices(
+                        new KafkaQueueProviderFactory.OptionsDto(
+                            $"localhost:{KafkaContainer.GetMappedPublicPort()}",
+                            10,
+                            (_) => "test",
+                            (_) => 1
+                            )
+                    )
+                    .AddIsolationServices()
+
+                    .AddProcessExecutionServices(
+                        new LocalProcessBufferService<Guid>.Options() { SizeLimit = 1 },
+                        processCountLimiter: 1
+                    )
+
+                    .AddWakeupServices(
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
+                        []
+                    )
+
+                    .AddTriggerServices(
+                        new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler)),
+                        new TriggerRegistryDto(ParentProcessEmegencyTriggerHandler.Name, typeof(ParentProcessEmegencyTriggerHandler)),                                               
+                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(ChildTriggerHandler.Name, typeof(ChildTriggerHandler))
+                    )
+                    .AddSingleton(
+                        new ParentProcessEmegencyTriggerHandler.Options() 
+                        {
+                            BatchSize = 1,
+                            EmptyTimeout = TimeSpan.FromHours(1),
+                            SoftTimeout = TimeSpan.FromMinutes(1),
+                            TimeoutCondition = TimeSpan.Zero,
+                        }
+                        )
+
+                    .AddTriggerEngineServices(
+                        new TriggerRunner<Guid>.OptionsDto(
+                            new Linq2DbTriggerSelectQuery<Guid>.Options3()
+                            {
+                                SingleTriggerBatchSize = (_) => 1,
+                            })
+                        {
+                            DbExecuteParallelismLimit = 1,
+                            DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
+                            DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
+                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            {
+                                new TriggerRunner<Guid>.QueueOptionsDto()
+                                {
+                                    QueueName = "trigger_events",
+                                    QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
+                                }
+                            }
+                        },
+                        new TriggerOptions<Guid>() 
+                        {
+                            PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
+                        }
+                        )
+
+                    .AddProcessServices(
+                        new Linq2DbProcessRepository<Guid, ProcessDbEntity<Guid>>.Options() 
+                        {
+                            RetryLimit = 2,
+                            SoftTimeout = null,
+                        },
+                        new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1)
+                    );
+
+                // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
+                services.AddScoped<IProcessRunner>(
+                    s => new ProcessRunner<Guid>(
+                        s,
+                        new ProcessRunner<Guid>.OptionsDto(
+                            SelectBatchLimit: 1,
+                            selectEmptyTimeout: TimeSpan.FromSeconds(1),
+                            BatchLimit: 1,
+                            BatchTimeout: TimeSpan.FromSeconds(1),
+                            SelectorExceptionDelay: TimeSpan.Zero,
+                            SelectFactory: (s) => s.GetRequiredService<Linq2DbProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),                       
+                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
+                            s,
+                            (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                s,
+                                s.GetRequiredService<IDateTimeProvider>(),
+                                s.GetRequiredService<IIsolationService>(),
+                                s.GetRequiredService<IProcessSetter>(),
+                                s.GetRequiredService<IWakeupService<Guid>>(),
+                                (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                            ),
+                            s.GetRequiredService<ITransactionManager>()
+                            )
+                        ),                    
+                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
+                        s.GetRequiredService<IExecuteLimiterInvoker>(),
+                        s.GetRequiredService<ProcessCountLimiter>()
+                        )
+                );
+                services
+                    .AddScoped<Process1Body>()
+                    .AddSingleton<Process1Body.TestState>();                
+
+                return services.BuildServiceProvider(
+                    new ServiceProviderOptions()
+                    { 
+                        ValidateOnBuild = true,
+                        ValidateScopes = true
+                    });
+            }
+
+            public async Task CleanEnvironmentAsync() 
+            {
+                await using (var scope = ServiceProvider.CreateAsyncScope())
+                {
+                    // Db
+                    {
+                        var dbContext = scope.ServiceProvider.GetRequiredService<TestDataContext>();
+                        await dbContext.TruncateAllAsync();
+                    }                   
+
+                    // Kafka
+                    {
+                        var connectionString = $"localhost:{KafkaContainer.GetMappedPublicPort("9092")}";
+                        using var client = new AdminClientBuilder(
+                            new AdminClientConfig()
+                            {
+                                BootstrapServers = connectionString
+                            }
+                            )
+                            .Build();
+
+                        var metadata = client.GetMetadata(TimeSpan.FromSeconds(5));
+                        var topics = metadata.Topics
+                            .Select(e => e.Topic)
+                            .Where(e => !e.StartsWith("__")) // Не трогаем системные топики
+                            .ToArray();
+
+                        if (topics.Length != 0)
+                        {
+                            await client.DeleteTopicsAsync(
+                                topics
+                                );
+                        }
+                    }
+                }
+            }
+
+            public async Task DisposeAsync()
+            {
+                await ServiceProvider.DisposeAsync();
+
+                await Task.WhenAll(
+                    [
+                    PostgreSqlContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
+                    KafkaContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
+                    ]
+                    );
+            }
+        }
+    }
+}

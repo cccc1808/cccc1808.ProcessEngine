@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.TriggersModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components
 {

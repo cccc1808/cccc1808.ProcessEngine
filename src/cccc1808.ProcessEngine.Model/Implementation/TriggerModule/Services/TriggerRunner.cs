@@ -482,7 +482,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             WriteHandlerResult(dateTimeProvider, triggerSetter, elem, elemResult);
                         }
 
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        // Процессы должны быть сохранены внутри, тут только сохраняется только triggerEntity.
                         await repository.SaveAsync(triggers, cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -517,7 +517,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         WriteHandlerResult(dateTimeProvider, triggerSetter, trigger, result);
 
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        // Процессы должны быть сохранены внутри, тут только сохраняется только triggerEntity.
                         await repository.SaveAsync([trigger], cancellationToken);
                         await transaction.CommitAsync(cancellationToken);
                     }

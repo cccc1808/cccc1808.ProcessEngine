@@ -5,8 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.MessageStreamModule.Entities;
+using cccc1808.ProcessEngine.Model.IQueryable.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.InboxModule.Entitites
 {

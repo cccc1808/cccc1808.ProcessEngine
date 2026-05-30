@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nito.AsyncEx" Version="5.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.IQueryable\cccc1808.ProcessEngine.Model.IQueryable.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
+  </ItemGroup>
+
+</Project>
