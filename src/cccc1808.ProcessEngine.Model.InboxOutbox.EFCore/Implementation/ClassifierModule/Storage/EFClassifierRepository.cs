@@ -12,7 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;

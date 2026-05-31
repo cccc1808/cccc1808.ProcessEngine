@@ -130,18 +130,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             )
                         );
 
-                    triggers.ShouldSatisfyAllConditions(
-                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                            e => e.ProcessId.ShouldBe(processId),
-                            e => e.IsCompleted.ShouldBeTrue(),
-                            e => e.IsActivated.ShouldBeFalse(),
-                            e => e.SignalCounter1.ShouldBeNull()
-                            )
-                        );
-
-                    await dbContext.Set<TriggerDbEntity<Guid>>()
-                        .Where(e => e.Id == triggers[0].Id)
-                        .ExecuteDeleteAsync();
+                    triggers.ShouldBeEmpty();
                 }
             }
 
@@ -200,18 +189,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             )
                         );
 
-                    triggers.ShouldSatisfyAllConditions(
-                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                            e => e.ProcessId.ShouldBe(processId),
-                            e => e.IsCompleted.ShouldBeTrue(),
-                            e => e.IsActivated.ShouldBeFalse(),
-                            e => e.SignalCounter1.ShouldBeNull()
-                            )
-                        );
-
-                    await dbContext.Set<TriggerDbEntity<Guid>>()
-                        .Where(e => e.Id == triggers[0].Id)
-                        .ExecuteDeleteAsync();
+                    triggers.ShouldBeEmpty();
                 }
             }
 

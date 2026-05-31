@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
@@ -94,6 +95,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value);
 
             void ForRemove(ITriggerComponent<TId> trigger, bool value);
+
+            void SetTriggerResult(
+                ITriggerComponent<TId> trigger,
+                ITriggerHandler.ResultDto result);
 
             public readonly record struct TimerDto(
                 in DateTimeOffset Now,

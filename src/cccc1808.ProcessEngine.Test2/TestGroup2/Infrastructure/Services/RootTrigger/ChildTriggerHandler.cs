@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Base;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
@@ -19,21 +20,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTr
     {
         public static string Name => "TestGroup2.RootTrigger.ChildTriggerHandler";
 
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly TriggerRunner<Guid>.OptionsDto _queueOptions;
 
         public ChildTriggerHandler(
-            ITriggerEventRaiser<Guid> eventRaiser,
+            ITriggerHandlerFacade<Guid> handlerFacade,
+            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             TriggerRunner<Guid>.OptionsDto queueOptions)
-            : base(eventRaiser)
+            : base(handlerFacade)
         {
+            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _queueOptions = queueOptions;
         }
 
-        protected override async ValueTask<IDictionary<string, ResultDto>> CheckAsync(
+        public override async ValueTask<IDictionary<string, ITriggerRangeHandler<Guid>.ResultDto>> CheckAsync(
             IEnumerable<ITriggerComponent<Guid>> triggers,
+            bool isEmergencyTrigger,
             CancellationToken cancellationToken)
         {
             var processData = await _dbContext.Set<RootTriggerDbEntity>()
@@ -43,12 +48,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTr
 
             return triggers.ToDictionary(
                 e => e.Key,
-                e => new ResultDto(
-                    new Model.Abstract.TriggerModule.Handlers.ITriggerHandler.Result(), 
-                    e.ProcessId,
-                    NeedSignal: !processData[e.ProcessId].IsFirst,
-                    RootTriggerKey: processData[e.ProcessId].RootTriggerId.ToString(),
-                    RootTriggerQueueName: _queueOptions.TriggerEventQueues.Single().QueueName)
+                e => new ITriggerRangeHandler<Guid>.ResultDto(
+                    ITriggerHandler.ResultDto.NoActivateResult(_dateTimeProvider.UtcNow),
+                    NeedExecute: !processData[e.ProcessId].IsFirst
+                    )
+                );
+        }
+
+        protected override async Task<IDictionary<string, ITriggerHandlerFacade<Guid>.RootEventInfoDto>> GetEventInfoAsync(
+            IEnumerable<ITriggerComponent<Guid>> triggers, 
+            CancellationToken cancellationToken)
+        {
+            var processData = await _dbContext.Set<RootTriggerDbEntity>()
+                .AsNoTracking()
+                .Where(e => triggers.Select(e => e.ProcessId).Contains(e.ProcessId))
+                .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
+
+            return triggers.ToDictionary(
+                e => e.Key,
+                e => new ITriggerHandlerFacade<Guid>.RootEventInfoDto(
+                    _queueOptions.TriggerEventQueues.Single().QueueName,
+                    processData[e.ProcessId].RootTriggerId.ToString())
                 );
         }
     }

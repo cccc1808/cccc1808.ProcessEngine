@@ -39,6 +39,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condition
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
@@ -54,6 +55,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
@@ -256,9 +258,14 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     }
                     )
                 .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
-                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()                
+                .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
-                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
+                .AddScoped<EFTriggerHandlerFacade<Guid>>()
+                .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
+                .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
+
+                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
+                ;
 
             foreach (var elem in registrations)
             {
