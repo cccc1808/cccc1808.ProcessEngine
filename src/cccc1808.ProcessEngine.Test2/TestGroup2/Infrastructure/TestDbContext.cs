@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.QueueModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Configuration;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.QueueModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
@@ -96,6 +98,20 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     b => 
                     {
                         new PostgresTriggerDbEntityConfiguration<Guid>().Configure(b);
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                    });
+
+                modelBuilder.Entity<EFQueuePartitionDbEntity<Guid>>(
+                    b =>
+                    {
+                        new EFQueuePartitionDbEntityConfiguration<Guid>().Configure(b);
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                    });
+
+                modelBuilder.Entity<EFQueueMessageDbEntity<Guid>>(
+                    b =>
+                    {
+                        new EFQueueMessageDbEntityConfiguration<Guid>().Configure(b);
                         b.Property(e => e.Id).ValueGeneratedNever();
                     });
 

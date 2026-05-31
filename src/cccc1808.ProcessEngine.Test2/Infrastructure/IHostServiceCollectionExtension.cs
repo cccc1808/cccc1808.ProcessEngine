@@ -38,6 +38,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Con
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.QueueModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
@@ -91,7 +93,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
         /// Выключить, если нужна првоерка на реальном брокере.
         /// </summary>
-        private static bool UseInMemoryQueue => true;
+        private static bool UseInMemoryQueue => false;
 
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
@@ -141,6 +143,27 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
             }
             
+            return services;
+        }
+
+        public static IServiceCollection AddDbQueueServices(
+            this IServiceCollection services,
+            EFDbQueueConsumer<Guid>.OptionsDto options)
+        {
+            services.AddSingleton(options);
+
+            if (!UseInMemoryQueue)
+            {
+                services.AddScoped<IQueueProviderFactory, EFDbQueueProviderFactory<Guid>>();
+
+                services.AddScoped<EfDbQueueClassifier<Guid>>();
+                services.AddSingleton<EfDbQueueClassifier<Guid>.CacheState>();
+            }
+            else
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
+
             return services;
         }
 
@@ -281,7 +304,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
 
                 .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
-                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
+                // .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;

@@ -18,6 +18,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
@@ -127,12 +128,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         typeof(RootTroggerDbProvider)
                         )
 
-                    .AddKafkaServices(
-                        new KafkaQueueProviderFactory.OptionsDto(
-                            $"localhost:{KafkaContainer.GetMappedPublicPort()}",
-                            10,
-                            (_) => "test",
-                            (_) => 1
+                    .AddDbQueueServices(
+                        new EFDbQueueConsumer<Guid>.OptionsDto(
+                            string.Empty
                             )
                     )
                     .AddIsolationServices()

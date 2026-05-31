@@ -110,6 +110,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             continue;
                         }
 
+                        // TODO: cccc1808/experiment/db_queue. при использовании db queue потребление сообщений и обработка нужно поместить в одну трнзакцию.
                         await using (var scope2 = serviceProvider.CreateAsyncScope())
                         {
                             try
