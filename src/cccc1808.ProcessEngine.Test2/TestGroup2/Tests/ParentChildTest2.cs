@@ -235,12 +235,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute))
                         );
 
-                    triggers.ShouldSatisfyAllConditions(
-                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                            e => e.Key.ShouldBe(parentTriggerKey),
-                            e => e.SignalCounter1.ShouldBe(0),
-                            e => e.IsActivated.ShouldBeFalse(),
-                            e => e.IsCompleted.ShouldBeTrue()));
+                    triggers.ShouldBeEmpty();
                 }
             }
 

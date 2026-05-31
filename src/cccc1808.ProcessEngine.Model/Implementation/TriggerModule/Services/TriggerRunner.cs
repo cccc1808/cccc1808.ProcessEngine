@@ -474,13 +474,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        var result = await handler.HandleAsync(triggers, cancellationToken);
+                        var result = await handler.CheckAsync(
+                            triggers, 
+                            isEmergencyTrigger: false,
+                            cancellationToken);
 
+                        var forExecute = new List<ITriggerComponent<TId>>(result.Count);
                         foreach (var elem in triggers)
                         {
                             var elemResult = result[elem.Key];
-                            WriteHandlerResult(dateTimeProvider, triggerSetter, elem, elemResult);
+                            triggerSetter.StandartSetter.SetTriggerResult(elem, elemResult.Result);
+
+                            if (elemResult.NeedExecute)
+                            {
+                                forExecute.Add(elem);
+                            }
                         }
+
+                        await handler.ExecuteAsync(
+                            forExecute,
+                            cancellationToken
+                            );
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);
@@ -515,7 +529,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);
-                        WriteHandlerResult(dateTimeProvider, triggerSetter, trigger, result);
+                        triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync([trigger], cancellationToken);
@@ -675,26 +689,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
             tasks.Clear();
             cancellationToken.ThrowIfCancellationRequested();
-        }
-
-        private static void WriteHandlerResult(
-            IDateTimeProvider dateTimeProvider,
-            ITriggerSetter<TId> setter,
-            ITriggerComponent<TId> trigger,
-            ITriggerHandler.Result result)
-        {
-            if (result.NeedRepeat)
-            {
-                setter.StandartSetter.SetTimer(trigger, result.ExecuteDelay);
-                setter.StandartSetter.SetActivated(trigger, result.IsActivated);
-                setter.StandartSetter.SetCompleted(trigger, false);
-            }
-            else
-            {
-                setter.StandartSetter.SetActivated(trigger, false);
-                setter.StandartSetter.SetCompleted(trigger, true);
-            }
-            setter.StandartSetter.SetSelectLockTimeout(trigger, dateTimeProvider.UtcNow);
         }
 
 

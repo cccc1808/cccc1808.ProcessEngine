@@ -8,24 +8,22 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
+namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream
 {
     /// <summary>
-    /// Хендлер пробуждения процессов.
-    /// Используется для реализации:
-    /// * Retry
-    /// * Таймеров
+    /// Хендлер пробуждения процессов-стримов.
+    /// <see cref="ITriggerComponent.TriggerKind.SimpleStream"/> или <see cref="ITriggerComponent{TId}.TriggerKind.OffsetStream"/>.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public class WakeupTriggerRangeHandler<TId>
+    public class WakeupStreamTriggerRangeHandler<TId>
         : ITriggerRangeHandler<TId>
     {
-        public const string Name = "WakeupTriggerRangeHandler";
+        public const string Name = "WakeupStreamTriggerRangeHandler";
 
         private readonly ITriggerHandlerFacade<TId> _triggerHandlerFacade;
 
 
-        public WakeupTriggerRangeHandler(
+        public WakeupStreamTriggerRangeHandler(
             ITriggerHandlerFacade<TId> triggerHandlerFacade)
         {
             _triggerHandlerFacade = triggerHandlerFacade;
@@ -33,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 
         public async ValueTask<IDictionary<string, ITriggerRangeHandler<TId>.ResultDto>> CheckAsync(
             IEnumerable<ITriggerComponent<TId>> triggers, 
-            bool isEmergencyTrigger,
+            bool isEmergencyTrigger, 
             CancellationToken cancellationToken)
         {
             if (isEmergencyTrigger)
@@ -48,7 +46,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 foreach (var elem in check.InComplete)
                 {
                     result.Add(
-                        elem.Key, 
+                        elem.Key,
                         new ITriggerRangeHandler<TId>.ResultDto(
                             ITriggerHandler.ResultDto.RemoveResult(),
                             NeedExecute: false)
@@ -71,7 +69,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             return triggers.ToDictionary(
                 e => e.Key,
                 e => new ITriggerRangeHandler<TId>.ResultDto(
-                    ITriggerHandler.ResultDto.RemoveResult(),
+                    ITriggerHandler.ResultDto.ActivateResult(),
                     NeedExecute: true
                     ));
         }

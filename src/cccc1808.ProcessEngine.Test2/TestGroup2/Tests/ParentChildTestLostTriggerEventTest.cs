@@ -17,6 +17,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
@@ -30,13 +31,13 @@ using Shouldly;
 namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 {
     [Collection(FixtureCollection.Name)]
-    public class ParentChildTestLostTriggerEvent
+    public class ParentChildTestLostTriggerEventTest
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
         private readonly TestService _testService;
 
-        public ParentChildTestLostTriggerEvent(
+        public ParentChildTestLostTriggerEventTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
@@ -153,13 +154,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
+                // Создаем имитационный триггер (чтобы его увидел EmergencyTriggerHandler).
+                await triggerRepository.CreateTriggerAsync(
+                    ITriggerRepository<Guid>.CreateTriggerDto.TimerTrigger(
+                        Guid.NewGuid().ToString(),
+                        DateTimeOffset.MaxValue,
+                        processId,
+                        isRangeTrigger: true,
+                        ParentProcessTriggerHandler.Name,
+                        1,
+                        isActivated: false),
+                    CancellationToken.None);
+
                 await triggerRepository.CreateTriggerAsync(
                     ITriggerRepository<Guid>.CreateTriggerDto.TimerTrigger(
                         Guid.NewGuid().ToString(),
                         DateTimeOffset.MinValue,
                         Guid.Empty,
                         isRangeTrigger: false,
-                        ParentProcessEmegencyTriggerHandler.Name,
+                        EmergencyTriggerHandler<Guid>.Name,
                         1,
                         isActivated: true),
                     CancellationToken.None);

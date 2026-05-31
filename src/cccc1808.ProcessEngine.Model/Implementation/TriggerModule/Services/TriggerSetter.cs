@@ -5,9 +5,12 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
@@ -267,6 +270,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         public class StandartSetterImpl 
             : ITriggerSetter<TId>.IStandartSetter
         {
+            private readonly IDateTimeProvider _dateTimeProvider;
+
+            public StandartSetterImpl(IDateTimeProvider dateTimeProvider)
+            {
+                _dateTimeProvider = dateTimeProvider;
+            }
+
             public void SetActivated(ITriggerComponent<TId> trigger, bool value)
             {
                 if (trigger.IsActivated != value)
@@ -324,7 +334,33 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     trigger.SelectLockTimeout = value;
                     trigger.NeedUpdate = true;
                 }
-            }            
+            }
+
+            public void SetTriggerResult(ITriggerComponent<TId> trigger, ITriggerHandler.ResultDto result)
+            {
+                if (result.NeedRemove)
+                {
+                    ForRemove(trigger, value: true);
+                    SetActivated(trigger, false);
+                    SetCompleted(trigger, true);
+                }
+                else 
+                {
+                    if (result.NeedRepeat)
+                    {
+                        SetTimer(trigger, result.ExecuteTimeout);
+                        SetActivated(trigger, result.IsActivated);
+                        SetCompleted(trigger, false);
+                    }
+                    else
+                    {
+                        SetActivated(trigger, false);
+                        SetCompleted(trigger, true);
+                    }
+
+                    SetSelectLockTimeout(trigger, _dateTimeProvider.UtcNow);
+                }                
+            }
         }
 
         public class CounterSetterImpl 

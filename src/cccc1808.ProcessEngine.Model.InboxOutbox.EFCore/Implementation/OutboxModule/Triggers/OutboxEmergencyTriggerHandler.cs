@@ -5,10 +5,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.Services.Triggers;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Abstract.OutboxModule.Entitites;
+
+using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Triggers
 {
@@ -17,36 +20,61 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     internal class OutboxEmergencyTriggerHandler<TId>
-        : BaseEmergencyTriggerHandler<TId>
+        : ITriggerSingleHandler<TId>
     {
+        private readonly IServiceProvider _serviceProvider;
+        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly EFTriggerHandlerFacade<TId> _handlerFacade;
+
         private readonly Options _options;
 
         public OutboxEmergencyTriggerHandler(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
+            EFTriggerHandlerFacade<TId> handlerFacade,
+
             Options options)
-            : base(serviceProvider, options)
         {
+            _serviceProvider = serviceProvider;
+            _dateTimeProvider = dateTimeProvider;
+            _handlerFacade = handlerFacade;
+
             _options = options;
         }
 
-        protected override IQueryable<ProcessDbEntity<TId>> Build(
-            IServiceProvider serviceProvider,
-            IEFDbContext dbContext,
-            DateTimeOffset timeout,
-            IQueryable<ProcessDbEntity<TId>> source)
+        public async ValueTask<ITriggerHandler.ResultDto> HandleAsync(
+            ITriggerComponent<TId> trigger, 
+            CancellationToken cancellationToken)
         {
-            return base.Build(serviceProvider, dbContext, timeout, source)
-                .Where(e =>
+            var result = await _handlerFacade.CustomEmergencyTriggerHandlerAsync(
+                _serviceProvider,
+                _dateTimeProvider.UtcNow.AddMinutes(1),
+                _dateTimeProvider.UtcNow.AddMinutes(-30),
+                batchSize: 50,
+                (q, dbContext) => q.Where(e =>
                     dbContext.Set<OutboxMessageDbEntity<TId>>()
                         .Where(e2 =>
                             e2.ProcessId.Equals(e.Id)
                             && e2.IsActive)
                         .Any() // Есть необработанные сообщения.                               
-                        );
+                        ),
+                cancellationToken
+                );
+
+            if (!result)
+            {
+                return ITriggerHandler.ResultDto.ActivateResult();
+            }
+            else 
+            {
+                return ITriggerHandler.ResultDto.ActivateResult(
+                    _dateTimeProvider.UtcNow + TimeSpan.FromMinutes(10));
+            }
         }
 
-        public class Options : BaseEmergencyTriggerHandler<TId>.Options
+        public class Options
         {
+
         }
     }
 }
