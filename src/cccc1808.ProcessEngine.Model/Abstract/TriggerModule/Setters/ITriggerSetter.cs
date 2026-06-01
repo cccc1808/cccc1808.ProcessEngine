@@ -103,6 +103,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent<TId> trigger,
                 ITriggerHandler.ResultDto result);
 
+            bool IsStreamTrigger(ITriggerComponent<TId> trigger);
+
             public readonly record struct TimerDto(
                 in DateTimeOffset Now,
                 in DateTimeOffset Timer,

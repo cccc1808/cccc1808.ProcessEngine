@@ -128,11 +128,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                     var triggersEvents = new List<ITriggerEventRaiser<TId>.RaiseContainer>(triggers.Count / 2);
                     foreach (var elem in triggers.Values)
                     {
-                        var isStreamTrigger = elem.Trigger.Kind
-                            is ITriggerComponent.TriggerKind.SimpleStream
-                            or ITriggerComponent.TriggerKind.OffsetStream
-                            or ITriggerComponent.TriggerKind.SimpleStreamRoot;
-
                         if (elem.ProcessDeleted || elem.ProcessStatus is ProcessStatusEnum.Complete)
                         {
                             // 1) Процесса нет - удаляем триггер.
@@ -160,7 +155,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             // TODO: log warning;
                         }
                         else if (
-                            isStreamTrigger
+                            setter.StandartSetter.IsStreamTrigger(elem.Trigger)
                             && !elem.Trigger.IsActivated
                             && !elem.Trigger.IsCompleted)
                         {
@@ -264,15 +259,39 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                         var forExecute = new List<ITriggerComponent<TId>>(result.Count);
                         foreach (var elem2 in elem)
                         {
-                            var elem2Result = result[elem2.Key];
+                            var elem2Result = result[elem2.Key];                            
+
+                            if (elem2Result.NeedExecute)
+                            {                                
+                                forExecute.Add(elem2);
+
+                                setter.OneOfSetter.OneOfTrigger(
+                                    elem2,
+                                    (1, 2),
+                                    counterHandler: (state, _) =>
+                                    {
+                                        setter.CounterSetter.Activate(elem2, state);
+                                    },
+                                    timerHandler: (_) =>
+                                    {
+                                        setter.StandartSetter.SetActivated(elem2, value: true);
+                                    },
+                                    simpleStreamHandler: (state, _) =>
+                                    {
+                                        // Чтобы взвелся StreamsProcessIsWaiting.
+                                        setter.SimpleStreamSetter.Activate(elem2, state);
+                                    },
+                                    offsetStreamHanler: (state, _) =>
+                                    {
+                                        // Чтобы взвелся StreamsProcessIsWaiting.
+                                        setter.OffsetStreamSetter.Activate(elem2, state);
+                                    }
+                                    );
+                            }
+
                             setter.StandartSetter.SetTriggerResult(
                                 elem2,
                                 elem2Result.Result);
-
-                            if (elem2Result.NeedExecute)
-                            {
-                                forExecute.Add(elem2);
-                            }
                         }
                         await typedHandler.ExecuteAsync(forExecute, cancellationToken);
                     }

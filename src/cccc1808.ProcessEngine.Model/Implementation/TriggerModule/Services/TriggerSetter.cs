@@ -371,6 +371,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     SetSelectLockTimeout(trigger, _dateTimeProvider.UtcNow);
                 }                
             }
+
+            public bool IsStreamTrigger(ITriggerComponent<TId> trigger)
+            {
+                return trigger.Kind
+                    is ITriggerComponent.TriggerKind.SimpleStream
+                    or ITriggerComponent.TriggerKind.OffsetStream
+                    or ITriggerComponent.TriggerKind.SimpleStreamRoot;
+            }
         }
 
         public class CounterSetterImpl 
