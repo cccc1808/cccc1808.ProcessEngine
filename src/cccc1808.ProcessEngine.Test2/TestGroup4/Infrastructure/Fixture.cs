@@ -288,6 +288,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddScoped<BuisnessEntityForInboxDbProvider>()
                     .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<BuisnessEntityForInboxDbProvider>());
 
+                // Чтобы не падала ошибка DI.
+                services.AddSingleton(new EmergencyTriggerHandler<Guid>.OptionsDto(
+                    TriggerQueue
+                    ));
+
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()
                     { 

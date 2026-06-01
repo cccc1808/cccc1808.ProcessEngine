@@ -21,6 +21,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -63,6 +64,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 var receivedMessages = new LinkContainer<int>(0);
                 var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
+                var recheckProcessStatusBuffer = new Dictionary<string, bool>();
 
                 var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
                     queueProviderFactory,
@@ -79,9 +81,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     {
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
+                        recheckProcessStatusBuffer.Clear();
 
                         await consumer.ConsumeBatchAsync(
-                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
+                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger, recheckProcessStatusBuffer),
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
@@ -96,6 +99,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
                                 triggerEvents.Add(triggerEvent);
                                 p.receivedMessages.Data++;
+
+                                if (triggerEvent.Kind == TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent)
+                                {
+                                    p.recheckProcessStatusBuffer.Add(triggerEvent.TriggerKey, false);
+                                }
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
                                 var stop =
@@ -118,6 +126,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     scope2.ServiceProvider,
                                     eventTypeMismathErrorHandler,
                                     groupByTrigger,
+                                    recheckProcessStatusBuffer,
                                     cancellationToken);
                             }
                             catch (Exception ex)
@@ -175,8 +184,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 IServiceProvider serviceProvider,
                 Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
                 Dictionary<string, List<ITriggerEvent>> groupByTrigger,
+                Dictionary<string, bool> recheckProcessStatusBuffer,
                 CancellationToken cancellationToken)
             {
+                var emergencyOptions = serviceProvider.GetRequiredService<EmergencyTriggerHandler<TId>.OptionsDto>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
@@ -188,6 +199,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var triggers = await repository.LoadTriggerForQueueConsumerAsync(
                         groupByTrigger.Keys,
                         cancellationToken);
+
+                    // Для stream триггера треюуется перепроверить статус процесса.
+                    if (recheckProcessStatusBuffer.Any())
+                    {
+                        var processIds = recheckProcessStatusBuffer
+                            .Select(e => triggers[e.Key].ProcessId)
+                            .ToArray();
+
+                        // [MVCC Only]: подумать если иначе.
+                        // TODO: проверяе что процесс спит.
+                        var checkResult = await repository.CheckProcessWaitingAsync(processIds, cancellationToken);
+                        foreach (var elem in triggers.Values)
+                        {
+                            if (checkResult.Contains(elem.ProcessId))
+                            {
+                                recheckProcessStatusBuffer[elem.Key] = true;
+                            }
+                        }
+                    }
 
                     var now = dateTimeProvider.UtcNow;                    
                     foreach (var elem in groupByTrigger)
@@ -207,7 +237,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         triggerSetter.OneOfSetter.OneOfTrigger(
                             trigger,
-                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value),
+                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value, recheckProcessStatusBuffer),
+                            // 1) counter
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
@@ -231,13 +262,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     typedEvent.Timer, typedEvent.IfDeltaMore                                                    
                                                     )                                                    
                                                 ),
-                                        signalSimpleStreamTriggerEventHandler: static  (typedEvent, p) => 
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         signalOffsetTriggerEventHandler: static  (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
                                         );
                                 }
@@ -247,6 +280,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.CounterSetter.Activate(p.trigger, state);
                                 }
                             },
+                            // 2) timer
                             timerHandler: static (p) => 
                             {
                                 foreach (var elem in p.messages)
@@ -273,17 +307,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
                                         );
                                 }
                             },
+                            // 3) simpleStream
                             simpleStreamHandler: static (state, p) => 
                             {
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state, p.now),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state, p.now, p.recheckProcessStatusBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
@@ -303,7 +340,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
-                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            // Emergency trigger сообщил, что процесс возможно спит, а strean триггер не знает об этом (потеря события).
+                                            if (
+                                                !p.trigger.IsActivated 
+                                                && !p.state.StreamsProcessIsWaiting 
+                                                && p.recheckProcessStatusBuffer.TryGetValue(p.trigger.Key, out var processIsWaiting)
+                                                && processIsWaiting)
+                                            {
+                                                p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(
+                                                    p.trigger, 
+                                                    p.state);
+                                            }
+                                        }
                                         );
                                 }
 
@@ -312,13 +363,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.SimpleStreamSetter.Activate(p.trigger, state);
                                 }
                             },
+                            // 4) offsetStream
                             offsetStreamHanler: (state, p) =>
                             {
                                 foreach (var elem2 in elem.Value)
                                 {
                                     p.triggerSetter.OneOfSetter.OneOfEvent(
                                         elem2,
-                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now),
+                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now, p.recheckProcessStatusBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
@@ -357,6 +409,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 // TODO: log warnig событие с меньшим смещением.
                                             }
+                                        },
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            // Emergency trigger сообщил, что процесс возможно спит, а strean триггер не знает об этом (потеря события).
+                                            if (
+                                                !p.trigger.IsActivated
+                                                && !p.state.StreamsProcessIsWaiting
+                                                && p.recheckProcessStatusBuffer.TryGetValue(p.trigger.Key, out var processIsWaiting)
+                                                && processIsWaiting)
+                                            {
+                                                p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(
+                                                    p.trigger,
+                                                    p.state);
+                                            }
                                         }
                                         );
                                 }
@@ -367,6 +433,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
                             }
                             );
+
+                        if ((trigger.SelectLockTimeout - now) >= emergencyOptions.LostTriggerTimeout)
+                        {
+                            // Обновляем select lock timeout, чтобы обозначить, что на триггер поступают события.
+                            triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
+                        }
 
                         //if (
                         //    trigger.NeedUpdate

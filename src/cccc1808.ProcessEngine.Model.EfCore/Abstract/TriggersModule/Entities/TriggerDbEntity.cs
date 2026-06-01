@@ -32,6 +32,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         public DateTimeOffset SelectLockTimeout { get; set; }
 
         /// <summary>
+        /// Смещение keyset пагинации.
+        /// </summary>
+        public TId? OffsetId { get; set; }
+
+        /// <summary>
         /// Таймер выполнения.
         /// </summary>
         public DateTimeOffset TimerDate { get; set; }

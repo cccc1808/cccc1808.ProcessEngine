@@ -158,7 +158,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new TriggerRegistryDto(Services.RootTrigger.ChildTriggerHandler.Name, typeof(Services.RootTrigger.ChildTriggerHandler))
                     )
                     .AddSingleton(
-                        new EmergencyTriggerHandler<Guid>.OptionsDto() 
+                        new EmergencyTriggerHandler<Guid>.OptionsDto(
+                            "trigger_events"
+                            )
                         {
                             BatchSize = 1,
                             SoftTimeout = TimeSpan.FromMinutes(1),

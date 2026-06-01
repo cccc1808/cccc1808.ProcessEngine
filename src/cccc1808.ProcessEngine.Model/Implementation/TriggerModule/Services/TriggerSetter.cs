@@ -10,7 +10,6 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
@@ -169,7 +168,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
-                Func<TParameters, TResult> signalOffsetTriggerEventHandler)
+                Func<TParameters, TResult> signalOffsetTriggerEventHandler,
+                Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler)
             {
                 return triggerEventKind switch
                 {
@@ -180,6 +180,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler(parameters),
 
                     _ => throw new NotImplementedException(triggerEventKind.ToString())
                 };
@@ -194,7 +195,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
-                Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler)
+                Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler,
+                Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler)
             {
                 return triggerEvent.Kind switch
                 {
@@ -205,6 +207,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters),
+                    TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters),
 
                     _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
                 };
@@ -219,7 +222,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
                 Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler, 
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler, 
-                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler)
+                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
+                Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler)
             {
                 switch (triggerEvent.Kind)
                 {
@@ -258,6 +262,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     case TriggerEventKindEnum.SignalOffsetEvent:
                         {
                             signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+
+                    case TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent:
+                        {
+                            recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters);
                             break;
                         }
 
