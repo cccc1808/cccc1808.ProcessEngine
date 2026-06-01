@@ -35,9 +35,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public object? State { get; private set; }
 
+        public TId? OffsetId { get => Entity.OffsetId; set => Entity.OffsetId = value; }
+
         public bool NeedUpdate { get; set; }
 
-        public bool NeedRemove { get; set; }
+        public bool NeedRemove { get; set; }        
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 

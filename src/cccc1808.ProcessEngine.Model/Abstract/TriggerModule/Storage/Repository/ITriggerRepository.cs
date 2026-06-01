@@ -37,7 +37,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
         Task SaveAsync(
             ICollection<ITriggerComponent<TId>> triggers, 
             CancellationToken cancellationToken);
-        
+
+        Task<HashSet<TId>> CheckProcessWaitingAsync(
+            ICollection<TId> processIds,
+            CancellationToken cancellationToken
+            );
+
         public readonly record struct CreateTriggerDto(
             string key,
             DateTimeOffset timerDate,

@@ -32,6 +32,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         public DateTimeOffset SelectLockTimeout { get; set; }
 
         /// <summary>
+        /// Смещение keyset пагинации.
+        /// </summary>
+        public TId? OffsetId { get; set; }
+
+        /// <summary>
         /// Таймер выполнения.
         /// </summary>
         public DateTimeOffset TimerDate { get; set; }
@@ -107,7 +112,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             TId processId,
             bool? streamProcessIsWaiting,
             long? signalCounter1,
-            long? signalCounter2)
+            long? signalCounter2,
+            TId? offsetId)
         {
             Id = id;
             Key = key;
@@ -120,6 +126,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsActivated = isActivated;
             IsCompleted = isCompleted;
             ProcessId = processId;
+            OffsetId = offsetId;
 
             switch (kind)
             {
@@ -131,7 +138,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
                 case ITriggerComponent.TriggerKind.SimpleStream:
                 case ITriggerComponent.TriggerKind.SimpleStreamRoot:
-                {
+                    {
                         StreamProcessIsWaiting = streamProcessIsWaiting.Value;
                         SignalCounter1 = signalCounter1.Value;
                         break;
@@ -145,11 +152,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
                         break;
                     }
 
-                case ITriggerComponent.TriggerKind.Timer:                
+                case ITriggerComponent.TriggerKind.Timer:
                     break;
 
                 default: throw new NotImplementedException($"{Kind}.");
-            }            
+            }
         }
     }
 }

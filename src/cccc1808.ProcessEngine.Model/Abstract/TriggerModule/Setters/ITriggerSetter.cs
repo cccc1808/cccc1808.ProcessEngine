@@ -57,7 +57,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
-                Func<TParameters, TResult> signalOffsetTriggerEventHandler);
+                Func<TParameters, TResult> signalOffsetTriggerEventHandler,
+                Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler);
 
             void OneOfEvent<TParameters>(
                 ITriggerEvent triggerEvent,
@@ -68,7 +69,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
                 Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler,
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler,
-                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler);
+                Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
+                Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler);
 
             TResult OneOfEvent<TParameters, TResult>(
                 ITriggerEvent triggerEvent,
@@ -79,7 +81,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
-                Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler);
+                Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler,
+                Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler);
         }
 
         public interface IStandartSetter

@@ -7,16 +7,17 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -160,7 +161,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     processId: elem.processId,
                     streamProcessIsWaiting: elem.streamProcessIsWaiting,
                     signalCounter1: elem.signalCounter1,
-                    signalCounter2: elem.signalCounter2
+                    signalCounter2: elem.signalCounter2,
+                    offsetId: default // Заполняется только при обработке, на создании - null.
                     ));
             }
 
@@ -190,6 +192,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 elem.NeedUpdate = false;
                 elem.NeedRemove = false;
             }
-        }        
+        }
+
+        public async Task<HashSet<TId>> CheckProcessWaitingAsync(
+            ICollection<TId> processIds, 
+            CancellationToken cancellationToken)
+        {
+            return await _efDbContext.Set<ProcessDbEntity<TId>>()
+                .Where(e => 
+                    processIds.Contains(e.Id) 
+                    && e.Status == ProcessStatusEnum.WaitEvent)
+                .Select(e => e.Id)
+                .ToHashSetAsync(cancellationToken);
+        }
     }
 }
