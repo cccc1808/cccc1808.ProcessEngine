@@ -48,19 +48,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
 
             var toRootTriggerEvents = triggers
                  .Select(
-                    e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                        info[e.Key].Queue,
-                        e.ProcessId,
-                        new SignalSimpleStreamTriggerEvent(
+                    e => 
+                    {
+                        var evnt = new SignalSimpleStreamTriggerEvent(
                             info[e.Key].RootTriggerKey,
+                            // Т.к. это дочерний триггер, необходимо подтверждение доставки.
                             sendTriggerKey: e.Key,
-                            timeStamp: _triggerSetter.ChildTriggerSetter.IsChildTrigger(e, out var childState) 
+                            timeStamp: _triggerSetter.ChildTriggerSetter.IsChildTrigger(e, out var childState)
                                 ? childState.WaitDeliveryTimestamp ?? throw new Exception(
                                     $"[Bug] Ожидается запоненое значение {nameof(ITriggerComponent.IChildTriggerDto.WaitDeliveryTimestamp)}"
                                     )
                                 : throw new Exception("[Bug] Ожидается дочерний триггер.")
-                            )
-                        )
+                                );
+
+                        return new ITriggerEventRaiser<TId>.RaiseContainer(
+                            info[e.Key].Queue,
+                            e.ProcessId,
+                            evnt
+                            );
+                    }
                     )
                 .ToArray();
 

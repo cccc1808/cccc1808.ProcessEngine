@@ -12,7 +12,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
     public interface ITriggerSetter<TId>
     {
-        IOneOfSetter OneOfSetter { get; }
+        IOneOfTriggerSetter OneOfTriggerSetter { get; }
+
+        IOneOfTriggerEventSetter OneOfTriggerEventSetter { get; }
 
         IStandartSetter StandartSetter { get; }
 
@@ -20,13 +22,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
         ICounterSetter CounterSetter { get; }
 
+        IStreamSetter StreamSetter { get; }
+
         ISimpleStreamSetter SimpleStreamSetter { get; }
 
         IOffsetStreamSetter OffsetStreamSetter { get; }
 
-        public interface IOneOfSetter
+        public interface IOneOfTriggerSetter
         {
-            void OneOfTriggerKind<TParamter>(
+            void OneOfKind<TParamter>(
                 ITriggerComponent.TriggerKind kind,
                 TParamter paramter,
                 Action<TParamter> counterHandler,
@@ -34,7 +38,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<TParamter> simpleStreamHandler,
                 Action<TParamter> offsetStreamHanler);
 
-            void OneOfTrigger<TParameter>(
+            void OneOf<TParameter>(
                 ITriggerComponent<TId> trigger,
                 TParameter parameter,
                 Action<ITriggerComponent.ICounterDto, TParameter> counterHandler,
@@ -43,14 +47,17 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<ITriggerComponent.IOffsetStreamDto, TParameter> offsetStreamHanler
                 );
 
-            ValueTask OneOfTriggerAsync(
+            ValueTask OneOfAsync(
                 ITriggerComponent<TId> trigger,
                 Func<ITriggerComponent.ICounterDto, ValueTask> counterHandler,
                 Func<ValueTask> timerHandler,
                 Func<ITriggerComponent.ISimpleStreamDto, ValueTask> simpleStreamHandler,
                 Func<ITriggerComponent.IOffsetStreamDto, ValueTask> offsetStreamHanler);
+        }
 
-            TResult OneOfEventKind<TParameters, TResult>(
+        public interface IOneOfTriggerEventSetter 
+        {
+            TResult OneOfKind<TParameters, TResult>(
                 TriggerEventKindEnum triggerEventKind,
                 TParameters parameters,
                 Func<TParameters, TResult> removeTriggerEventHandler,
@@ -61,9 +68,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
-                Func<TParameters, TResult> deliveryResultEventHandler);            
+                Func<TParameters, TResult> deliveryResultEventHandler);
 
-            TResult OneOfEvent<TParameters, TResult>(
+            TResult OneOf<TParameters, TResult>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,
                 Func<IRemoveTriggerEvent, TParameters, TResult> removeTriggerEventHandler,
@@ -76,7 +83,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
                 Func<IDeliveryResultEvent, TParameters, TResult> deliveryResultEventHandler);
 
-            void OneOfEvent<TParameters>(
+            void OneOf<TParameters>(
                 ITriggerEvent triggerEvent,
                 TParameters parameters,
                 Action<IRemoveTriggerEvent, TParameters> removeTriggerEventHandler,
@@ -88,7 +95,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
                 Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler,
                 Action<IDeliveryResultEvent, TParameters> deliveryResultEventHandler);
-        }
+        }        
 
         public interface IStandartSetter
         {
@@ -108,8 +115,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent<TId> trigger,
                 ITriggerHandler.ResultDto result);
 
-            bool IsStreamTrigger(ITriggerComponent<TId> trigger);
-
             public readonly record struct TimerDto(
                 in DateTimeOffset Now,
                 in DateTimeOffset Timer,
@@ -127,6 +132,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
             bool NeedActivate(ITriggerComponent<TId> trigger, ITriggerComponent.ICounterDto state);
 
             void Activate(ITriggerComponent<TId> trigger, ITriggerComponent.ICounterDto state);
+        }
+
+        public interface IStreamSetter
+        {
+            bool IsStreamTrigger(ITriggerComponent<TId> trigger);
+
+            bool GetStreamsProcessIsWaiting(ITriggerComponent<TId> trigger);
         }
 
         public interface ISimpleStreamSetter
@@ -204,6 +216,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent.IChildTriggerDto state,
                 long deliveryTimestamp);
 
+            /// <summary>
+            /// <see cref="IDeliveryResultEvent"/>.
+            /// </summary>
             void DeliveryResultReceived(
                 ITriggerComponent<TId> trigger,
                 ITriggerComponent.IChildTriggerDto state,

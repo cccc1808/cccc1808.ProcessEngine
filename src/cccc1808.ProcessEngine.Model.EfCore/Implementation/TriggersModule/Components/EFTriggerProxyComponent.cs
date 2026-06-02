@@ -50,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
             _triggerSetter = triggerSetter;
             Entity = entity;
 
-            _triggerSetter.OneOfSetter.OneOfTriggerKind(
+            _triggerSetter.OneOfTriggerSetter.OneOfKind(
                 Kind,
                 this,
                 counterHandler: static (p) => 

@@ -92,7 +92,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             var setter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
 
             var now = dateTimeProvider.UtcNow;
-            var timeout = dateTimeProvider.UtcNow - options.LostTriggerTimeout;
+            var sendTimestamp = setter.ChildTriggerSetter.DateToTimestamp(now);
+            var timeout = now - options.LostTriggerTimeout;
 
             emergencyTrigger.OffsetId = emergencyTrigger.OffsetId ?? await query.GetMinIdAsync(cancellationToken);
             if (emergencyTrigger.OffsetId is null)
@@ -162,8 +163,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                         {
                             // 3) Дочерний триггер не получил ответ от корневого триггера.
                             // Повторно посылаем сигнал на корневой триггер, в одидании что на него он ответит.
-                            var sendTimestamp = setter.ChildTriggerSetter.DateToTimestamp(now);
-
                             triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
                                 options.TriggerEventQueue,
                                 elem.Trigger.ProcessId,
@@ -172,8 +171,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                     sendTriggerKey: elem.Trigger.Key,
                                     timeStamp: sendTimestamp
                                     )
-                                )
-                                );
+                                ));
 
                             setter.ChildTriggerSetter.RepeatSignalSended(elem.Trigger, childTriggerState, sendTimestamp);
                             notProcesseTriggers.Remove(elem.Trigger.Key);
@@ -181,62 +179,35 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             // TODO: log warning;
                         }
                         else if (
-                            setter.StandartSetter.IsStreamTrigger(elem.Trigger)
+                            setter.StreamSetter.IsStreamTrigger(elem.Trigger)
                             && !elem.Trigger.IsActivated
                             && !elem.Trigger.IsCompleted)
                         {
                             // 4) Проверяем stream триггеры. Защита от потери события IProcessGoWaitStreamTriggerEvent.
 
-                            setter.OneOfSetter.OneOfTrigger(
-                                elem.Trigger,
-                                (1, 2),
-                                counterHandler: (_, _) => { },
-                                timerHandler: (_) => { },
-                                simpleStreamHandler: (state, p) =>
-                                {
-                                    // Триггер думает, что процесс активен, а процесс спит.
-                                    // Либо событе IProcessGoWaitStreamTriggerEvent еще обработалось, либо оно потерялось (смотрим на timeout).
-                                    var isWaitingMissmath =
-                                        !state.StreamsProcessIsWaiting
-                                        && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
-                                        && (now - elem.SelectLockTimeout) > options.SteamGoWaitTimeout;
+                            // Триггер думает, что процесс активен, а процесс спит.
+                            // Либл событе IProcessGoWaitStreamTriggerEvent еще обработалось, либо оно потерялось (смотрим на timeout).
+                            var isWaitingMissmath =
+                                !setter.StreamSetter.GetStreamsProcessIsWaiting(elem.Trigger)
+                                && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
+                                && (now - elem.SelectLockTimeout) > options.SteamGoWaitTimeout;
 
-                                    if (isWaitingMissmath)
-                                    {
-                                        triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
-                                            options.TriggerEventQueue,
-                                            elem.Trigger.ProcessId,
-                                            new RecheckProcessStatusStreamTriggerEvent(elem.Trigger.Key)
-                                            )
-                                            );
+                            if (isWaitingMissmath)
+                            {
+                                // Публикуме событие, чтобы стрим перепроверил статус процесса.
+                                // Не пытаемся делать это синхронно т.к. на триггер могут поступать сигналы событий.
+                                triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                    options.TriggerEventQueue,
+                                    elem.Trigger.ProcessId,
+                                    new RecheckProcessStatusStreamTriggerEvent(elem.Trigger.Key)
+                                    )
+                                    );
 
-                                        // TODO: log warning;
-                                    }
-                                },
-                                offsetStreamHanler: (state, p) =>
-                                {
-                                    // Триггер думает, что процесс активен, а процесс спит.
-                                    // Либо событе IProcessGoWaitStreamTriggerEvent еще обработалось, либо оно потерялось (смотрим на timeout).
-                                    var isWaitingMissmath =
-                                        !state.StreamsProcessIsWaiting
-                                        && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
-                                        && (now - elem.SelectLockTimeout) > options.SteamGoWaitTimeout;
+                                notProcesseTriggers.Remove(elem.Trigger.Key);
 
-                                    if (isWaitingMissmath)
-                                    {
-                                        triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
-                                             options.TriggerEventQueue,
-                                             elem.Trigger.ProcessId,
-                                             new RecheckProcessStatusStreamTriggerEvent(elem.Trigger.Key)
-                                             )
-                                             );
+                                // TODO: log warning;
 
-                                        // TODO: log warning;
-                                    }
-                                }
-                                );
-
-                            notProcesseTriggers.Remove(elem.Trigger.Key);
+                            }
                         }
                     }
 
@@ -291,7 +262,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             {                                
                                 forExecute.Add(elem2);
 
-                                setter.OneOfSetter.OneOfTrigger(
+                                setter.OneOfTriggerSetter.OneOf(
                                     elem2,
                                     (1, 2),
                                     counterHandler: (state, _) =>
@@ -327,7 +298,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                    elem2,
                                    childTriggerState,
                                    elem2Result.Result,
-                                   setter.ChildTriggerSetter.DateToTimestamp(now));
+                                   sendTimestamp);
                             }                               
                         }
                         await typedHandler.ExecuteAsync(forExecute, cancellationToken);

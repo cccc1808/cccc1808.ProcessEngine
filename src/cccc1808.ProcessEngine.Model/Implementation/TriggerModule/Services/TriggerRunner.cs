@@ -238,7 +238,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    continue;
                         //}
 
-                        triggerSetter.OneOfSetter.OneOfTrigger(
+                        triggerSetter.OneOfTriggerSetter.OneOf(
                             trigger,
                             (
                                 eventTypeMismathErrorHandler, 
@@ -255,7 +255,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
                                         removeTriggerEventHandler: (_, p) =>
@@ -308,7 +308,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now),
                                         removeTriggerEventHandler: (_, p) =>
@@ -352,7 +352,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.emergencyOptions, state, p.now, p.recheckProcessStatusBuffer, p.sendEventsBuffer),
                                         removeTriggerEventHandler: (_, p) =>
@@ -429,7 +429,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 foreach (var elem2 in elem.Value)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem2,
                                         (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now, p.recheckProcessStatusBuffer),
                                         removeTriggerEventHandler: (_, p) =>

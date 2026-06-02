@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
         public ITriggerEvent Deserialize(JsonElement jsonElement)
         {
             var commonEvent = jsonElement.Deserialize<TriggerEvent>()!;
-            return _setter.OneOfSetter.OneOfEventKind(
+            return _setter.OneOfTriggerEventSetter.OneOfKind(
                 commonEvent.Kind,
                 (commonEvent, jsonElement),
                 removeTriggerEventHandler: static (p) => p.jsonElement.Deserialize<RemoveTriggerEvent>(),
