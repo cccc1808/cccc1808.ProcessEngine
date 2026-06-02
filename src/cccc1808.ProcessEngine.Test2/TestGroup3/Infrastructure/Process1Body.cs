@@ -13,7 +13,6 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -98,7 +97,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                         ParentProcessTriggerHandler.Name,
                                         1,
                                         isActivated: false,
-                                        counter: childCount),
+                                        counter: childCount,
+                                        isChildTrigger: false),
                                     CancellationToken.None);
 
                                 for (int i = 0; i < childCount; i++)

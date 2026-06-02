@@ -5,9 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Base
@@ -23,12 +24,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
     public abstract class BaseRootChildTriggerRangeHandler<TId>
         : ITriggerRangeHandler<TId>
     {
-        private readonly ITriggerHandlerFacade<TId> _handlerFacade;
+        private readonly ITriggerSetter<TId> _triggerSetter;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         public BaseRootChildTriggerRangeHandler(
-            ITriggerHandlerFacade<TId> handlerFacade)
+            ITriggerSetter<TId> triggerSetter,
+            ITriggerEventRaiser<TId> triggerEventRaiser)
         {
-            _handlerFacade = handlerFacade;
+            _triggerSetter = triggerSetter;
+            _triggerEventRaiser = triggerEventRaiser;
         }
 
         public abstract ValueTask<IDictionary<string, ITriggerRangeHandler<TId>.ResultDto>> CheckAsync(
@@ -41,7 +45,28 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
             CancellationToken cancellationToken)
         {
             var info = await GetEventInfoAsync(triggers, cancellationToken);
-            await _handlerFacade.RaiseSignalToRootTriggerAsync(triggers, info, cancellationToken);            
+
+            var toRootTriggerEvents = triggers
+                 .Select(
+                    e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                        info[e.Key].Queue,
+                        e.ProcessId,
+                        new SignalSimpleStreamTriggerEvent(
+                            info[e.Key].RootTriggerKey,
+                            sendTriggerKey: e.Key,
+                            timeStamp: _triggerSetter.ChildTriggerSetter.IsChildTrigger(e, out var childState) 
+                                ? childState.WaitDeliveryTimestamp ?? throw new Exception(
+                                    $"[Bug] Ожидается запоненое значение {nameof(ITriggerComponent.IChildTriggerDto.WaitDeliveryTimestamp)}"
+                                    )
+                                : throw new Exception("[Bug] Ожидается дочерний триггер.")
+                            )
+                        )
+                    )
+                .ToArray();
+
+            await _triggerEventRaiser.RaiseAsync(
+                toRootTriggerEvents,
+                cancellationToken);           
         }
 
         protected abstract Task<IDictionary<string, ITriggerHandlerFacade<TId>.RootEventInfoDto>> GetEventInfoAsync(

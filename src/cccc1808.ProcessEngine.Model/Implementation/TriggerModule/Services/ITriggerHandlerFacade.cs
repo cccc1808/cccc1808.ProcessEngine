@@ -55,19 +55,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             ICollection<TId> processIds,
             CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Опублковать синал от дочернего триггера на корневой триггер.
-        /// </summary>
-        /// <param name="triggers"></param>
-        /// <param name="eventInfo"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        Task RaiseSignalToRootTriggerAsync(
-            IEnumerable<ITriggerComponent<TId>> triggers,
-            IDictionary<string, RootEventInfoDto> eventInfo,
-            CancellationToken cancellationToken
-            );
-
         /// <param name="WaitWithLock">Процесс в состоянии ожидания и получен update lock (можно пробуждать).</param>
         /// <param name="WaitWithoutLock">Процесс в состоянии ожидания, но блокировка не получена (скорее всего timeout).</param>
         /// <param name="IsAsyncExecuting">Процесс в состоянии асинхронной обработки (пробуждение не требуется).</param>

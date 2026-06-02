@@ -39,7 +39,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public bool NeedUpdate { get; set; }
 
-        public bool NeedRemove { get; set; }        
+        public bool NeedRemove { get; set; }
+
+        public ITriggerComponent.IChildTriggerDto? ChildTrigger { get; private set; }
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 
@@ -64,8 +66,39 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
                 {
                     p.State = new EFOffsetStreamProxyDto(p.Entity);
                 });
+
+            ChildTrigger = entity.ChildTrigger_CompleteAfterDelivery.HasValue 
+                ? new EFChildTriggerProxyDto(entity) 
+                : null;
         }
 
+
+        private class EFChildTriggerProxyDto 
+            : ITriggerComponent.IChildTriggerDto
+        {           
+            private TriggerDbEntity<TId> Entity { get; }
+
+            public bool CompleteAfterDelivery { get => Entity.ChildTrigger_CompleteAfterDelivery!.Value; set => Entity.ChildTrigger_RemoveAftrerDelivery = value; }
+
+            public bool RemoveAftrerDelivery { get => Entity.ChildTrigger_RemoveAftrerDelivery!.Value; set => Entity.ChildTrigger_RemoveAftrerDelivery = value; }
+
+            public long? WaitDeliveryTimestamp { get => Entity.ChildTrigger_WaitDeliveryTimestamp; set => Entity.ChildTrigger_WaitDeliveryTimestamp = value; }
+
+            public EFChildTriggerProxyDto(
+                TriggerDbEntity<TId> entity)
+            {
+                if (!entity.ChildTrigger_CompleteAfterDelivery.HasValue)
+                {
+                    throw new ArgumentException(nameof(entity));
+                }
+                if (!entity.ChildTrigger_RemoveAftrerDelivery.HasValue)
+                {
+                    throw new ArgumentException(nameof(entity));
+                }
+
+                Entity = entity;
+            }
+        }
 
         private class EFCounterProxyDto 
             : ITriggerComponent.ICounterDto

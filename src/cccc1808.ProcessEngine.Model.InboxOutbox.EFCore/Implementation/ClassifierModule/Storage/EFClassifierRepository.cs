@@ -266,7 +266,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         isActivated: false,
                                         streamProcessIsWaiting: true,
                                         processedOffset: 0,
-                                        lastOffset: 0
+                                        lastOffset: 0,
+                                        isChildTrigger: false
                                         )
                                     );
                             }
@@ -513,7 +514,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         isActivated: false,
                                         streamProcessIsWaiting: true,
                                         newSignalCounter: 0,
-                                        isRootTrigger: false)
+                                        isChildTrigger: false)
                                     );
                             }
 
