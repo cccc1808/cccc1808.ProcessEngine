@@ -19,15 +19,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public ITriggerSetter<TId>.IStandartSetter StandartSetter { get; }
 
+        public ITriggerSetter<TId>.IChildTriggerSetter ChildTriggerSetter { get; }
+
         public ITriggerSetter<TId>.ICounterSetter CounterSetter { get; }
 
         public ITriggerSetter<TId>.ISimpleStreamSetter SimpleStreamSetter { get; }
         
         public ITriggerSetter<TId>.IOffsetStreamSetter OffsetStreamSetter { get; }
 
+
         public TriggerSetter(
             ITriggerSetter<TId>.IOneOfSetter oneOfSetter,
             ITriggerSetter<TId>.IStandartSetter standartSetter,
+            ITriggerSetter<TId>.IChildTriggerSetter childTriggerSetter,
             ITriggerSetter<TId>.ICounterSetter counterSetter,
             ITriggerSetter<TId>.ISimpleStreamSetter simpleStreamSetter,
             ITriggerSetter<TId>.IOffsetStreamSetter offsetStreamSetter
@@ -35,6 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         {
             OneOfSetter = oneOfSetter;
             StandartSetter = standartSetter;
+            ChildTriggerSetter = childTriggerSetter;
             CounterSetter = counterSetter;
             SimpleStreamSetter = simpleStreamSetter;
             OffsetStreamSetter = offsetStreamSetter;            
@@ -169,7 +174,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler,
-                Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler)
+                Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
+                Func<TParameters, TResult> deliveryResultEventHandler)
             {
                 return triggerEventKind switch
                 {
@@ -181,6 +187,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.DeliveryResultEvent => deliveryResultEventHandler(parameters),
 
                     _ => throw new NotImplementedException(triggerEventKind.ToString())
                 };
@@ -196,7 +203,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
                 Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler,
-                Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler)
+                Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
+                Func<IDeliveryResultEvent, TParameters, TResult> deliveryResultEventHandler)
             {
                 return triggerEvent.Kind switch
                 {
@@ -208,6 +216,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters),
+                    TriggerEventKindEnum.DeliveryResultEvent => deliveryResultEventHandler((IDeliveryResultEvent)triggerEvent, parameters),
 
                     _ => throw new NotImplementedException(triggerEvent.Kind.ToString())
                 };
@@ -223,7 +232,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler, 
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler, 
                 Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
-                Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler)
+                Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler,
+                Action<IDeliveryResultEvent, TParameters> deliveryResultEventHandler)
             {
                 switch (triggerEvent.Kind)
                 {
@@ -268,6 +278,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     case TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent:
                         {
                             recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+
+                    case TriggerEventKindEnum.DeliveryResultEvent:
+                        {
+                            deliveryResultEventHandler((IDeliveryResultEvent)triggerEvent, parameters);
                             break;
                         }
 
@@ -351,8 +367,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 if (result.NeedRemove)
                 {
                     ForRemove(trigger, value: true);
-                    SetActivated(trigger, false);
                     SetCompleted(trigger, true);
+                    SetActivated(trigger, false);
+                                     
                 }
                 else 
                 {
@@ -548,6 +565,104 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 trigger.NeedUpdate = true;
             }
+        }
+
+        public class ChildTriggerSetterImpl 
+            : ITriggerSetter<TId>.IChildTriggerSetter
+        {
+            private readonly ITriggerSetter<TId>.IStandartSetter _standartSetter;
+
+            public ChildTriggerSetterImpl(ITriggerSetter<TId>.IStandartSetter standartSetter)
+            {
+                _standartSetter = standartSetter;
+            }
+
+            public bool IsChildTrigger(
+                ITriggerComponent<TId> trigger, 
+                out ITriggerComponent.IChildTriggerDto state)
+            {
+                state = trigger.ChildTrigger!;
+                return state != null;
+            }
+
+            public void SetTriggerResult(
+                ITriggerComponent<TId> trigger,
+                ITriggerComponent.IChildTriggerDto state,
+                ITriggerHandler.ResultDto result, 
+                long deliveryTimestamp)
+            {
+                _standartSetter.SetTriggerResult(trigger, result);
+
+                if (trigger.NeedRemove)
+                {
+                    // Если тригерр помечен на удаление, то сохраняем флаг для удаления только после получения подтвреждения.
+                    // Если триггер удалить сейчас, то не будет корректной обработки события подтверждения.
+                    state.RemoveAftrerDelivery = true;
+                    _standartSetter.ForRemove(trigger, value: false);
+                }
+                if (trigger.IsCompleted)
+                {
+                    // Если триггер помечен как завершенный, то сохраняем флаг и завершаем после получения подтверждения.
+                    // Если завершить триггер сейчас, то он не будет обрабатывать события.
+                    state.CompleteAfterDelivery = true;
+                    _standartSetter.SetCompleted(trigger, value: false);
+                }
+
+                state.WaitDeliveryTimestamp = deliveryTimestamp;
+                trigger.NeedUpdate = true;
+            }
+
+            public void RepeatSignalSended(
+                ITriggerComponent<TId> trigger,
+                ITriggerComponent.IChildTriggerDto state,
+                long deliveryTimestamp)
+            {
+                state.WaitDeliveryTimestamp = deliveryTimestamp;
+                trigger.NeedUpdate = true;
+            }
+
+            public void DeliveryResultReceived(
+                ITriggerComponent<TId> trigger,
+                ITriggerComponent.IChildTriggerDto state,
+                long deliveryTimestamp)
+            {
+                if (state.WaitDeliveryTimestamp != deliveryTimestamp)
+                {
+                    // TODO: log warning;
+                    return;
+                }
+
+                if (state.WaitDeliveryTimestamp != null)
+                {
+                    // Подтверждение доставки получено.
+                    state.WaitDeliveryTimestamp = null;
+                    trigger.NeedUpdate = true;
+                }
+
+                if (state.RemoveAftrerDelivery)
+                {
+                    _standartSetter.ForRemove(trigger, value: true);
+                    state.RemoveAftrerDelivery = false;
+                    trigger.NeedUpdate = true;
+                }
+
+                if (state.CompleteAfterDelivery)
+                {
+                    _standartSetter.SetCompleted(trigger, value: true);
+                    state.CompleteAfterDelivery = false;
+                    trigger.NeedUpdate = true;
+                }
+            }            
+
+            public long DateToTimestamp(DateTimeOffset date)
+            {
+                return date.Ticks;
+            }
+
+            public DateTimeOffset TimestampToDate(long timestamp)
+            {
+                return new DateTimeOffset(timestamp, DateTimeOffset.UtcNow.Offset);
+            }            
         }
     }
 }

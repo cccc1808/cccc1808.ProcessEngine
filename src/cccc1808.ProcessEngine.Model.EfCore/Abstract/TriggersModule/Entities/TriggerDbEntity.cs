@@ -41,6 +41,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// </summary>
         public DateTimeOffset TimerDate { get; set; }
 
+        public bool? ChildTrigger_CompleteAfterDelivery { get; set; }
+
+        public bool? ChildTrigger_RemoveAftrerDelivery { get; set; }
+
+        public long? ChildTrigger_WaitDeliveryTimestamp { get; set; }
+
         /// <summary>
         /// Является ли хендлер триггера групповым.
         /// (Используется для распределения Task/Transaction).
@@ -113,6 +119,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             bool? streamProcessIsWaiting,
             long? signalCounter1,
             long? signalCounter2,
+            bool isChildTrigger,
             TId? offsetId)
         {
             Id = id;
@@ -126,6 +133,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsActivated = isActivated;
             IsCompleted = isCompleted;
             ProcessId = processId;
+            ChildTrigger_CompleteAfterDelivery = isChildTrigger ? false : null;
+            ChildTrigger_RemoveAftrerDelivery = isChildTrigger ? false : null;
             OffsetId = offsetId;
 
             switch (kind)

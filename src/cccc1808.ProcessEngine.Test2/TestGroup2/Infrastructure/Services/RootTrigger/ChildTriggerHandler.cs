@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Base;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
@@ -25,11 +27,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTr
         private readonly TriggerRunner<Guid>.OptionsDto _queueOptions;
 
         public ChildTriggerHandler(
-            ITriggerHandlerFacade<Guid> handlerFacade,
+            ITriggerSetter<Guid> triggerSetter,
+            ITriggerEventRaiser<Guid> triggerEventRaiser,
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             TriggerRunner<Guid>.OptionsDto queueOptions)
-            : base(handlerFacade)
+            : base(
+                  triggerSetter, 
+                  triggerEventRaiser)
         {
             _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;

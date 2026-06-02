@@ -163,7 +163,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         isRangeTrigger: true,
                         ParentProcessTriggerHandler.Name,
                         1,
-                        isActivated: false),
+                        isActivated: false,
+                        isChildTrigger: false),
                     CancellationToken.None);
 
                 await triggerRepository.CreateTriggerAsync(
@@ -174,7 +175,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         isRangeTrigger: false,
                         EmergencyTriggerHandler<Guid>.Name,
                         1,
-                        isActivated: true),
+                        isActivated: true,
+                        isChildTrigger: false),
                     CancellationToken.None);
 
                 await dbContext.SaveChangesAsync(default);

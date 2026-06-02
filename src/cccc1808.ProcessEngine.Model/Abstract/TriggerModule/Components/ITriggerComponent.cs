@@ -55,9 +55,22 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         DateTimeOffset SelectLockTimeout { get; set; }
 
+        /// <summary>
+        /// Кастомное состояние триггера.
+        /// </summary>
         object State { get; }
 
+        /// <summary>
+        /// Смещение keyset пагинации.
+        /// (Пока что используется только страхующим триггером).
+        /// </summary>
         TId? OffsetId { get; set; }
+
+        /// <summary>
+        /// <see cref="ITriggerComponent.IChildTriggerDto"/>.
+        /// Не null если триггер является дочерним.
+        /// </summary>
+        ITriggerComponent.IChildTriggerDto? ChildTrigger { get; }
 
         #region InMemory
 
@@ -117,6 +130,24 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             OffsetStream,
         }
 
+        public interface IChildTriggerDto
+        {
+            /// <summary>
+            /// Триггер нужно завершить после подтверждения доставки от корневого триггера.
+            /// </summary>
+            bool CompleteAfterDelivery { get; set; }
+
+            /// <summary>
+            /// Триггер нужно удалить после подтверждения доставки от корневого триггера.
+            /// </summary>
+            bool RemoveAftrerDelivery { get; set; }
+
+            /// <summary>
+            /// Заполнено - сигнал на корневой триггер отправлен, подтверждение не получено.
+            /// </summary>
+            long? WaitDeliveryTimestamp { get; set; }
+        }
+
         public interface ICounterDto
         {
             /// <summary>
@@ -161,7 +192,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Наибольшее обработанное процессом смещение.
             /// </summary>
             public long ProcessedOffset { get; set; }
-        }
+        }        
 
         #endregion
     }

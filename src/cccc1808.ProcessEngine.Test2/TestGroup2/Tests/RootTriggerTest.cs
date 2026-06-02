@@ -114,13 +114,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     rootTrigger.ShouldSatisfyAllConditions(
                         e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
                         e => e.SignalCounter1.ShouldNotBeNull().ShouldBe(0),
-                        e => e.IsActivated.ShouldBeFalse()
+                        e => e.IsActivated.ShouldBeFalse(),
+                        e => e.ChildTrigger_CompleteAfterDelivery.ShouldBeNull(),
+                        e => e.ChildTrigger_RemoveAftrerDelivery.ShouldBeNull(),
+                        e => e.ChildTrigger_WaitDeliveryTimestamp.ShouldBeNull()
                         );
 
                     childTrigger.ShouldSatisfyAllConditions(
                         e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
                         e => e.SignalCounter1.ShouldNotBeNull().ShouldBe(0),
-                        e => e.IsActivated.ShouldBeFalse()
+                        e => e.IsActivated.ShouldBeFalse(),
+                        e => e.ChildTrigger_CompleteAfterDelivery.ShouldNotBeNull().ShouldBeFalse(),
+                        e => e.ChildTrigger_RemoveAftrerDelivery.ShouldNotBeNull().ShouldBeFalse(),
+                        e => e.ChildTrigger_WaitDeliveryTimestamp.ShouldBeNull()
                         );
                 }
             }
@@ -175,7 +181,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 // assert.
                 {
                     var allProcessData = await _testService.LoadAsync<RootTriggerDbEntity>(scope.ServiceProvider);                                    
-                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);;
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
                     var procesData = allProcessData.Single();
                     var rootTrigger = triggers.First(e => e.Key == procesData.RootTriggerId.ToString());
@@ -194,7 +200,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 }
             }
 
-            // 5) Дочерний триггер передает сигнал на родительский триггер.
+            // 5.1) Дочерний триггер передает сигнал на родительский триггер.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
@@ -203,7 +209,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 // assert.
                 {
                     var allProcessData = await _testService.LoadAsync<RootTriggerDbEntity>(scope.ServiceProvider);
-                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);;
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
                     var procesData = allProcessData.Single();
                     var rootTrigger = triggers.First(e => e.Key == procesData.RootTriggerId.ToString());
@@ -217,9 +223,29 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                     childTrigger.ShouldSatisfyAllConditions(
                         e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
                         e => e.SignalCounter1.ShouldNotBeNull().ShouldBe(0),
-                        e => e.IsActivated.ShouldBeFalse()
+                        e => e.IsActivated.ShouldBeFalse(),
+                        e => e.ChildTrigger_WaitDeliveryTimestamp.ShouldNotBeNull() // Ожидает подтверждения.
                         );
                 }
+            }
+
+            // 5.2) Дочерний триггер получает подтверждение получения сигнала от корневого.
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+
+                var allProcessData = await _testService.LoadAsync<RootTriggerDbEntity>(scope.ServiceProvider);
+                var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider); ;
+
+                var procesData = allProcessData.Single();
+                var rootTrigger = triggers.First(e => e.Key == procesData.RootTriggerId.ToString());
+                var childTrigger = triggers.First(e => e.Key == procesData.ChildTriggerId.ToString());
+                childTrigger.ShouldSatisfyAllConditions(
+                    e => e.StreamProcessIsWaiting.ShouldNotBeNull().ShouldBeFalse(),
+                    e => e.SignalCounter1.ShouldNotBeNull().ShouldBe(0),
+                    e => e.IsActivated.ShouldBeFalse(),
+                    e => e.ChildTrigger_WaitDeliveryTimestamp.ShouldBeNull() // Получил подтверждения.
+                    );
             }
 
             // 6) root триггер запускает процесс.
@@ -231,7 +257,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 {
                     var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
                     var allProcessData = await _testService.LoadAsync<RootTriggerDbEntity>(scope.ServiceProvider);                                    
-                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);;
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
                     var process = allProceses.Single();
                     var procesData = allProcessData.Single();
@@ -290,7 +316,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                 await triggerRepository.CreateTriggerRangeAsync(
                     [
-                    ITriggerRepository<Guid>.CreateTriggerDto.SimpleStreamTrigger(
+                    ITriggerRepository<Guid>.CreateTriggerDto.SimpleRootStreamTrigger(
                         key: processData.RootTriggerId.ToString(),
                         timerDate: DateTimeOffset.MinValue,
                         processId: process.Id,
@@ -299,8 +325,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         priority: 0,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0,
-                        isRootTrigger: true),
+                        newSignalCounter: 0),
                     ITriggerRepository<Guid>.CreateTriggerDto.SimpleStreamTrigger(
                         key: processData.ChildTriggerId.ToString(),
                         timerDate: DateTimeOffset.MinValue,
@@ -311,7 +336,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         isActivated: false,
                         streamProcessIsWaiting: false,
                         newSignalCounter: 0,
-                        isRootTrigger: false),
+                        isChildTrigger: true),
                     ],
                     CancellationToken.None);
 

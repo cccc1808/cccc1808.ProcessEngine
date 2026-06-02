@@ -249,6 +249,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
                 .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IChildTriggerSetter, TriggerSetter<Guid>.ChildTriggerSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
                 .AddSingleton(

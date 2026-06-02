@@ -13,7 +13,6 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
@@ -24,18 +23,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
     public class EFTriggerHandlerFacade<TId> : ITriggerHandlerFacade<TId>
     {
         private readonly IEFDbContext _dbContext;
-        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IWakeupService<TId> _wakeupService;
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
-            ITriggerEventRaiser<TId> triggerEventRaiser,
             ILockQueryHintStore lockQueryHintStore, 
             IWakeupService<TId> wakeupService)
         {
             _dbContext = dbContext;
-            _triggerEventRaiser = triggerEventRaiser;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
         }        
@@ -166,26 +162,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                     notFound, 
                     other);
             }
-        }
-
-        public async Task RaiseSignalToRootTriggerAsync(
-            IEnumerable<ITriggerComponent<TId>> triggers, 
-            IDictionary<string, ITriggerHandlerFacade<TId>.RootEventInfoDto> eventInfo,
-            CancellationToken cancellationToken)
-        {
-            var toRootTriggerEvents = triggers
-                 .Select(
-                    e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                        eventInfo[e.Key].Queue,
-                        e.ProcessId,
-                        new SignalSimpleStreamTriggerEvent(eventInfo[e.Key].RootTriggerKey)
-                        )
-                    )
-                .ToArray();
-
-            await _triggerEventRaiser.RaiseAsync(
-                toRootTriggerEvents,
-                cancellationToken);
         }
 
         public async Task ToAsyncExecutingNoWakeupAsync(

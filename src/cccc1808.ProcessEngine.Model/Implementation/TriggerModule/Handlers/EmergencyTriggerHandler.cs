@@ -155,11 +155,37 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             // TODO: log warning;
                         }
                         else if (
+                            setter.ChildTriggerSetter.IsChildTrigger(elem.Trigger, out var childTriggerState)
+                            && childTriggerState.WaitDeliveryTimestamp.HasValue 
+                            && now - setter.ChildTriggerSetter.TimestampToDate(childTriggerState.WaitDeliveryTimestamp.Value) > options.ChildTriggerDeliveryTimeout
+                            )
+                        {
+                            // 3) Дочерний триггер не получил ответ от корневого триггера.
+                            // Повторно посылаем сигнал на корневой триггер, в одидании что на него он ответит.
+                            var sendTimestamp = setter.ChildTriggerSetter.DateToTimestamp(now);
+
+                            triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                options.TriggerEventQueue,
+                                elem.Trigger.ProcessId,
+                                new SignalSimpleStreamTriggerEvent(
+                                    elem.Trigger.Key, 
+                                    sendTriggerKey: elem.Trigger.Key,
+                                    timeStamp: sendTimestamp
+                                    )
+                                )
+                                );
+
+                            setter.ChildTriggerSetter.RepeatSignalSended(elem.Trigger, childTriggerState, sendTimestamp);
+                            notProcesseTriggers.Remove(elem.Trigger.Key);
+
+                            // TODO: log warning;
+                        }
+                        else if (
                             setter.StandartSetter.IsStreamTrigger(elem.Trigger)
                             && !elem.Trigger.IsActivated
                             && !elem.Trigger.IsCompleted)
                         {
-                            // 3) Проверяем stream триггеры. Защита от потери события IProcessGoWaitStreamTriggerEvent.
+                            // 4) Проверяем stream триггеры. Защита от потери события IProcessGoWaitStreamTriggerEvent.
 
                             setter.OneOfSetter.OneOfTrigger(
                                 elem.Trigger,
@@ -289,9 +315,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                     );
                             }
 
-                            setter.StandartSetter.SetTriggerResult(
-                                elem2,
-                                elem2Result.Result);
+                            if (!setter.ChildTriggerSetter.IsChildTrigger(elem2, out var childTriggerState))
+                            {
+                                setter.StandartSetter.SetTriggerResult(
+                                   elem2,
+                                   elem2Result.Result);
+                            }
+                            else 
+                            {
+                                setter.ChildTriggerSetter.SetTriggerResult(
+                                   elem2,
+                                   childTriggerState,
+                                   elem2Result.Result,
+                                   setter.ChildTriggerSetter.DateToTimestamp(now));
+                            }                               
                         }
                         await typedHandler.ExecuteAsync(forExecute, cancellationToken);
                     }
@@ -349,6 +386,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             /// </summary>
             public TimeSpan LostTriggerTimeout { get; set; }
                 = TimeSpan.FromMinutes(5);
+
+            public TimeSpan ChildTriggerDeliveryTimeout { get; set; }
+                = TimeSpan.FromSeconds(10);
             
 
             public int BatchSize { get; set; }

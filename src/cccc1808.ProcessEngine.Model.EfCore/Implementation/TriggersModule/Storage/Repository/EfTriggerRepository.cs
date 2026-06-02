@@ -162,6 +162,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     streamProcessIsWaiting: elem.streamProcessIsWaiting,
                     signalCounter1: elem.signalCounter1,
                     signalCounter2: elem.signalCounter2,
+                    isChildTrigger: elem.isChildTrigger,
                     offsetId: default // Заполняется только при обработке, на создании - null.
                     ));
             }
