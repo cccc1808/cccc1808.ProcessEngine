@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -17,54 +17,59 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
     /// <see cref="ParentCheckWakeupHandler"/>.
     /// </summary>
     internal class ParentProcessTriggerHandler
-        : ITriggerSingleHandler<Guid>
+        : ITriggerRangeHandler<Guid>
     {
         public const string Name = "ParentProcessTriggerHandler";
 
         private readonly IEFDbContext _dbContext;
-        private readonly IWakeupService<Guid> _wakeupService;
+        private readonly ITriggerHandlerFacade<Guid> _triggerHandlerFacade;
 
         public ParentProcessTriggerHandler(
             IEFDbContext dbContext,
-            IWakeupService<Guid> wakeupService)
+            ITriggerHandlerFacade<Guid> triggerHandlerFacade)
         {
             _dbContext = dbContext;
-            _wakeupService = wakeupService;
+            _triggerHandlerFacade = triggerHandlerFacade;
         }
 
-        public async ValueTask<ITriggerHandler.Result> HandleAsync(
-            ITriggerComponent<Guid> trigger, 
+        public async ValueTask<IDictionary<string, ITriggerRangeHandler<Guid>.ResultDto>> CheckAsync(
+            IEnumerable<ITriggerComponent<Guid>> triggers, 
+            bool isEmergencyTrigger, 
             CancellationToken cancellationToken)
         {
-            var notCompletedChilds = await _dbContext
+            var haveNotCompleteChilds = await _dbContext
                 .Set<ChildProcessDbEntity>()
-                .CountAsync(
-                    e => e.ActiveParentProcessId == trigger.ProcessId,
-                    cancellationToken);
+                .Where(e => triggers.Select(e => (Guid?)e.ProcessId).Contains(e.ActiveParentProcessId))
+                .GroupBy(e => e.ActiveParentProcessId)
+                .Select(e => new { e.Key, Count = e.Count() })
+                .ToDictionaryAsync(e => e.Key, e => e, cancellationToken);
 
-            if (notCompletedChilds == 0)
-            {
-                // Все дочерние процессы завершились.
-
-                await _wakeupService.WakeupProcessHandlerAsync(
-                    [trigger.ProcessId],
-                    useShareLock: false,
-                    cancellationToken);
-                return new ITriggerHandler.Result(false, false, DateTimeOffset.MinValue);
-            }
-            else 
-            {
+            return triggers.ToDictionary(
+                e => e.Key, 
+                e => haveNotCompleteChilds.TryGetValue(e.ProcessId, out var exists) && exists.Count > 0
                 // Есть незавершенные дочерние процессы.
-                return new ITriggerHandler.Result(
-                    // Тригер не завершен
-                    true,
-                    // Выелючен - активируется когда придет хотя бы одно событие от ребенка
-                    false,
-                    // Задержка, чтобы триггер активировался не по первому сообщению (если незавершенных процессов много)
-                    // формулу можно уточнить.
-                    DateTimeOffset.Now + TimeSpan.FromSeconds(1) * notCompletedChilds                    
-                    );
-            }
+                ? new ITriggerRangeHandler<Guid>.ResultDto(
+                    // Не активирован - активируется когда придет хотя бы одно событие от ребенка
+                    ITriggerHandler.ResultDto.NoActivateResult(
+                        // Задержка, чтобы триггер активировался не по первому сообщению (если незавершенных процессов много)
+                        // формулу можно уточнить.
+                        DateTimeOffset.Now + TimeSpan.FromSeconds(1) * exists.Count),
+                    NeedExecute: false)
+                // Все дочерние процессы завершились.
+                : new ITriggerRangeHandler<Guid>.ResultDto(
+                    ITriggerHandler.ResultDto.RemoveResult(),
+                    NeedExecute: true
+                    )
+                );
+        }
+
+        public async ValueTask ExecuteAsync(
+            IEnumerable<ITriggerComponent<Guid>> triggers, 
+            CancellationToken cancellationToken)
+        {
+            await _triggerHandlerFacade.ToAsyncExecutingWakeupAsync(
+                triggers.Select(e => e.ProcessId).ToArray(), 
+                cancellationToken);
         }
     }
 }

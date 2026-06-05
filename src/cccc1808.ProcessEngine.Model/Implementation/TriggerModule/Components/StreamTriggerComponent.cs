@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components
     {
         public string TriggerEventQueue { get; }
 
-        public string[] TriggersKeys { get; }        
+        public string[] TriggersKeys { get; set; }        
 
         public StreamTriggerComponent(
             string triggerEventQueue,

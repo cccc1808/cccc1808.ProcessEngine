@@ -12,7 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto;
@@ -266,7 +266,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         isActivated: false,
                                         streamProcessIsWaiting: true,
                                         processedOffset: 0,
-                                        lastOffset: 0
+                                        lastOffset: 0,
+                                        isChildTrigger: false
                                         )
                                     );
                             }
@@ -512,7 +513,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         priority: 0,
                                         isActivated: false,
                                         streamProcessIsWaiting: true,
-                                        newSignalCounter: 0)
+                                        newSignalCounter: 0,
+                                        isChildTrigger: false)
                                     );
                             }
 

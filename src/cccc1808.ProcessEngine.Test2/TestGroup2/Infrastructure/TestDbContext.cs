@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Co
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -112,6 +113,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     b => 
                     {
                         new ParentProcessDataDbEntityConfiguration().Configure(b);
+                    });
+
+                // ----------
+
+                modelBuilder.Entity<RootTriggerDbEntity>(
+                    b =>
+                    {                        
                     });
             }
         }

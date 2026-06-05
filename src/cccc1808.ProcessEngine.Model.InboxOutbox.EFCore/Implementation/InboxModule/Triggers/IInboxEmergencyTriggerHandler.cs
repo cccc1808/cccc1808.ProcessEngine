@@ -47,7 +47,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _options = options;
         }
 
-        public async ValueTask<ITriggerHandler.Result> HandleAsync(
+        public async ValueTask<ITriggerHandler.ResultDto> HandleAsync(
             ITriggerComponent<TId> trigger,
             CancellationToken cancellationToken)
         {
@@ -118,11 +118,11 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
             if (haveNotProcessed)
             {
-                return new ITriggerHandler.Result(true, true, _dateTimeProvider.UtcNow + TimeSpan.FromMinutes(5));
+                return ITriggerHandler.ResultDto.ActivateResult(_dateTimeProvider.UtcNow + TimeSpan.FromMinutes(5));
             }
             else 
             {
-                return new ITriggerHandler.Result(true, true, DateTimeOffset.MinValue);
+                return ITriggerHandler.ResultDto.ActivateResult();
             }
         }
 

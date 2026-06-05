@@ -25,6 +25,8 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -110,6 +112,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                 var services = new ServiceCollection();
 
                 services
+                    .AddTestService()
 
                     .AddDbServices(
                         (s) => new TestDbContext(
@@ -284,6 +287,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                 services
                     .AddScoped<BuisnessEntityForInboxDbProvider>()
                     .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<BuisnessEntityForInboxDbProvider>());
+
+                // Чтобы не падала ошибка DI.
+                services.AddSingleton(new EmergencyTriggerHandler<Guid>.OptionsDto(
+                    TriggerQueue
+                    ));
 
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()

@@ -12,6 +12,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         TriggerEvent,
         ISignalSimpleStreamTriggerEvent
     {
+        public string? SendTriggerKey { get; set; }
+
+        public long? SendTimeStamp { get; set; }
+
+
         [Obsolete("Сериализатор.")]
         public SignalSimpleStreamTriggerEvent()
         { }
@@ -22,6 +27,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
                   triggerKey,
                   TriggerEventKindEnum.SimpleStreamEvent)
         {
+        }
+
+        public SignalSimpleStreamTriggerEvent(
+            string triggerKey,
+            string sendTriggerKey,
+            long timeStamp)
+            : base(
+                  triggerKey,
+                  TriggerEventKindEnum.SimpleStreamEvent)
+        {
+            SendTriggerKey = sendTriggerKey;
+            SendTimeStamp = timeStamp;
         }
     }
 }

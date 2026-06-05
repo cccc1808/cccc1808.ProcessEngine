@@ -75,6 +75,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout })
                 .HasFilter(@"
     is_activated is true 
+    and child_trigger_wait_delivery_timestamp is null
     and is_completed is false");
         }
 
@@ -87,6 +88,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
                 .HasFilter(@"
     is_activated is true 
+    and child_trigger_wait_delivery_timestamp is null
     and is_completed is false");
         }
 
@@ -99,6 +101,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
                 .HasFilter(@"
     is_activated is true
+    and child_trigger_wait_delivery_timestamp is null
     and is_completed is false
     and is_range_handler is true");
         }
@@ -112,6 +115,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
                 .HasFilter(@"
     is_activated is true 
+    and child_trigger_wait_delivery_timestamp is null
     and is_completed is false
     and is_range_handler is false");
         }
@@ -125,6 +129,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return builder.HasIndex(e => new { e.TimerDate, e.Id })
                 .HasFilter(@"
     is_activated is true
+    and child_trigger_wait_delivery_timestamp is null
     and is_completed is false");
         }
 

@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
@@ -28,11 +28,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public SimpleRetryTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -76,181 +78,141 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             //// 1)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                {
+                    var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                    var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                processes.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Id.ShouldBe(processId),
-                        e => e.StoppedByError.ShouldBeFalse(),
-                        e => e.RetryCount.ShouldBe<short?>(1),
-                        e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
-                        )
-                    );
+                    processes.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Id.ShouldBe(processId),
+                            e => e.StoppedByError.ShouldBeFalse(),
+                            e => e.RetryCount.ShouldBe<short?>(1),
+                            e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
+                            )
+                        );
 
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(processId),
-                        e => e.IsCompleted.ShouldBeFalse(),
-                        e => e.IsActivated.ShouldBeTrue(),
-                        e => e.SignalCounter1.ShouldBeNull()
-                        )
-                    );
+                    triggers.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.ProcessId.ShouldBe(processId),
+                            e => e.IsCompleted.ShouldBeFalse(),
+                            e => e.IsActivated.ShouldBeTrue(),
+                            e => e.SignalCounter1.ShouldBeNull()
+                            )
+                        );
 
-                await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .Where(e => e.ProcessId == processId)
-                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.TimerDate, DateTimeOffset.MinValue));
+                    // Сбрасываем retry timeout.
+                    await dbContext.Set<TriggerDbEntity<Guid>>()
+                        .Where(e => e.ProcessId == processId)
+                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.TimerDate, DateTimeOffset.MinValue));
+                }
             }
+
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
 
-                await triggerService.DbWorkAsync(true, default);
+                {
+                    var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                    var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                processes.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Id.ShouldBe(processId),
-                        e => e.StoppedByError.ShouldBeFalse(),
-                        e => e.RetryCount.ShouldBe<short?>(1),
-                        e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute)
-                        )
-                    );
+                    processes.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Id.ShouldBe(processId),
+                            e => e.StoppedByError.ShouldBeFalse(),
+                            e => e.RetryCount.ShouldBe<short?>(1),
+                            e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute)
+                            )
+                        );
 
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(processId),
-                        e => e.IsCompleted.ShouldBeTrue(),
-                        e => e.IsActivated.ShouldBeFalse(),
-                        e => e.SignalCounter1.ShouldBeNull()
-                        )
-                    );
-
-                await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .Where(e => e.Id == triggers[0].Id)
-                    .ExecuteDeleteAsync();
+                    triggers.ShouldBeEmpty();
+                }
             }
 
             //// 2)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                await runner.BuildHandler();
+                {
+                    var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                    var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                    // Error
+                    processes.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Id.ShouldBe(processId),
+                            e => e.StoppedByError.ShouldBeFalse(),
+                            e => e.RetryCount.ShouldBe<short?>(2),
+                            e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
+                            )
+                        );
 
-                // Error
-                processes.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Id.ShouldBe(processId),
-                        e => e.StoppedByError.ShouldBeFalse(),
-                        e => e.RetryCount.ShouldBe<short?>(2),
-                        e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
-                        )
-                    );
+                    triggers.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.ProcessId.ShouldBe(processId),
+                            e => e.IsCompleted.ShouldBeFalse(),
+                            e => e.IsActivated.ShouldBeTrue(),
+                            e => e.SignalCounter1.ShouldBeNull()
+                            )
+                        );
 
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(processId),
-                        e => e.IsCompleted.ShouldBeFalse(),
-                        e => e.IsActivated.ShouldBeTrue(),
-                        e => e.SignalCounter1.ShouldBeNull()
-                        )
-                    );
-
-                await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .Where(e => e.ProcessId == processId)
-                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.TimerDate, DateTimeOffset.MinValue));
+                    // Сбрасываем retry timeout.
+                    await dbContext.Set<TriggerDbEntity<Guid>>()
+                        .Where(e => e.ProcessId == processId)
+                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.TimerDate, DateTimeOffset.MinValue));
+                }
             }
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
 
-                await triggerService.DbWorkAsync(true, default);
+                {
+                    var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                    var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                processes.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Id.ShouldBe(processId),
-                        e => e.StoppedByError.ShouldBeFalse(),
-                        e => e.RetryCount.ShouldBe<short?>(2),
-                        e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute)
-                        )
-                    );
+                    processes.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Id.ShouldBe(processId),
+                            e => e.StoppedByError.ShouldBeFalse(),
+                            e => e.RetryCount.ShouldBe<short?>(2),
+                            e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute)
+                            )
+                        );
 
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(processId),
-                        e => e.IsCompleted.ShouldBeTrue(),
-                        e => e.IsActivated.ShouldBeFalse(),
-                        e => e.SignalCounter1.ShouldBeNull()
-                        )
-                    );
-
-                await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .Where(e => e.Id == triggers[0].Id)
-                    .ExecuteDeleteAsync();
+                    triggers.ShouldBeEmpty();
+                }
             }
 
             //// 3)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var processes = await dbContext.Set<ProcessDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>()
-                    .AsNoTracking()
-                    .ToArrayAsync();
+                {
+                    var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                processes.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Id.ShouldBe(processId),
-                        e => e.StoppedByError.ShouldBeTrue(),
-                        e => e.RetryCount.ShouldBe<short?>(2),
-                        e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
-                        )
-                    );
+                    processes.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Id.ShouldBe(processId),
+                            e => e.StoppedByError.ShouldBeTrue(),
+                            e => e.RetryCount.ShouldBe<short?>(2),
+                            e => e.Status.ShouldBe(Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
+                            )
+                        );
 
-                triggers.ShouldBeEmpty();
+                    triggers.ShouldBeEmpty();
+                }
             }
         }
 

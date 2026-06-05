@@ -16,7 +16,7 @@ using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Components;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
@@ -152,7 +152,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                                     isRangeTrigger: true,
                                     handlerKey: NoWakeupRetryTriggerRangeHandler<TId>.Name,
                                     priority: elem2.Process.Info.Priority,
-                                    isActivated: true));
+                                    isActivated: true,
+                                    isChildTrigger: false));
                         }
                     }
 

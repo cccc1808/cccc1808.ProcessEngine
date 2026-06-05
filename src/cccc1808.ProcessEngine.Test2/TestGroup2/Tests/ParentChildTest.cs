@@ -8,20 +8,17 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
@@ -41,11 +38,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public ParentChildTest1(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -97,148 +96,137 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                // assert.
+                {
+                    var childProcessData = await _testService.LoadAsync<ChildProcessDbEntity>(scope.ServiceProvider);
+                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
-                var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
+                    childProcessData.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.ParentProcessId.ShouldBe(processId),
+                            e => e.ActiveParentProcessId.ShouldBe(processId)));
 
-                childProcessData.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ParentProcessId.ShouldBe(processId),
-                        e => e.ActiveParentProcessId.ShouldBe(processId)));
+                    childProcessId = childProcessData.Single().ProcessId;
+                    parentTriggerKey = childProcessData.Single().ParentTriggerKey;
 
-                childProcessId = childProcessData.Single().ProcessId;
-                parentTriggerKey = childProcessData.Single().ParentTriggerKey;
+                    allProceses.ShouldSatisfyAllConditions(
+                        e => e.Length.ShouldBe(2),
+                        e => e.ShouldContain(e => e.Id == childProcessId),
+                        e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute)),
+                         e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.WaitEvent))
+                        );
 
-                allProceses.ShouldSatisfyAllConditions(
-                    e => e.Length.ShouldBe(2),
-                    e => e.ShouldContain(e => e.Id == childProcessId),
-                    e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute)),
-                     e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.WaitEvent))
-                    );
-
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(1),
-                        e => e.IsActivated.ShouldBeFalse(),
-                        e => e.IsCompleted.ShouldBeFalse()));
+                    triggers.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Key.ShouldBe(parentTriggerKey),
+                            e => e.SignalCounter1.ShouldBe(1),
+                            e => e.IsActivated.ShouldBeFalse(),
+                            e => e.IsCompleted.ShouldBeFalse()));
+                }
             }
 
             // 2) Выполнение дочерних процессов.
             // По завершению на родитедьский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                // assert.
+                {
+                    var childProcessData = await _testService.LoadAsync<ChildProcessDbEntity>(scope.ServiceProvider);
+                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
-                var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
+                    childProcessData.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.ProcessId.ShouldBe(childProcessId),
+                            e => e.ParentProcessId.ShouldBe(processId),
+                            e => e.ActiveParentProcessId.ShouldBeNull()));
 
-                childProcessData.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(childProcessId),
-                        e => e.ParentProcessId.ShouldBe(processId),
-                        e => e.ActiveParentProcessId.ShouldBeNull()));
+                    allProceses.ShouldSatisfyAllConditions(
+                        e => e.Length.ShouldBe(2),
+                        e => e.ShouldContain(e => e.Id == childProcessId),
+                        e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
+                         e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.WaitEvent))
+                        );
 
-                allProceses.ShouldSatisfyAllConditions(
-                    e => e.Length.ShouldBe(2),
-                    e => e.ShouldContain(e => e.Id == childProcessId),
-                    e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
-                     e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.WaitEvent))
-                    );
-
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(1),
-                        e => e.IsActivated.ShouldBeFalse(),
-                        e => e.IsCompleted.ShouldBeFalse()));
+                    triggers.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Key.ShouldBe(parentTriggerKey),
+                            e => e.SignalCounter1.ShouldBe(1),
+                            e => e.IsActivated.ShouldBeFalse(),
+                            e => e.IsCompleted.ShouldBeFalse()));
+                }
             }
 
             // 3) Обработка событий триггеров.
             // События по счетчику CounterTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerOptions = scope.ServiceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
 
-                await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
-
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(0),
-                        e => e.IsActivated.ShouldBeTrue(),
-                        e => e.IsCompleted.ShouldBeFalse()));
+                // assert.
+                {
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
+                    triggers.ShouldSatisfyAllConditions(
+                        e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                            e => e.Key.ShouldBe(parentTriggerKey),
+                            e => e.SignalCounter1.ShouldBe(0),
+                            e => e.IsActivated.ShouldBeTrue(),
+                            e => e.IsCompleted.ShouldBeFalse()));
+                }
             }
 
             // 4) Обработка активных триггеров. CounterTrigger.
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
 
-                await triggerService.DbWorkAsync(true, default);
+                // assert.
+                {
+                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
-                var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
-                var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
+                    allProceses.ShouldSatisfyAllConditions(
+                        e => e.Length.ShouldBe(2),
+                        e => e.ShouldContain(e => e.Id == childProcessId),
+                        e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
+                         e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute))
+                        );
 
-                allProceses.ShouldSatisfyAllConditions(
-                    e => e.Length.ShouldBe(2),
-                    e => e.ShouldContain(e => e.Id == childProcessId),
-                    e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
-                     e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute))
-                    );
-
-                triggers.ShouldSatisfyAllConditions(
-                    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Key.ShouldBe(parentTriggerKey),
-                        e => e.SignalCounter1.ShouldBe(0),
-                        e => e.IsActivated.ShouldBeFalse(),
-                        e => e.IsCompleted.ShouldBeTrue()));
+                    triggers.ShouldBeEmpty();
+                }
             }
 
             // 5) Выполняется родительский процесс.
             // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                // assert.
+                {
+                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
 
-                var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
-
-                allProceses.ShouldSatisfyAllConditions(
-                    e => e.Length.ShouldBe(2),
-                    e => e.ShouldContain(e => e.Id == childProcessId),
-                    e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
-                     e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
-                        e => e.Status.ShouldBe(ProcessStatusEnum.Complete))
-                    );
+                    allProceses.ShouldSatisfyAllConditions(
+                        e => e.Length.ShouldBe(2),
+                        e => e.ShouldContain(e => e.Id == childProcessId),
+                        e => e.Single(e => e.Id == childProcessId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.Complete)),
+                         e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
+                            e => e.Status.ShouldBe(ProcessStatusEnum.Complete))
+                        );
+                }
             }
         }
 
@@ -276,7 +264,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     ParentProcessTriggerHandler.Name,
                                     1,
                                     false,
-                                    childCount), 
+                                    childCount,
+                                    isChildTrigger: false), 
                                 CancellationToken.None);
 
                             for (int i = 0; i < childCount; i++)

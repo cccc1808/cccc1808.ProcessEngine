@@ -75,6 +75,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             .Where(
                                 e =>
                                     e.IsActivated
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
                                     && e.TimerDate < p.NowDate
                                     && e.SelectLockTimeout < p.NowDate)
@@ -94,6 +95,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             .Where(
                                 e =>
                                     e.IsActivated
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
                                     && e.TimerDate < p.NowDate
                                     && e.SelectLockTimeout < p.NowDate)
@@ -114,6 +116,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             .Where(
                                 e =>
                                     e.IsActivated
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
                                     && e.IsRangeHandler == p.IsRangeTrigger
                                     && e.TimerDate < p.NowDate
@@ -135,6 +138,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             e =>
                                 e.IsActivated
                                 && !e.IsCompleted
+                                && e.ChildTrigger_WaitDeliveryTimestamp == null // Дочерний триггер не ждет ответа корневого.
                                 && e.TimerDate < p.NowDate);
 
                         return s;

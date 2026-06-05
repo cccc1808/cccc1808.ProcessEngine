@@ -26,14 +26,15 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
 
 using Confluent.Kafka;
-
-using DotNet.Testcontainers.Configurations;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -117,12 +118,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
                 services
 
+                    .AddTestService()
+
                     .AddDbServices(
                         (s) => new TestDbContext(
                         s,
                         $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"),
                         typeof(EFWakeupDbProvider<Guid>),
-                        typeof(ChildProcessDbProvider)
+                        typeof(ChildProcessDbProvider),
+                        typeof(RootTroggerDbProvider)
                         )
 
                     .AddKafkaServices(
@@ -149,15 +153,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler)),
-                        new TriggerRegistryDto(ParentProcessEmegencyTriggerHandler.Name, typeof(ParentProcessEmegencyTriggerHandler))
+                        new TriggerRegistryDto(EmergencyTriggerHandler<Guid>.Name, typeof(EmergencyTriggerHandler<Guid>)),
+                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
+                        new TriggerRegistryDto(Services.RootTrigger.ChildTriggerHandler.Name, typeof(Services.RootTrigger.ChildTriggerHandler))
                     )
                     .AddSingleton(
-                        new ParentProcessEmegencyTriggerHandler.Options() 
+                        new EmergencyTriggerHandler<Guid>.OptionsDto(
+                            "trigger_events"
+                            )
                         {
                             BatchSize = 1,
-                            EmptyTimeout = TimeSpan.FromHours(1),
                             SoftTimeout = TimeSpan.FromMinutes(1),
-                            TimeoutCondition = TimeSpan.Zero,
+                            LostTriggerTimeout = TimeSpan.Zero,
                         }
                         )
 
@@ -197,7 +204,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
                         new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1)
+                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1),
+                        new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1)
                     );
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();

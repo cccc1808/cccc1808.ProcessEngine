@@ -4,7 +4,9 @@
         {
             ProcessGoWaitStreamEvent,
             SimpleStreamEvent,
-            
+            RecheckProcessStatusStreamTriggerEvent,
+            DeliveryResultEvent,
+
             CounterEvent,
             TimerEvent,
 

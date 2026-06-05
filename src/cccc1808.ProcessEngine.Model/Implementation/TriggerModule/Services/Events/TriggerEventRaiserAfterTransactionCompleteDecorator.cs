@@ -16,9 +16,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
     {
         private readonly ITriggerEventRaiser<TId> _source;
         private readonly ITransactionManager _transactionManager;
-        private readonly IIsolationService _isolationService;
+        private readonly IIsolationService _isolationService;        
         
-        private readonly Dictionary<Guid, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
+        private readonly Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
+
+        private int RaiseCounter { get; set; }
 
         private bool HandlerRegistered { get; set; }
 
@@ -30,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _source = source;
             _transactionManager = transactionManager;            
             _isolationService = isolationService;
-            _sendBuffer = new Dictionary<Guid, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>>();
+            _sendBuffer = new Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>>(10);
         }
 
         public ValueTask RaiseAsync(
@@ -42,6 +44,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                 throw new InvalidOperationException("[Bug] Необходима транзакция.");
             }
 
+            if (!events.Any())
+            {
+                return ValueTask.CompletedTask;
+            }
+
             if (!HandlerRegistered)
             {
                 // 1) Привязка к транзакции.
@@ -51,17 +58,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         // Игнорируем cancelation token, чтобы выполнить отправку, даже если сервис останавливается.
                         // Если будет gracefull shutdown, то событие будет опубликовано, иначе событие потеряется.
                         await _source.RaiseAsync(
-                            _sendBuffer.Values.SelectMany(e => e).ToArray(),
+                            _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
                             default);
+
+                        _sendBuffer.Clear();
                     },
-                    roolbackHandler: CompensateTransactionHandler
+                    roolbackHandler: (_) => 
+                    {
+                        _sendBuffer.Clear();
+                        return ValueTask.CompletedTask;
+                    }
                     );
 
                 HandlerRegistered = true;
             }
 
-            var key = Guid.NewGuid();
-            _sendBuffer.Add(key, events);
+            var number = RaiseCounter++;
+            _sendBuffer.Add(number, events);
             
             // Если находимся в scope изоляции, то регистрируем событие на случай компенсации scope.
             if (_isolationService.InScope)
@@ -70,18 +83,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                 _isolationService.RegisterManualCompensate(
                     (t) => 
                     {
-                        _sendBuffer.Remove(key);
+                        _sendBuffer.Remove(number);
                         return ValueTask.CompletedTask;
                     }
                     );
             }
 
-            return ValueTask.CompletedTask;
-        }
-
-        private ValueTask CompensateTransactionHandler(CancellationToken _) 
-        {
-            _sendBuffer.Clear();
             return ValueTask.CompletedTask;
         }
     }

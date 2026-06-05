@@ -39,6 +39,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condition
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
@@ -54,6 +55,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
@@ -244,9 +246,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
-                .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerSetter, TriggerSetter<Guid>.OneOfTriggerSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerEventSetter, TriggerSetter<Guid>.OneOfTriggerEventSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
-                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IChildTriggerSetter, TriggerSetter<Guid>.ChildTriggerSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.IStreamSetter, TriggerSetter<Guid>.StreamSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
                 .AddSingleton(
                     new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto() 
@@ -257,7 +262,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
-                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
+                .AddScoped<EFTriggerHandlerFacade<Guid>>()
+                .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
+                .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
+
+                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
+                ;
 
             foreach (var elem in registrations)
             {
@@ -351,6 +361,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, InboxProcessDataDbEntity<Guid>>>()
                 .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()
                 ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddTestService(this IServiceCollection services)
+        {
+            services.AddSingleton<TestService>();
 
             return services;
         }

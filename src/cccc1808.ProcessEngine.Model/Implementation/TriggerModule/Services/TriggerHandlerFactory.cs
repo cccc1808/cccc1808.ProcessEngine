@@ -42,5 +42,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             return (ITriggerHandler)serviceProvider
                 .GetRequiredService(_registrations[key]);
         }
+
+        public bool TryGetHandler(
+            IServiceProvider serviceProvider,
+            string key, 
+            out ITriggerHandler handler)
+        {
+            if (_registrations.TryGetValue(key, out var type))
+            {
+                handler = GetHandler(serviceProvider, key);
+                return true;
+            }
+
+            handler = null!;
+            return false;
+        }
     }
 }

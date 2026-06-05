@@ -35,9 +35,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public object? State { get; private set; }
 
+        public TId? OffsetId { get => Entity.OffsetId; set => Entity.OffsetId = value; }
+
         public bool NeedUpdate { get; set; }
 
         public bool NeedRemove { get; set; }
+
+        public ITriggerComponent.IChildTriggerDto? ChildTrigger { get; private set; }
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 
@@ -46,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
             _triggerSetter = triggerSetter;
             Entity = entity;
 
-            _triggerSetter.OneOfSetter.OneOfTriggerKind(
+            _triggerSetter.OneOfTriggerSetter.OneOfKind(
                 Kind,
                 this,
                 counterHandler: static (p) => 
@@ -62,8 +66,39 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
                 {
                     p.State = new EFOffsetStreamProxyDto(p.Entity);
                 });
+
+            ChildTrigger = entity.ChildTrigger_CompleteAfterDelivery.HasValue 
+                ? new EFChildTriggerProxyDto(entity) 
+                : null;
         }
 
+
+        private class EFChildTriggerProxyDto 
+            : ITriggerComponent.IChildTriggerDto
+        {           
+            private TriggerDbEntity<TId> Entity { get; }
+
+            public bool CompleteAfterDelivery { get => Entity.ChildTrigger_CompleteAfterDelivery!.Value; set => Entity.ChildTrigger_RemoveAftrerDelivery = value; }
+
+            public bool RemoveAftrerDelivery { get => Entity.ChildTrigger_RemoveAftrerDelivery!.Value; set => Entity.ChildTrigger_RemoveAftrerDelivery = value; }
+
+            public long? WaitDeliveryTimestamp { get => Entity.ChildTrigger_WaitDeliveryTimestamp; set => Entity.ChildTrigger_WaitDeliveryTimestamp = value; }
+
+            public EFChildTriggerProxyDto(
+                TriggerDbEntity<TId> entity)
+            {
+                if (!entity.ChildTrigger_CompleteAfterDelivery.HasValue)
+                {
+                    throw new ArgumentException(nameof(entity));
+                }
+                if (!entity.ChildTrigger_RemoveAftrerDelivery.HasValue)
+                {
+                    throw new ArgumentException(nameof(entity));
+                }
+
+                Entity = entity;
+            }
+        }
 
         private class EFCounterProxyDto 
             : ITriggerComponent.ICounterDto
@@ -85,6 +120,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
             public bool StreamsProcessIsWaiting { get => _entity.StreamProcessIsWaiting.Value; set => _entity.StreamProcessIsWaiting = value; }
 
             public long NewSignalCounter { get => _entity.SignalCounter1.Value; set => _entity.SignalCounter1 = value; }
+
+            public bool IsRootTrigger { get => _entity.Kind == ITriggerComponent.TriggerKind.SimpleStreamRoot; }
 
             public EFSimpleStreamProxyDto(TriggerDbEntity<TId> entity)
             {
