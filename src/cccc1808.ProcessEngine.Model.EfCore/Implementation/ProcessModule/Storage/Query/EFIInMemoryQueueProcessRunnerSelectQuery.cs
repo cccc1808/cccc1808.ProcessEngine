@@ -91,7 +91,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                                 (e1, e2) => new { Process = e1, e2 }
                                 );
                         query = query.ApplayQueryCondition(
-                            _processDbEntityConditions.DbProcessingForSelectorProjection(query),
+                            _processDbEntityConditions.DbProcessingForSelectorForProjection1(query),
                             e => e.Process,
                             new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
                             );
@@ -144,7 +144,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         //        registrations,
                         //        result.Select(e => e.Id).ToArray()
                         //        ))                      
-                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, selectDate), cancellationToken);
+                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.ReservationTimeout, selectDate), cancellationToken);
 
                     await transaction.CommitAsync(cancellationToken);
                 }

@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, now),
+                    e => e.SetProperty(e => e.ReservationTimeout, now),
                     cancellationToken);
         }
 
@@ -68,7 +68,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 // Для оптимизации - использование фильтрующего индекса.
                 .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, now),
+                    e => e.SetProperty(e => e.ReservationTimeout, now),
                     cancellationToken);
         }
     }

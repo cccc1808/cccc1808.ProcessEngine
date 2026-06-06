@@ -105,14 +105,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             (e1, e2) => new { Process = e1, e2 }
                             );
                     query = query.ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForSelectorProjection(query),
+                        _processDbEntityConditions.DbProcessingForSelectorForProjection2(query),
                         e => e.Process,
-                        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
+                        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2(
+                            now, 
+                            isRangeExecution: true, 
+                            _dbContext,
+                            registrations)
                         );
 
                     var data = await query
-                        .Where(e => e.Process.IsRangeExecution)
-                        .OrderByDescending(e => e.Process.Priority)
+                        .OrderByDescending(e => e.Process.Priority)                                                
+                        //.ThenBy(e => e.Process.ProcessTypeId)
+                        //.ThenBy(e => e.Process.ProcessVersion)
+                        //.ThenBy(e => e.Process.ReservationTimeout)
                         .Take(state.Options.RangeBatchSize(state.ParallelSlots))
                         .Select(e => new { e.Process.Id, e.Process.ProcessTypeId, e.Process.ProcessVersion, e.Process.Priority })
                         .ToArrayAsync(cancellationToken);
@@ -148,7 +154,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .Where(e => result.Select(e => e.ProcessInstanceInfo.Id).Contains(e.Id))
                         .ExecuteUpdateAsync(
                             e => e.SetProperty(
-                                e => e.SelectLockTimeout, 
+                                e => e.ReservationTimeout, 
                                 _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock
                                 ),
                         cancellationToken);
@@ -181,13 +187,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             (e1, e2) => new { Process = e1, e2 }
                             );
                     query = query.ApplayQueryCondition(
-                        _processDbEntityConditions.DbProcessingForSelectorProjection(query),
+                        _processDbEntityConditions.DbProcessingForSelectorForProjection2(query),
                         e => e.Process,
-                        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
+                        new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2(
+                            now,
+                            isRangeExecution: false,
+                            _dbContext, 
+                            registrations)
                         );
                     var data = await query
-                        .Where(e => !e.Process.IsRangeExecution)
                         .OrderByDescending(e => e.Process.Priority)
+                        //.ThenBy(e => e.Process.ProcessTypeId)
+                        //.ThenBy(e => e.Process.ProcessVersion)
+                        //.ThenBy(e => e.Process.ReservationTimeout)
                         .Take(state.Options.SingleBatchSize(state.ParallelSlots))
                         .Select(e => new { e.Process.Id, e.Process.ProcessTypeId, e.Process.ProcessVersion, e.Process.Priority })
                         .ToArrayAsync(cancellationToken);
@@ -223,7 +235,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .Where(e => result.Select(e => e.ProcessInstanceInfo.Id).Contains(e.Id))
                         .ExecuteUpdateAsync(
                             e => e.SetProperty(
-                                e => e.SelectLockTimeout, 
+                                e => e.ReservationTimeout, 
                                 _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock
                                 ),
                             cancellationToken);

@@ -25,10 +25,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public bool IsRangeExecution { get; set; }
 
         /// <summary>
-        /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
-        /// Дополняет updatelock.
+        /// * Указывает нодам сервиса, что процес уже зарезирвирован нодой на выполнение (даже если на нем нет Updatelock).
+        /// * Индексируется (в отличии от updatelock).
         /// </summary>
-        public DateTimeOffset SelectLockTimeout { get; set; }
+        public DateTimeOffset ReservationTimeout { get; set; }
 
         #region Status
 
@@ -65,7 +65,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
             ProcessTypeId = processTypeId;
             ProcessVersion = processVersion;
             Priority = priority;
-            SelectLockTimeout = selectLockTimeout;
+            ReservationTimeout = selectLockTimeout;
             StoppedByError = stoppedByError;
             Status = status;
             RetryCount = retryCount;

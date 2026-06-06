@@ -190,7 +190,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             var isWaitingMissmath =
                                 !setter.StreamSetter.GetStreamsProcessIsWaiting(elem.Trigger)
                                 && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
-                                && (now - elem.SelectLockTimeout) > options.SteamGoWaitTimeout;
+                                && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout;
 
                             if (isWaitingMissmath)
                             {
@@ -333,7 +333,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 ITriggerComponent<TId> Trigger,
                 bool ProcessDeleted,
                 ProcessStatusEnum? ProcessStatus,
-                DateTimeOffset? SelectLockTimeout
+                DateTimeOffset? ReservationTimeout
                 );
         }
 
