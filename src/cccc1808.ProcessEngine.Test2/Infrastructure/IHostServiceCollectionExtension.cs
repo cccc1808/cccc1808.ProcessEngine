@@ -278,6 +278,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EFTriggerHandlerFacade<Guid>>()
                 .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
                 .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
+                .AddScoped<IRootTriggerQuery<Guid>, StubRootTriggerQuery<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
                 ;
