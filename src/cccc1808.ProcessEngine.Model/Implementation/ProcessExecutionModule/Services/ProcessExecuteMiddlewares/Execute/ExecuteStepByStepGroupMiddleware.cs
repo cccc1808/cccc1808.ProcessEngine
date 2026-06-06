@@ -363,7 +363,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     },
                     static async (p, ex, cancellationToken) =>
                     {
-                        // [Костыль]: т.к. произошла ошибка в конце, то сбрасываем trigger event декораторе по всем процессам.
+                        // Ошибка на общем сохранении, сбрасываем  буфер событий триггеров.
                         p._serviceProvider.GetService<ITriggerEventRaiser<TId>>()?.ClearBuffer();
 
                         {
@@ -388,7 +388,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     },
                     static async (p, ex, cancellationToken) =>
                     {
-                        if (p.options.UseReloadAfterError)
                         {
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
