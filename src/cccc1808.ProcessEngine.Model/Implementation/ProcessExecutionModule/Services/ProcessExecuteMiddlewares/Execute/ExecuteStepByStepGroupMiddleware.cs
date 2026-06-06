@@ -19,6 +19,9 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute
 {
@@ -341,6 +344,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 await _isolationService.ExecuteAsync(
                     options.IsolationMode, 
                     (
+                        _serviceProvider,
                         allProcesses, 
                         executingProcesses,
                         executionGroup,
@@ -358,6 +362,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     },
                     static async (p, ex, cancellationToken) =>
                     {
+                        // [Костыль]: т.к. произошла ошибка в конце, то сбрасываем trigger event декораторе по всем процессам.
+                        p._serviceProvider.GetService<TriggerEventRaiserAfterTransactionCompleteDecorator<TId>>()?.Clear();                        
+
                         if (p.options.UseReloadAfterError)
                         {
                             p.allProcesses.Data = await p.This.LoadAsync(
@@ -375,12 +382,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             ex,
                             cancellationToken);
 
-                        if (p.options.UseAfterStepSave)
-                        {
-                            await p.handler.SaveRangeAsync(
-                                p.executionGroup,
-                                cancellationToken);
-                        }
+                        await p.handler.SaveRangeAsync(
+                            p.executionGroup,
+                            cancellationToken);
                     },
                     static async (p, ex, cancellationToken) =>
                     {

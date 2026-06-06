@@ -60,12 +60,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         await _source.RaiseAsync(
                             _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
                             default);
-
-                        _sendBuffer.Clear();
+                        Clear();
                     },
                     roolbackHandler: (_) => 
                     {
-                        _sendBuffer.Clear();
+                        Clear();
                         return ValueTask.CompletedTask;
                     }
                     );
@@ -90,6 +89,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             }
 
             return ValueTask.CompletedTask;
+        }
+
+        public void Clear() 
+        {
+            _sendBuffer.Clear();
         }
     }
 }
