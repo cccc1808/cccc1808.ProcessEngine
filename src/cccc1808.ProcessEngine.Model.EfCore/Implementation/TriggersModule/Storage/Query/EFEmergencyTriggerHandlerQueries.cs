@@ -89,21 +89,21 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             // [MVCC Only]: т.к. тут чтение не конкурирует не с какими блокировками. Иначе подумать.
             var processData = await _dbContext.Set<ProcessDbEntity<TId>>()
                 .Where(e => triggerData.Select(e => e.ProcessId).Contains(e.Id))
-                .Select(e => new { e.Id, e.Status, e.SelectLockTimeout })
+                .Select(e => new { e.Id, e.Status, e.ReservationTimeout })
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
             return triggerData.ToDictionary(
                 e => e.Key,
-                e => 
+                (Func<TriggerDbEntity<TId>, EmergencyTriggerHandler<TId>.IQueries.StatusInfo>)(                e => 
                 {
                     if (processData.TryGetValue(e.ProcessId, out var process))
                     {
                         return new EmergencyTriggerHandler<TId>.IQueries.StatusInfo(
                             e.Id,
-                            new EFTriggerProxyComponent<TId>(_triggerSetter, e),
+                            (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(_triggerSetter, e),
                             ProcessDeleted: false,
                             ProcessStatus: process.Status,
-                            SelectLockTimeout: process.SelectLockTimeout
+                            ReservationTimeout: process.ReservationTimeout
                             );
                     }
                     else 
@@ -113,10 +113,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                             new EFTriggerProxyComponent<TId>(_triggerSetter, e),
                             ProcessDeleted: true,
                             ProcessStatus: null,
-                            SelectLockTimeout: null
+                            ReservationTimeout: null
                             );
                     }
-                }
+                })
                 );
         }
 

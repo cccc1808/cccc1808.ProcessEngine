@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Queries;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
@@ -83,7 +84,7 @@ using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-using Scrutor;
+using static cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners.IInMemoryQueueProcessRunner;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -220,20 +221,31 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             return services;
         }
 
-        public static IServiceCollection AddProcessExecutionServices(
+        public static IServiceCollection AddInmemoryQueueProcessRunner(
             this IServiceCollection services,
             LocalProcessBufferService<Guid>.Options localProcessBufferOptions,
-            int processCountLimiter) 
+            int processCountLimiter)
         {
             services
-                .AddScoped<ILocalProcessBufferService<Guid>, LocalProcessBufferService<Guid>>()
+                .AddScoped<IInMemoryQueueProcessRunner.ILocalProcessBufferService<Guid>, LocalProcessBufferService<Guid>>()
                 .AddSingleton(localProcessBufferOptions)
                 .AddScoped<IExecuteLimiterInvoker, ExecuteLimiterInvoker>()
                 .AddScoped(s => new ProcessCountLimiter(processCountLimiter))
                 .AddScoped<IExecuteLimiter>(s => s.GetRequiredService<ProcessCountLimiter>())
-                
-                .AddScoped<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
-                .AddSingleton(s => new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.OptionsDto(TimeSpan.FromSeconds(30)))
+
+                .AddScoped<IUnreserveProcessQuery<Guid>, EFUnreserveProcessQuery<Guid, ProcessDbEntity<Guid>>>()
+                .AddScoped<EFIInMemoryQueueProcessRunnerSelectQuery<Guid, ProcessDbEntity<Guid>>>()
+                ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddParallelLimitProcessRunner(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<IUnreserveProcessQuery<Guid>, EFUnreserveProcessQuery<Guid, ProcessDbEntity<Guid>>>()
+                .AddScoped<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
             return services;

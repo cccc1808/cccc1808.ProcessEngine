@@ -123,10 +123,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             )
                     )
                     .AddIsolationServices()
-                    .AddProcessExecutionServices(
-                        new LocalProcessBufferService<Guid>.Options() { SizeLimit = RangeConst },
-                        processCountLimiter: 1
-                    )
+                    .AddParallelLimitProcessRunner()
                     .AddWakeupServices(
                         [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
                         []
@@ -175,16 +172,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
-                    s => new ProcessRunner<Guid>(
+                    s => new ParallelLimitProcessRunner<Guid>(
                         s,
-                        new ProcessRunner<Guid>.OptionsDto(
-                            SelectBatchLimit: FixtureCollection.RangeConst,
-                            selectEmptyTimeout: TimeSpan.FromSeconds(1),
-                            BatchLimit: FixtureCollection.RangeConst,
-                            BatchTimeout: TimeSpan.FromSeconds(2),
-                            SelectorExceptionDelay: TimeSpan.Zero,
-                            SelectFactory: s => s.GetRequiredService<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
-                            RootMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
+                        new ParallelLimitProcessRunner<Guid>.OptionsDto(
+                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1()
+                            {
+                                RangeBatchSize = (e) => e,
+                                SingleBatchSize = (e) => e,
+                            },
+                            selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
+                            rangeMiddlewareFactory: (s) => throw new Exception(""),
+                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                                 s,
                                 (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                     s,
@@ -194,15 +192,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                     s.GetRequiredService<IWakeupService<Guid>>(),
                                     (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
                                     s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                ),
+                                    ),
                                 s.GetRequiredService<ITransactionManager>()
                                 )
-                            ),                    
-                        s.GetRequiredService<ILocalProcessBufferService<Guid>>(),                    
-                        s.GetRequiredService<IExecuteLimiterInvoker>(),
-                        s.GetRequiredService<ProcessCountLimiter>()
                         )
-                    );
+                        {
+                            ExceptionDelay = TimeSpan.Zero,
+                            DbExecuteParallelismLimit = 1,
+                        })
+                );
                 services
                     .AddScoped<Process1Body>();                
 
