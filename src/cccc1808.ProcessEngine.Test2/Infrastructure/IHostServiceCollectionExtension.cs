@@ -354,12 +354,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     s.GetRequiredService<IDateTimeProvider>(),
                     s.GetRequiredService<IOutboxSetter>(),
                     s.GetRequiredService<IHeaderJsonSerializer>(),
-                    new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(
-                        10,
-                        IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                        true,
-                        true,
-                        true)
+                    Presets<Guid>.Preset1
                     ))
 
                 .AddScoped<IAggregateClassifierDbEntityCondition<Guid>, AggregateClassifierDbEntityCondition<Guid>>()

@@ -225,7 +225,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
                                     s.GetRequiredService<IWakeupService<Guid>>(),
-                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<Process1Body>()),
+                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestProcessBody>()),
                                     s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                     ),
                                 s.GetRequiredService<ITransactionManager>()
@@ -237,8 +237,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         })
                 );
                 services
-                    .AddScoped<Process1Body>()
-                    .AddSingleton<Process1Body.TestState>();                
+                    .AddScoped<TestProcessBody>()
+                    .AddSingleton<TestProcessBody.TestState>();                
 
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()

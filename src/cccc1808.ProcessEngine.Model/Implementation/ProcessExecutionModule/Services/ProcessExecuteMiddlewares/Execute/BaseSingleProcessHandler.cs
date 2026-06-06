@@ -16,13 +16,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     /// Базовая реализация процессов по одному.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public abstract class BaseSingleProcessHandler<TId> 
+    public abstract class BaseSingleProcessHandler<TId>
         : BaseRangeProcessHandler<TId>
     {
         private readonly IIsolationService _isolationService;
 
         protected BaseSingleProcessHandler(
-            IIsolationService isolationService, 
+            IIsolationService isolationService,
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter processSetter)
@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options => SingleOptions.GroupOptions;
 
         public override async ValueTask StepRangeAsync(
-            ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group, 
+            ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group,
             CancellationToken cancellationToken)
         {
             var options = SingleOptions;

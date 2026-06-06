@@ -247,12 +247,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                 services
                     .AddScoped<TestInboxBody>()
                     .AddSingleton(new BaseSingleProcessHandler<Guid>.OptionsDto(
-                        new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(
-                            10,
-                            IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                            true,
-                            false,
-                            true),
+                        Presets<Guid>.Preset1,
                         IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
                         UseSave: true));
 

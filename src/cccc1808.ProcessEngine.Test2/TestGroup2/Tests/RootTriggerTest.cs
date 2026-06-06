@@ -59,7 +59,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 1) Создаем процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var testState = scope.ServiceProvider.GetRequiredService<Process1Body.TestState>();
+                var testState = scope.ServiceProvider.GetRequiredService<TestProcessBody.TestState>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
