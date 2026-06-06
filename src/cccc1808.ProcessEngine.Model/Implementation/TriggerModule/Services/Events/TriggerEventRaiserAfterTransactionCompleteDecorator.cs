@@ -12,7 +12,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
     /// Потеря события считается допустимой (хоть и маловероятной), 
     /// на этот случай для типа процесса создается страхующий триггер (см. Emergency trigger handler).
     /// </summary>
-    public class TriggerEventRaiserAfterTransactionCompleteDecorator<TId> : ITriggerEventRaiser<TId>
+    public class TriggerEventRaiserAfterTransactionCompleteDecorator<TId>
+        : ITriggerEventRaiser<TId>
     {
         private readonly ITriggerEventRaiser<TId> _source;
         private readonly ITransactionManager _transactionManager;
@@ -91,9 +92,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             return ValueTask.CompletedTask;
         }
 
-        public void Clear() 
+        public void ClearBuffer()
+        {
+            Clear();
+            _source.ClearBuffer();
+        }
+
+        private void Clear() 
         {
             _sendBuffer.Clear();
-        }
+        }        
     }
 }

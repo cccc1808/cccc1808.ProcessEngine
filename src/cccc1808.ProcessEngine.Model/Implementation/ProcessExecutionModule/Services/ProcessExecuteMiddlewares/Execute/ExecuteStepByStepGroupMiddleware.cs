@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
@@ -363,8 +364,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     static async (p, ex, cancellationToken) =>
                     {
                         // [Костыль]: т.к. произошла ошибка в конце, то сбрасываем trigger event декораторе по всем процессам.
-                        p._serviceProvider.GetService<TriggerEventRaiserAfterTransactionCompleteDecorator<TId>>()?.Clear();                        
-
+                        p._serviceProvider.GetService<ITriggerEventRaiser<TId>>()?.ClearBuffer();
+                        
                         if (p.options.UseReloadAfterError)
                         {
                             p.allProcesses.Data = await p.This.LoadAsync(
