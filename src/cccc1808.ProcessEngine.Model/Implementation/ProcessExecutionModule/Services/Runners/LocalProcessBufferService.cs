@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Xml;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -19,15 +18,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     public class LocalProcessBufferService<TId>
-        : ILocalProcessBufferService<TId>
+        : IInMemoryQueueProcessRunner.ILocalProcessBufferService<TId>
     {
         private readonly Channel<ProcessInstanceInfoDto<TId>> _channel;
         private readonly Options _options;
 
         private int _size;
 
-        private readonly ConcurrentDictionary<Guid, Action<ILocalProcessBufferService<TId>>> _emptyHandler
-            = new ConcurrentDictionary<Guid, Action<ILocalProcessBufferService<TId>>>();
+        private readonly ConcurrentDictionary<Guid, Action<IInMemoryQueueProcessRunner.ILocalProcessBufferService<TId>>> _emptyHandler
+            = new ConcurrentDictionary<Guid, Action<IInMemoryQueueProcessRunner.ILocalProcessBufferService<TId>>>();
 
         public int FreeSpace 
             => GetFreeSpace();
@@ -157,7 +156,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             => Math.Max(_options.SizeLimit - _size, 0);
 
         public IDisposable AddEmptyHandler(
-            Action<ILocalProcessBufferService<TId>> handler)
+            Action<IInMemoryQueueProcessRunner.ILocalProcessBufferService<TId>> handler)
         {
             var id = Guid.NewGuid();
             _emptyHandler.TryAdd(id, handler);

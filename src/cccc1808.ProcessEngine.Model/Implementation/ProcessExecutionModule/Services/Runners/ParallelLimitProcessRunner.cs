@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
@@ -21,9 +20,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     /// За основу взята текущая реализация <see cref="TriggerRunner{TId}"/>.
     /// Особенности:
     /// * Не использует InMemory очереди (чтобы задача не резервировалась, если нет свободного слота parallel Limit).
-    /// * Используется только простой parallel limit (ограничение на количество параллельных task), в отличии от <see cref="ProcessRunner{TId}"/>.
+    /// * Используется только простой parallel limit (ограничение на количество параллельных task), в отличии от <see cref="InMemoryQueueProcessRunner{TId}"/>.
     /// </summary>
-    public class ProcessRunner2<TId> : IProcessRunner
+    public class ParallelLimitProcessRunner<TId> 
+        : IParallelLimitProcessRunner
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
@@ -31,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly ConcurrentDictionary<Guid, Task> _runningTasks 
             = new ConcurrentDictionary<Guid, Task>();
 
-        public ProcessRunner2(
+        public ParallelLimitProcessRunner(
             IServiceProvider serviceProvider, 
             OptionsDto options)
         {
@@ -53,11 +53,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         public async Task RunAsync(bool executeOne, CancellationToken cancellationToken)
         {
-            static async Task<ICollection<IProcessAsyncProcessingSelectQuery2<TId>.SelectDto>> SelectAsync(
+            static async Task<ICollection<IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto>> SelectAsync(
                 IServiceProvider serviceProvider,
                 OptionsDto options,
                 SemaphoreSlim parallelLimiter,
-                IProcessAsyncProcessingSelectQuery2<TId>.IContextState selectContext,
+                IParallelLimitProcessRunner.ISelectQuery<TId>.IContextState selectContext,
                 CancellationToken cancellationToken)
             {
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
@@ -89,13 +89,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 OptionsDto options,
                 SemaphoreSlim parallelLimiter,
                 ConcurrentDictionary<Guid, Task> tasks,
-                ICollection<IProcessAsyncProcessingSelectQuery2<TId>.SelectDto> selectData,
+                ICollection<IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto> selectData,
                 CancellationToken cancellationToken)
             {
                 static async Task ExecuteRangeHandlerAsync(
                     IServiceProvider serviceProvider,
                     OptionsDto options,
-                    IProcessAsyncProcessingSelectQuery2<TId>.SelectDto[] group,
+                    IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto[] group,
                     CancellationToken cancellationToken)
                 {
                     var handler = options.RangeMiddlewareFactory(serviceProvider);
@@ -108,7 +108,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 static async Task ExecuteSingleHandlerAsync(
                     IServiceProvider serviceProvider,
                     OptionsDto options,
-                    IProcessAsyncProcessingSelectQuery2<TId>.SelectDto process,
+                    IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto process,
                     CancellationToken cancellationToken)
                 {
                     var handler = options.SignleMiddlewareFactory(serviceProvider);
@@ -209,7 +209,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
                 try
                 {
-                    ICollection<IProcessAsyncProcessingSelectQuery2<TId>.SelectDto> selectData;
+                    ICollection<IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto> selectData;
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
                         selectData = await SelectAsync(
@@ -295,7 +295,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             public TimeSpan EmptySelectDelay { get; set; }
                 = TimeSpan.FromSeconds(0.1);
 
-            public IProcessAsyncProcessingSelectQuery2<TId>.ISelectOptions SelectOptions { get; set; }
+            public IParallelLimitProcessRunner.ISelectQuery<TId>.ISelectOptions SelectOptions { get; set; }
 
             public int DbExecuteParallelismLimit { get; set; }
                 = 10;
@@ -303,15 +303,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             public int TransactionUpdateLimit { get; set; }
                 = 250;
 
-            public Func<IServiceProvider, IProcessAsyncProcessingSelectQuery2<TId>> SelectFactory { get; set; }
+            public Func<IServiceProvider, IParallelLimitProcessRunner.ISelectQuery<TId>> SelectFactory { get; set; }
 
             public Func<IServiceProvider, IProcessHandlerMiddleware<TId>> RangeMiddlewareFactory { get; set; }
 
             public Func<IServiceProvider, IProcessHandlerMiddleware<TId>> SignleMiddlewareFactory { get; set; }
 
             public OptionsDto(
-                IProcessAsyncProcessingSelectQuery2<TId>.ISelectOptions selectOptions,
-                Func<IServiceProvider, IProcessAsyncProcessingSelectQuery2<TId>> selectFactory, 
+                IParallelLimitProcessRunner.ISelectQuery<TId>.ISelectOptions selectOptions,
+                Func<IServiceProvider, IParallelLimitProcessRunner.ISelectQuery<TId>> selectFactory, 
                 Func<IServiceProvider, IProcessHandlerMiddleware<TId>> rangeMiddlewareFactory,
                 Func<IServiceProvider, IProcessHandlerMiddleware<TId>> signleMiddlewareFactory)
             {

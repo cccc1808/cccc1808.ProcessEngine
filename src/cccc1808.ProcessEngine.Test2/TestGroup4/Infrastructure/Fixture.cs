@@ -131,10 +131,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     )
                     .AddIsolationServices()
 
-                    .AddProcessExecutionServices(
-                        new LocalProcessBufferService<Guid>.Options() { SizeLimit = 1 },
-                        processCountLimiter: 1
-                    )
+                    .AddParallelLimitProcessRunner()
 
                     .AddWakeupServices(
                         [
@@ -191,15 +188,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     );
 
                 services.AddScoped<IProcessRunner>(
-                    s => new ProcessRunner2<Guid>(
+                    s => new ParallelLimitProcessRunner<Guid>(
                         s,
-                        new ProcessRunner2<Guid>.OptionsDto(
-                            selectOptions: new EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>.Options1()
+                        new ParallelLimitProcessRunner<Guid>.OptionsDto(
+                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1()
                             {
                                 RangeBatchSize = (e) => e,
                                 SingleBatchSize = (e) => e,
                             },
-                            selectFactory: (s) => s.GetRequiredService<EFProcessAsyncProcessingSelectQuery2<Guid, ProcessDbEntity<Guid>>>(),
+                            selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                             rangeMiddlewareFactory: (s) => throw new Exception(""),
                             signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
                             s,

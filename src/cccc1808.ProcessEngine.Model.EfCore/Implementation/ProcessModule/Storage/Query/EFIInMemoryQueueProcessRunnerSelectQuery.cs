@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -21,8 +21,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query
 {
-    public class EFProcessAsyncProcessingSelectQuery<TId, TEntity> 
-        : IProcessAsyncProcessingSelectQuery<TId>
+    public class EFIInMemoryQueueProcessRunnerSelectQuery<TId, TEntity> 
+        : IInMemoryQueueProcessRunner.ISelectQuery<TId>
         where TEntity : ProcessDbEntity<TId>
     {        
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
         private readonly OptionsDto _options;
 
-        public EFProcessAsyncProcessingSelectQuery(
+        public EFIInMemoryQueueProcessRunnerSelectQuery(
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             ITransactionManager transactionManager,
@@ -151,45 +151,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
                 yield return new Queue<ProcessInstanceInfoDto<TId>>(result);
             }
-        }
-
-        public async Task UnlockSelectAsync(
-            Queue<ProcessInstanceInfoDto<TId>> ids,
-            CancellationToken cancellationToken)
-        {
-            var now = _dateTimeProvider.UtcNow;
-
-            // Снимаем блокировку выборки.
-            await _dbContext.Set<TEntity>()
-                .ApplayQueryCondition(
-                    _processDbEntityConditions.Id.QueryRange, 
-                    ids.Select(e => e.Id).ToArray()
-                    )
-                // Для оптимизации - использование фильтрующего индекса.
-                .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
-                .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, now),
-                    cancellationToken);
-        }
-
-        public async Task UnlockSelectAsync(
-            ICollection<TId> ids, 
-            CancellationToken cancellationToken)
-        {
-            var now = _dateTimeProvider.UtcNow;
-
-            // Снимаем блокировку выборки.
-            await _dbContext.Set<TEntity>()
-                .ApplayQueryCondition(
-                    _processDbEntityConditions.Id.QueryRange,
-                    ids
-                    )
-                // Для оптимизации - использование фильтрующего индекса.
-                .ApplayQueryCondition(_processDbEntityConditions.AsyncExecute.Query)
-                .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.SelectLockTimeout, now),
-                    cancellationToken);
-        }
+        }        
 
         public record OptionsDto(
             TimeSpan SelectoLockDelay

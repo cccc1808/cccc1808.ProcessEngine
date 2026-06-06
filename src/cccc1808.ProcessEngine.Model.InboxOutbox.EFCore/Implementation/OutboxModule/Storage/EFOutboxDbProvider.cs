@@ -7,11 +7,10 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Queries;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -371,9 +370,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                     // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
+                        var unreserveProcessQuery = scope.ServiceProvider.GetRequiredService<IUnreserveProcessQuery<TId>>();
 
-                        await selectQuery.UnlockSelectAsync(
+                        await unreserveProcessQuery.UnreserveAsync(
                             notProcessedOutboxProcessesIds,
                             cancellationToken);
                     }

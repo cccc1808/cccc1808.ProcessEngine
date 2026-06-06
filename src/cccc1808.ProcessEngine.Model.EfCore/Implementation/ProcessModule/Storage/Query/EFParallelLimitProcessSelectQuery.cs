@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -24,8 +24,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
     /// </summary>
     /// <typeparam name="TId"></typeparam>
     /// <typeparam name="TEntity"></typeparam>
-    public class EFProcessAsyncProcessingSelectQuery2<TId, TEntity> 
-        : IProcessAsyncProcessingSelectQuery2<TId>
+    public class EFParallelLimitProcessSelectQuery<TId, TEntity> 
+        : IParallelLimitProcessRunner.ISelectQuery<TId>
         where TEntity : ProcessDbEntity<TId>
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -35,7 +35,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
         private readonly IProcessDbEntityConditions<TId, TEntity> _processDbEntityConditions;
 
-        public EFProcessAsyncProcessingSelectQuery2(
+        public EFParallelLimitProcessSelectQuery(
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
@@ -50,8 +50,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _processDbEntityConditions = processDbEntityConditions;            
         }
 
-        public IProcessAsyncProcessingSelectQuery2<TId>.IContextState BuildContext(
-            IProcessAsyncProcessingSelectQuery2<TId>.ISelectOptions selectOptions)
+        public IParallelLimitProcessRunner.ISelectQuery<TId>.IContextState BuildContext(
+            IParallelLimitProcessRunner.ISelectQuery<TId>.ISelectOptions selectOptions)
         {
             return selectOptions switch
             {
@@ -61,8 +61,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             };
         }
 
-        public async Task<ICollection<IProcessAsyncProcessingSelectQuery2<TId>.SelectDto>> SelectForProcessingAsync(
-            IProcessAsyncProcessingSelectQuery2<TId>.IContextState contextState,
+        public async Task<ICollection<IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto>> SelectForProcessingAsync(
+            IParallelLimitProcessRunner.ISelectQuery<TId>.IContextState contextState,
             CancellationToken cancellationToken)
         {
             return contextState switch
@@ -73,7 +73,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             };
         }
 
-        private async Task<ICollection<IProcessAsyncProcessingSelectQuery2<TId>.SelectDto>> Implementation1Async(
+        private async Task<ICollection<IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto>> Implementation1Async(
             Context1 state,
             bool canInvoke,
             CancellationToken cancellationToken)
@@ -84,7 +84,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             if (state.IsRangePhase)
             {
                 //// Фаза обработки Range
-                IProcessAsyncProcessingSelectQuery2<TId>.SelectDto[] result;
+                IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto[] result;
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                 {
                     // В1: нормальный join
@@ -118,7 +118,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .ToArrayAsync(cancellationToken);
 
                     result = data
-                        .Select(e => new IProcessAsyncProcessingSelectQuery2<TId>.SelectDto(
+                        .Select(e => new IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto(
                             new ProcessInstanceInfoDto<TId>(
                                 e.Id,
                                 new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion),
@@ -161,7 +161,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             else
             {
                 //// Фаза обработки Single.
-                IProcessAsyncProcessingSelectQuery2<TId>.SelectDto[] result;
+                IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto[] result;
                 using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
                 {
                     var registrationQuery = _dbContext.QueryFromCollection(
@@ -193,7 +193,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .ToArrayAsync(cancellationToken);
 
                     result = data
-                        .Select(e => new IProcessAsyncProcessingSelectQuery2<TId>.SelectDto(
+                        .Select(e => new IParallelLimitProcessRunner.ISelectQuery<TId>.SelectDto(
                             new ProcessInstanceInfoDto<TId>(
                                 e.Id,
                                 new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion),
@@ -235,7 +235,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             }
         }
 
-        public class Options1 : IProcessAsyncProcessingSelectQuery2<TId>.ISelectOptions
+        public class Options1 : IParallelLimitProcessRunner.ISelectQuery<TId>.ISelectOptions
         {
             public TimeSpan SingleTriggerSelectLock { get; set; } 
                 = TimeSpan.FromSeconds(20);
@@ -250,7 +250,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 = static (e) => e;
         }
 
-        public class Context1 : IProcessAsyncProcessingSelectQuery2<TId>.IContextState
+        public class Context1 : IParallelLimitProcessRunner.ISelectQuery<TId>.IContextState
         {           
             public Options1 Options { get; }
 

@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public short Priority { get; set; }
 
         /// <summary>
-        /// Используется в <see cref="EFProcessAsyncProcessingSelectQuery2{TId, TEntity}"/> для распределения между слотами параллельного выполнения.
+        /// Используется в <see cref="EFParallelLimitProcessSelectQuery{TId, TEntity}"/> для распределения между слотами параллельного выполнения.
         /// TODO: не учитывается в индексах.
         /// </summary>
         public bool IsRangeExecution { get; set; }
