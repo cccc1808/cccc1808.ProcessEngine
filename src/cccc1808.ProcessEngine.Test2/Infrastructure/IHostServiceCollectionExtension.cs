@@ -302,12 +302,26 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton(triggerServiceOptions)
 
                 .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
-
-                .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
-                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
+                
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;
+
+            services
+                .AddScoped<TriggerEventRaiser<Guid>>()
+                .AddScoped<ITriggerEventRaiser<Guid>>(s => s.GetRequiredService<TriggerEventRaiser<Guid>>())
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserExceptionDbDecorator<Guid>>()
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
+                
+                .AddSingleton(
+                    new TriggerEventOutboxRunner<Guid>.OptionsDto() 
+                    { 
+                        NoDecoratorEventRaiserFactory = static s => s.GetRequiredService<TriggerEventRaiser<Guid>>(),
+                        
+                    }
+                )
+                
+                .AddScoped< TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
 
             return services;
         }

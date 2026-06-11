@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
 {
@@ -38,8 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                     (ex) => 
                     {
                         // TODO: форматирование 
-                        using var json = JsonSerializer.SerializeToDocument(new { ex.Message, ex.StackTrace });
-                        return json.RootElement.Clone();
+                        return JsonHelper.ToJsonElement(new { ex.Message, ex.StackTrace });
                     }
                     );
         }
