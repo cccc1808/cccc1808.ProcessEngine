@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
@@ -47,15 +48,44 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             }
         }
 
+        public async ValueTask RaiseProcessAsyncExecuting(
+            ICollection<ProcessAsyncExecuteMessageDto<TId>> messages,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _source.RaiseProcessAsyncExecuting(messages, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Не удалось отправть событие в очередь напрямую, сохранием его в БД outbox.
+                // TODO: log;
+
+                try
+                {
+                    await _query.SaveToDbOutboxAsync(messages, cancellationToken);
+                }
+                catch (Exception ex2)
+                {
+                    // Событие потеряно.
+                    // TODO: log;
+                }
+            }
+        }
+
         public void ClearBuffer()
         {
             _source.ClearBuffer();
-        }
+        }        
 
         public interface IQuery
         {
             Task SaveToDbOutboxAsync(
                 ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events,           
+                CancellationToken cancellationToken);
+
+            Task SaveToDbOutboxAsync(
+                ICollection<ProcessAsyncExecuteMessageDto<TId>> messages,
                 CancellationToken cancellationToken);
 
             Task<ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> LoadForSendAsync(

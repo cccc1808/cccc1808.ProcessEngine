@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
@@ -25,15 +26,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IWakeupService<TId> _wakeupService;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore, 
-            IWakeupService<TId> wakeupService)
+            IWakeupService<TId> wakeupService,
+            ITriggerEventRaiser<TId> triggerEventRaiser)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
+            _triggerEventRaiser = triggerEventRaiser;
         }        
 
         public async Task<ITriggerHandlerFacade<TId>.LockForWaitProcessResult> LockForWaitProcessAsync(
@@ -168,21 +172,72 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             ICollection<TId> processIds,
             CancellationToken cancellationToken)
         {
+            // 1) Пробуждаем процесс.
             await _dbContext.Set<ProcessDbEntity<TId>>()
-                .Where(e => processIds.Contains(e.Id) && e.Status == Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
+                .Where(e => processIds.Contains(e.Id) && e.Status == ProcessStatusEnum.WaitEvent)
                 .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.Status, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute),
+                    e => e.SetProperty(e => e.Status, ProcessStatusEnum.AsyncExecute),
                     cancellationToken);
+
+            // 2) Сообщение для раннера.
+            var data = await _dbContext.Set<ProcessDbEntity<TId>>()
+                .Where(e =>
+                    processIds.Contains(e.Id) && e.Status == ProcessStatusEnum.WaitEvent
+                    && e.Status == ProcessStatusEnum.AsyncExecute
+                    && e.ReservationTimeout < DateTimeOffset.UtcNow
+                    )
+                .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority, e.IsRangeExecution })
+                .ToArrayAsync(cancellationToken);
+
+            await _triggerEventRaiser.RaiseProcessAsyncExecuting(
+                data
+                    .Select(e => new ProcessAsyncExecuteMessageDto<TId>(
+                        new ProcessInstanceInfoDto<TId>(
+                            e.Id, new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion),
+                            e.Priority),
+                        e.IsRangeExecution
+                        )
+                    )
+                    .ToArray(),
+                cancellationToken
+                );
         }
 
         public async Task ToAsyncExecutingWakeupAsync(
             ICollection<TId> processIds,
             CancellationToken cancellationToken)
         {
+            // 1) Пробуждаем процесс.
             await _wakeupService.WakeupProcessHandlerAsync(
                 processIds, 
                 useShareLock: true,
                 cancellationToken);
+
+            // 2) Сообщение для раннера.
+            using (_ = _lockQueryHintStore.StartScope(LockHintEnum.ForShareAndSkipLocked))
+            {
+                var data = await _dbContext.Set<ProcessDbEntity<TId>>()
+                    .Where(e =>
+                        processIds.Contains(e.Id) && e.Status == ProcessStatusEnum.WaitEvent
+                        && e.Status == ProcessStatusEnum.AsyncExecute
+                        && e.ReservationTimeout < DateTimeOffset.UtcNow
+                        )
+                    .Select(e => new { e.Id, e.ProcessTypeId, e.ProcessVersion, e.Priority, e.IsRangeExecution })
+                    .ToArrayAsync(cancellationToken);
+
+                await _triggerEventRaiser.RaiseProcessAsyncExecuting(
+                    data
+                        .Select(e => new ProcessAsyncExecuteMessageDto<TId>(
+                            new ProcessInstanceInfoDto<TId>(
+                                e.Id, new ProcessTypeDto(e.ProcessTypeId, e.ProcessVersion),
+                                e.Priority),
+                            e.IsRangeExecution
+                            )
+                        )
+                        .ToArray(),
+                    cancellationToken
+                    );
+            }
         }
 
         public async Task<bool> CustomEmergencyTriggerHandlerAsync(

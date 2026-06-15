@@ -7,8 +7,9 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
@@ -62,6 +63,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        public Task SaveToDbOutboxAsync(
+            ICollection<ProcessAsyncExecuteMessageDto<TId>> messages,
+            CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> LoadForSendAsync(
             int batchSize, 
             CancellationToken cancellationToken)
@@ -103,6 +111,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 EventQueue: source.EventQueue,
                 ProcessId: source.ProcessId,
                 Event: _eventJsonSerializer.Serialize(source.Event));
-        }
+        }        
     }
 }

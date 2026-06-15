@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
@@ -18,6 +19,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
     {
         ValueTask RaiseAsync(
             ICollection<RaiseContainer> events,
+            CancellationToken cancellationToken);
+
+        ValueTask RaiseProcessAsyncExecuting(
+            ICollection<ProcessAsyncExecuteMessageDto<TId>> messages,
             CancellationToken cancellationToken);
 
         void ClearBuffer();
