@@ -38,7 +38,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModul
 using cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
-using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.RabbitMQ.Implementation.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
@@ -46,8 +46,10 @@ using Confluent.Kafka;
 
 using Microsoft.Extensions.DependencyInjection;
 
-using Testcontainers.Kafka;
+using RabbitMQ.Client;
+
 using Testcontainers.PostgreSql;
+using Testcontainers.RabbitMq;
 
 using Xunit.Sdk;
 
@@ -66,7 +68,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
         {           
             private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;
 
-            private KafkaContainer KafkaContainer { get; set; } = null!;
+            private RabbitMqContainer QueueContainer { get; set; } = null!;
 
             public ServiceProvider ServiceProvider { get; private set; } = null!;
 
@@ -79,14 +81,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         .WithPortBinding(15433, PostgreSqlBuilder.PostgreSqlPort);
                     PostgreSqlContainer = postgresBuilder.Build();
 
-                    var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
-                    KafkaContainer = kafkaBuilder.Build();
+                    var queueBuilder = new RabbitMqBuilder("rabbitmq:3.11");
+                    QueueContainer = queueBuilder.Build();
                 }
                 
                 var startTasks = new Task[] 
                 {
                     PostgreSqlContainer.StartAsync(),
-                    KafkaContainer.StartAsync()
+                    QueueContainer.StartAsync()
                 };
                 await Task.WhenAll(startTasks);
 
@@ -121,12 +123,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         typeof(EFWakeupDbProvider<Guid>)
                         )
 
-                    .AddKafkaServices(
-                        new KafkaQueueProviderFactory.OptionsDto(
-                            $"localhost:{KafkaContainer.GetMappedPublicPort()}",
-                            10,
-                            (_) => "test",
-                            (_) => 1
+                    .AddRabbitMqServices(
+                        new RabbitMQQueueProviderFactory.OptionsDto(
+                            QueueContainer.GetConnectionString()
                             )
                     )
                     .AddIsolationServices()
@@ -307,31 +306,44 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
                         await dbContext.TruncateAllAsync();
-                    }                   
+                    }
+
+                    // rabbitMq
+                    {
+                        var connectionFactory = new ConnectionFactory() { Uri = new Uri(QueueContainer.GetConnectionString()) };
+
+                        await using (var connection = await connectionFactory.CreateConnectionAsync())
+                        await using (var channel = await connection.CreateChannelAsync())
+                        {
+                            await channel.QueueDeleteAsync(TriggerQueue);
+                            await channel.QueueDeleteAsync(InboxQueue);
+                            await channel.QueueDeleteAsync(OutboxQueue);
+                        }
+                    }
 
                     // Kafka
                     {
-                        var connectionString = $"localhost:{KafkaContainer.GetMappedPublicPort("9092")}";
-                        using var client = new AdminClientBuilder(
-                            new AdminClientConfig()
-                            {
-                                BootstrapServers = connectionString
-                            }
-                            )
-                            .Build();
+                        //var connectionString = $"localhost:{QueueContainer.GetMappedPublicPort("9092")}";
+                        //using var client = new AdminClientBuilder(
+                        //    new AdminClientConfig()
+                        //    {
+                        //        BootstrapServers = connectionString
+                        //    }
+                        //    )
+                        //    .Build();
 
-                        var metadata = client.GetMetadata(TimeSpan.FromSeconds(5));
-                        var topics = metadata.Topics
-                            .Select(e => e.Topic)
-                            .Where(e => !e.StartsWith("__")) // Не трогаем системные топики
-                            .ToArray();
+                        //var metadata = client.GetMetadata(TimeSpan.FromSeconds(5));
+                        //var topics = metadata.Topics
+                        //    .Select(e => e.Topic)
+                        //    .Where(e => !e.StartsWith("__")) // Не трогаем системные топики
+                        //    .ToArray();
 
-                        if (topics.Length != 0)
-                        {
-                            await client.DeleteTopicsAsync(
-                                topics
-                                );
-                        }
+                        //if (topics.Length != 0)
+                        //{
+                        //    await client.DeleteTopicsAsync(
+                        //        topics
+                        //        );
+                        //}
                     }
                 }
             }
@@ -343,7 +355,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                 await Task.WhenAll(
                     [
                     PostgreSqlContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
-                    KafkaContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
+                    QueueContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
                     ]
                     );
             }

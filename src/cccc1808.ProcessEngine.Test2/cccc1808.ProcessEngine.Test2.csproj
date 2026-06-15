@@ -27,6 +27,7 @@
     <PackageReference Include="Shouldly" Version="4.3.0" />
     <PackageReference Include="Testcontainers.Kafka" Version="4.11.0" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.11.0" />
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
@@ -41,6 +42,7 @@
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.RabbitMQ\cccc1808.ProcessEngine.Model.RabbitMQ.csproj" />
   </ItemGroup>
 
   <ItemGroup>

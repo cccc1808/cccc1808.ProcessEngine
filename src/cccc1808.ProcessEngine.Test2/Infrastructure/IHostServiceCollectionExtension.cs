@@ -79,6 +79,7 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.RabbitMQ.Implementation.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
@@ -94,7 +95,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// Для текущих тестов достаточно InMemory. Уменьшает время выполнения тестов.
         /// Выключить, если нужна првоерка на реальном брокере.
         /// </summary>
-        private static bool UseInMemoryQueue => true;
+        private static bool UseInMemoryQueue => false;
 
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
@@ -144,6 +145,24 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
             }
             
+            return services;
+        }
+
+        public static IServiceCollection AddRabbitMqServices(
+            this IServiceCollection services,
+            RabbitMQQueueProviderFactory.OptionsDto options)
+        {
+            services.AddSingleton(options);
+
+            if (!UseInMemoryQueue)
+            {
+                services.AddSingleton<IQueueProviderFactory, RabbitMQQueueProviderFactory>();
+            }
+            else
+            {
+                services.AddSingleton<IQueueProviderFactory, TestInMemoryQueueProviderFactory>();
+            }
+
             return services;
         }
 

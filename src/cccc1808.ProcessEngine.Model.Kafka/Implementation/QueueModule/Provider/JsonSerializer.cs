@@ -10,8 +10,8 @@ using Confluent.Kafka;
 namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
 {
     internal class JsonSerializer :
-            ISerializer<JsonElement>,
-            IDeserializer<JsonElement>
+        ISerializer<JsonElement>,
+        IDeserializer<JsonElement>
     {
         public byte[] Serialize(JsonElement data, SerializationContext context)
         {
