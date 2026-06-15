@@ -1,5 +1,6 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 
@@ -21,6 +22,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
         
         private readonly Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
 
+        private readonly Dictionary<int, ICollection<ProcessAsyncExecuteMessageDto<TId>>> _sendBuffer2;
+
         private int RaiseCounter { get; set; }
 
         private bool HandlerRegistered { get; set; }
@@ -34,6 +37,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _transactionManager = transactionManager;            
             _isolationService = isolationService;
             _sendBuffer = new Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>>(10);
+            _sendBuffer2 = new Dictionary<int, ICollection<ProcessAsyncExecuteMessageDto<TId>>>(10);
         }
 
         public ValueTask RaiseAsync(
@@ -61,6 +65,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         await _source.RaiseAsync(
                             _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
                             default);
+
+                        await _source.RaiseProcessAsyncExecuting(
+                            _sendBuffer2.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
+                            cancellationToken);
+
                         Clear();
                     },
                     roolbackHandler: (_) => 
@@ -92,6 +101,67 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             return ValueTask.CompletedTask;
         }
 
+        public ValueTask RaiseProcessAsyncExecuting(
+            ICollection<ProcessAsyncExecuteMessageDto<TId>> messages,
+            CancellationToken cancellationToken)
+        {
+            if (!_transactionManager.TryGetCurrentTransaction(out var transaction))
+            {
+                throw new InvalidOperationException("[Bug] Необходима транзакция.");
+            }
+
+            if (!messages.Any())
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!HandlerRegistered)
+            {
+                // 1) Привязка к транзакции.
+                transaction.AddAfterCommitHandler(
+                    commitHandler: async (_) =>
+                    {
+                        // Игнорируем cancelation token, чтобы выполнить отправку, даже если сервис останавливается.
+                        // Если будет gracefull shutdown, то событие будет опубликовано, иначе событие потеряется.
+                        await _source.RaiseAsync(
+                            _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
+                            default);
+
+                        await _source.RaiseProcessAsyncExecuting(
+                            _sendBuffer2.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
+                            cancellationToken);
+
+                        Clear();
+                    },
+                    roolbackHandler: (_) =>
+                    {
+                        Clear();
+                        return ValueTask.CompletedTask;
+                    }
+                    );
+
+                HandlerRegistered = true;
+            }
+
+            var number = RaiseCounter++;
+            _sendBuffer2.Add(number, messages);
+
+            // Если находимся в scope изоляции, то регистрируем событие на случай компенсации scope.
+            if (_isolationService.InScope)
+            {
+                // 2) Привязка к текущему scope изоляции.
+                _isolationService.RegisterManualCompensate(
+                    (t) =>
+                    {
+                        _sendBuffer2.Remove(number);
+                        return ValueTask.CompletedTask;
+                    }
+                    );
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
         public void ClearBuffer()
         {
             Clear();
@@ -101,6 +171,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
         private void Clear() 
         {
             _sendBuffer.Clear();
+            _sendBuffer2.Clear();
         }        
     }
 }
