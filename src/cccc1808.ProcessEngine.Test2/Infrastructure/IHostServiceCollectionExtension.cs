@@ -79,6 +79,11 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
@@ -391,6 +396,29 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddTestService(this IServiceCollection services)
         {
             services.AddSingleton<TestService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddSchemaProcess(
+            this IServiceCollection services, 
+            params SchemaProcessRegistrationDto[] registrations)
+        {
+            services
+                .AddSingleton<ISchemaRegistry, SchemaRegistry>()
+                .AddScoped<ISchemaService<Guid>, EFSchemaService<Guid>>()
+                .AddScoped<ISchemaValidator, SchemaValidator<Guid>>()
+                .AddScoped<SchemaSingleProcessHandler<Guid>>()
+                .AddScoped<ISchemaSerializer, SchemaSerializer>()
+                .AddScoped<IActionStateSerializer, ActionStateSerializer>();
+
+            foreach (var elem in registrations)
+            {
+                services.AddSingleton(elem);
+
+                services.AddScoped(elem.ProcessHandlerType);
+                services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+            }
 
             return services;
         }

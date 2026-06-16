@@ -16,12 +16,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger
 {
-    public class RootTroggerDbProvider : IProcessDbProvider<Guid>
+    public class RootTriggerDbProvider : IProcessDbProvider<Guid>
     {
         private readonly IEFDbContext _dbContext;
         private readonly TriggerRunner<Guid>.OptionsDto _triggerOptions;
 
-        public RootTroggerDbProvider(
+        public RootTriggerDbProvider(
             IEFDbContext dbContext, 
             TriggerRunner<Guid>.OptionsDto triggerOptions)
         {
