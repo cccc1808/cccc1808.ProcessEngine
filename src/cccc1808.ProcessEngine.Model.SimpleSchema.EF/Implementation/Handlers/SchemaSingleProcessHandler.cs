@@ -176,11 +176,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
                                 {
                                     if (conditionTokenAction.ActionHandlerKey is not null)
                                     {
-                                        state.IsComplete = await processHandler.ExecuteConditionHandlerAsync(
+                                        await processHandler.ExecuteConditionHandlerAsync(
                                             conditionTokenAction.ActionHandlerKey,
                                             elem.Id,
                                             process,
                                             cancellationToken);
+
+                                        state.IsComplete = true;
                                     }
 
                                     if (conditionTokenAction.Transition.HasValue)
