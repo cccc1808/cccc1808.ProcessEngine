@@ -21,25 +21,43 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         /// Сохраняем в БД после шага.
         /// </summary>
         public static ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Preset1 { get; }
-            = new ExecuteStepByStepGroupMiddleware<TId>.OptionsDto(
-                CycleLimit: 50,
-                IsolationMode: IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                UseAfterStepSave: true,
-                UseEndSave: false,
-                UseReloadAfterError: true);
+            = ExecuteStepByStepGroupMiddleware<TId>.OptionsDto.CreateStepSave(
+                cycleLimit: 50,
+                isolationMode: IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
+                useReloadAfterError: true);
 
         /// <summary>
         /// Preset2.
-        /// Используем ChangeTracker.
+        /// Шаги не изолированы.
         /// Сохраняем в БД только в самом конце.
         /// </summary>
         public static ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Preset2 { get; }
-            = new ExecuteStepByStepGroupMiddleware<TId>.OptionsDto(
-                CycleLimit: 50,
-                IsolationMode: IIsolationService.IsolationMode.ClearChangeTracker,
-                UseAfterStepSave: false,
-                UseEndSave: true,
-                UseReloadAfterError: true);
+            = ExecuteStepByStepGroupMiddleware<TId>.OptionsDto.CreateEndSave(
+                cycleLimit: 50,
+                isolationMode: IIsolationService.IsolationMode.ClearChangeTracker,
+                useReloadAfterError: true,
+                // EF автоматически создаст savepoint (ему в общем то отдельный savepoint не нужен).
+                endSaveOptions: new ExecuteStepByStepGroupMiddleware<TId>.EndSaveOptionsDto(
+                    IsolationMode: IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
+                    )
+                );
+
+        /// <summary>
+        /// Preset 3.
+        /// Используем изоляцию снимок ChangeTracker.
+        /// Сохраняем в БД только в самом конце.
+        /// </summary>
+        public static ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Preset3 { get; }
+            = ExecuteStepByStepGroupMiddleware<TId>.OptionsDto.CreateEndSave(
+                cycleLimit: 50,
+                isolationMode: IIsolationService.IsolationMode.ChangeTrackerSnapshot,
+                // После сброса не перезагружаем т.к. восстановлен снимок ChangeTracker.
+                useReloadAfterError: false,
+                // EF автоматически создаст savepoint (ему в общем то отдельный savepoint не нужен).
+                endSaveOptions: new ExecuteStepByStepGroupMiddleware<TId>.EndSaveOptionsDto(
+                    IsolationMode: IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker
+                    )
+                );
 
         public static BaseSingleProcessHandler<TId>.OptionsDto Preset1_Single { get; }
             = new BaseSingleProcessHandler<TId>.OptionsDto(

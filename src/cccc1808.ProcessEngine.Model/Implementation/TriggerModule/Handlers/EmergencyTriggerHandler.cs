@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
@@ -90,6 +91,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             var triggerRepository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
             var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
             var setter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+            var rootTriggerQuery = serviceProvider.GetRequiredService<IRootTriggerQuery<TId>>();
 
             var now = dateTimeProvider.UtcNow;
             var sendTimestamp = setter.ChildTriggerSetter.DateToTimestamp(now);
@@ -162,18 +164,40 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             )
                         {
                             // 3) Дочерний триггер не получил ответ от корневого триггера.
-                            // Повторно посылаем сигнал на корневой триггер, в одидании что на него он ответит.
-                            triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
-                                options.TriggerEventQueue,
-                                elem.Trigger.ProcessId,
-                                new SignalSimpleStreamTriggerEvent(
-                                    elem.Trigger.Key, 
-                                    sendTriggerKey: elem.Trigger.Key,
-                                    timeStamp: sendTimestamp
-                                    )
-                                ));
+                            // TODO: range оптимизация.
+                            var rootTriggerKey = await rootTriggerQuery.GetRootTriggerKeyAsync(elem.Trigger, cancellationToken);
 
-                            setter.ChildTriggerSetter.RepeatSignalSended(elem.Trigger, childTriggerState, sendTimestamp);
+                            if (!string.IsNullOrEmpty(rootTriggerKey))
+                            {
+                                // Повторно посылаем сигнал на корневой триггер, в ожидании что корневой триггер ответит.
+                                triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                    options.TriggerEventQueue,
+                                    elem.Trigger.ProcessId,
+                                    new SignalSimpleStreamTriggerEvent(
+                                        triggerKey: rootTriggerKey,
+                                        sendTriggerKey: elem.Trigger.Key,
+                                        timeStamp: sendTimestamp
+                                        )
+                                    ));
+
+                                setter.ChildTriggerSetter.RepeatSignalSended(elem.Trigger, childTriggerState, sendTimestamp);
+
+                                // TODO: log warning. Повторная сигнал;
+                            }
+                            else
+                            {
+                                // Корневой триггер не найден, удаляем дочерний триггер.
+                                // Тригер не завршен, блокировку не взяли - используем событие.
+                                triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                    options.TriggerEventQueue,
+                                    elem.Trigger.ProcessId,
+                                    new RemoveTriggerEvent(elem.Trigger.Key)
+                                    )
+                                    );
+
+                                // TODO: log warning. Корневой триггер не найден.;
+                            }
+
                             notProcesseTriggers.Remove(elem.Trigger.Key);
 
                             // TODO: log warning;
@@ -190,7 +214,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             var isWaitingMissmath =
                                 !setter.StreamSetter.GetStreamsProcessIsWaiting(elem.Trigger)
                                 && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
-                                && (now - elem.SelectLockTimeout) > options.SteamGoWaitTimeout;
+                                && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout;
 
                             if (isWaitingMissmath)
                             {
@@ -333,7 +357,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 ITriggerComponent<TId> Trigger,
                 bool ProcessDeleted,
                 ProcessStatusEnum? ProcessStatus,
-                DateTimeOffset? SelectLockTimeout
+                DateTimeOffset? ReservationTimeout
                 );
         }
 

@@ -26,7 +26,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _triggerOptions = triggerOptions;
             _eventJsonSerializer = eventJsonSerializer;
         }
-
+        
         public async ValueTask RaiseAsync(
             ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events, 
             CancellationToken cancellationToken)
@@ -52,6 +52,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         .ToArray(),
                     cancellationToken);
             }
+        }
+
+        public void ClearBuffer()
+        {
+            // Тут нет буфера.
         }
     }
 }

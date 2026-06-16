@@ -10,9 +10,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-
-using static cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events.SignalSimpleStreamTriggerEvent;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
 {
@@ -45,11 +44,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
 
         public JsonElement Serialize(ITriggerEvent triggerEvent)
         {
-            using var doc = JsonSerializer.SerializeToDocument(
-                triggerEvent, 
-                triggerEvent.GetType()
-                );
-            return doc.RootElement.Clone();
+            return JsonHelper.ToJsonElement(triggerEvent);
         }
     }
 }

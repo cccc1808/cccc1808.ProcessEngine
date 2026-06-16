@@ -196,7 +196,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         // Так как мы уже считали с блокировкой,
                         // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
                         // Не сбрасываем на min, потому что значение используется.
-                        elem.SelectLockTimeout = _dateTimeProvider.UtcNow;
+                        elem.ReservationTimeout = _dateTimeProvider.UtcNow;
 
                         var container = new ProcessContainer<TId>(
                             new EFProcessProxyComponent<TId>(elem),

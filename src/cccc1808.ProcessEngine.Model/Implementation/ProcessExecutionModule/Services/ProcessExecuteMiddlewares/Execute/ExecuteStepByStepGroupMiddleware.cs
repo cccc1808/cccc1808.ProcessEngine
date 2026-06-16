@@ -15,10 +15,14 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute
 {
@@ -334,13 +338,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
 
             //// 3) Финальное сохранение в конце.
-            if (options.UseEndSave)
+            if (options.EndSaveOptions is not null)
             {
                 var executionGroup = new ExecuteGroup(allProcesses.Data);
 
                 await _isolationService.ExecuteAsync(
-                    options.IsolationMode, 
+                    options.EndSaveOptions.IsolationMode, 
                     (
+                        _serviceProvider,
                         allProcesses, 
                         executingProcesses,
                         executionGroup,
@@ -358,7 +363,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     },
                     static async (p, ex, cancellationToken) =>
                     {
-                        if (p.options.UseReloadAfterError)
+                        // Ошибка на общем сохранении, сбрасываем  буфер событий триггеров.
+                        p._serviceProvider.GetService<ITriggerEventRaiser<TId>>()?.ClearBuffer();
+
                         {
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
@@ -368,23 +375,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 p.sessionId,
                                 cancellationToken);
                             p.executionGroup = new ExecuteGroup(p.allProcesses.Data);
-                        }                        
+                        }
 
                         await p.handler.OnExceptionRangeAsync(
                             p.executionGroup,
                             ex,
                             cancellationToken);
 
-                        if (p.options.UseAfterStepSave)
-                        {
-                            await p.handler.SaveRangeAsync(
-                                p.executionGroup,
-                                cancellationToken);
-                        }
+                        await p.handler.SaveRangeAsync(
+                            p.executionGroup,
+                            cancellationToken);
                     },
                     static async (p, ex, cancellationToken) =>
                     {
-                        if (p.options.UseReloadAfterError)
                         {
                             p.allProcesses.Data = await p.This.LoadAsync(
                                 p.handler,
@@ -499,16 +502,48 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         /// </summary>
         /// <param name="CycleLimit">Лимит повторений выполнений (зацикливания) процесса.</param>
         /// <param name="IsolationMode">Режим изоляции между шагами батча.</param>
-        /// <param name="UseAfterStepSave">Вызывать метод сохранения после шага.</param>
-        /// <param name="UseEndSave">Вызывать сохраненеи в конце обработки.</param>
+        /// <param name="UseAfterStepSave">Вызывать метод сохранения после шага.</param>        
         /// <param name="UseReloadAfterError">Перезагружать процессы после сброса.</param>
+        /// <param name="EndSaveOptions">Null - не выполнитья сохранение в конце, иначе <see cref="ExecuteStepByStepGroupMiddleware{TId}.EndSaveOptionsDto"/></param>
         public record OptionsDto(
             short CycleLimit,
-            IIsolationService.IsolationMode IsolationMode,
+            IIsolationService.IsolationMode IsolationMode,            
             bool UseAfterStepSave,
-            bool UseEndSave,
-            bool UseReloadAfterError
-            );
+            bool UseReloadAfterError,
+            EndSaveOptionsDto? EndSaveOptions
+            )
+        {
+            public static OptionsDto CreateStepSave(
+                short cycleLimit,
+                IIsolationService.IsolationMode isolationMode,
+                bool useReloadAfterError)
+                => new OptionsDto(
+                    cycleLimit, 
+                    isolationMode, 
+                    UseAfterStepSave: true,
+                    useReloadAfterError, 
+                    EndSaveOptions: null);
+
+            public static OptionsDto CreateEndSave(
+                short cycleLimit,
+                IIsolationService.IsolationMode isolationMode,
+                bool useReloadAfterError,
+                EndSaveOptionsDto endSaveOptions)
+                => new OptionsDto(
+                    cycleLimit,
+                    isolationMode,
+                    UseAfterStepSave: false,
+                    useReloadAfterError,
+                    EndSaveOptions: endSaveOptions);
+        }
+
+        /// <summary>
+        /// Опции для финального сохранения 
+        /// (когда не используется сохранение после шага).
+        /// </summary>
+        /// <param name="IsolationMode">Режим изоляции для финального сохранения.</param>
+        public record EndSaveOptionsDto(
+            IIsolationService.IsolationMode IsolationMode);
 
         #endregion
     }

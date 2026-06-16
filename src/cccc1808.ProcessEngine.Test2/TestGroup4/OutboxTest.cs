@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
@@ -61,7 +62,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),                                
                             (
@@ -70,7 +71,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),                                
                             (
@@ -79,7 +80,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),
                             ],

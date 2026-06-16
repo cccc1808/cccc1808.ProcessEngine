@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure;
@@ -82,7 +83,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],
-                            System.Text.Json.JsonSerializer.SerializeToDocument(e).RootElement.Clone(),
+                            JsonHelper.ToJsonElement(e),
                             Partition: -1))
                         .ToArray(),
                     default);
@@ -173,7 +174,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],
-                            System.Text.Json.JsonSerializer.SerializeToDocument(e).RootElement.Clone(),
+                            JsonHelper.ToJsonElement(e),
                             Partition: -1))
                         .ToArray(),
                     default);

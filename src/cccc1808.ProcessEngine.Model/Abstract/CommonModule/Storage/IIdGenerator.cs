@@ -16,5 +16,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
     public interface IIdGenerator<TId>
     {
         ValueTask<TId> NextAsync(CancellationToken cancellationToken);
+
+        ValueTask<Queue<TId>> NextRangeAsync(
+            int count, 
+            CancellationToken cancellationToken);
     }
 }

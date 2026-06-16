@@ -51,6 +51,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
 
         #endregion
 
-        DateTimeOffset SelectLockTimeout { get; set; }
+        DateTimeOffset ReservationTimeout { get; set; }
     }
 }
