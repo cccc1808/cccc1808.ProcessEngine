@@ -65,6 +65,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
             var containsComplete = false;
             var handler = _schemaService.GetProcessHandler(processType);
+            var stateHandler = _schemaService.GetProcessStateHandler(processType);
 
             foreach (var elem in schema.Tokens.Values)
             {
@@ -73,9 +74,21 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     throw new Exception("Не зарегистрировано ни одного действия.");
                 }
 
+                if (!stateHandler.IsTokenSupport(elem.Id))
+                {
+                    throw new Exception($"Не реализована сериализация состояния токена {elem.Id}");
+                }
+
+                var actionIds = new HashSet<string>(elem.Actions.Length);
                 var haveTransition = false;
                 foreach (var elem2 in elem.Actions)
                 {
+                    if (actionIds.Contains(elem2.Id)) 
+                    {
+                        throw new Exception("Несколько действий с одинаковым id.");
+                    }
+                    actionIds.Add(elem2.Id);
+
                     switch (elem2)
                     {
                         case TimerTokenAction timerTokenAction: 

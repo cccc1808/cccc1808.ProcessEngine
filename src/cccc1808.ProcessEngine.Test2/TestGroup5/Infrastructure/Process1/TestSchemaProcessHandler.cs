@@ -8,9 +8,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 
-namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
+namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
 {
     internal class TestSchemaProcessHandler : BaseSchemaProcessHandler<Guid>
     {
@@ -21,25 +22,30 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
         }
 
         private ValueTask<bool> TestActionAsync(
-            string name,
-            string actionId,
-            IProcessContainer<Guid> process,
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
             return ValueTask.FromResult(true);
         }
 
-        public static string Key { get; }
-            = "1";
-
         public static ProcessSchemaDto Schema { get; }
             = new ProcessSchemaDto(
                 "1",
-                new Dictionary<string, TokenDto>() 
-                {
-                    ["1"] = new TokenDto("1", [new ServiceTaskTokenAction("1", "1", ITokenAction.TransitionDto.Target("2"))]),
-                    ["2"] = new TokenDto("2", [new TimerTokenAction("1", ITokenAction.TransitionDto.Complete(), null, TimeSpan.Zero)]),
-                }
+                [
+                    new TokenDto(
+                        "1", 
+                        new ServiceTaskTokenAction("1", handlerKey: "1")
+                        {
+                            Transition = ITokenAction.TransitionDto.Target("2"),
+                        }
+                        ),
+                    new TokenDto(
+                        "2", 
+                        new TimerTokenAction("1", TimeSpan.Zero)
+                        {
+                            Transition = ITokenAction.TransitionDto.Complete(),
+                        })
+                ]
                 );
 
         public static ProcessTypeDto ProcessType { get; }

@@ -20,6 +20,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service
         ISchemaProcessHandler<TId> GetProcessHandler(
             ProcessTypeDto processType);
 
+        ISchemaProcessStateHandler<TId> GetProcessStateHandler(
+            ProcessTypeDto processType);
+
         ValueTask<string> GetSchemaStartTokenId(
             ProcessTypeDto processType,
             CancellationToken cancellationToken);

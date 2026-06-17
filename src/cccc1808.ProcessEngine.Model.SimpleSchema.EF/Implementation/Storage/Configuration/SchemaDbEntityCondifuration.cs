@@ -16,9 +16,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Co
     {
         public void Configure(EntityTypeBuilder<SchemaDbEntity<TId>> builder)
         {
-            builder.Property(e => e.HandlerKey)
-                .HasMaxLength(255);
-
             builder.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion })
                 .IsUnique(true);
         }

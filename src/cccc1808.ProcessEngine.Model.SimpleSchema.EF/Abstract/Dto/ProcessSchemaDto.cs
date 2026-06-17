@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,10 +24,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto
 
         public ProcessSchemaDto(
             string startTokenId, 
-            IReadOnlyDictionary<string, TokenDto> tokens)
+            IReadOnlyCollection<TokenDto> tokens)
         {
             StartTokenId = startTokenId;
-            Tokens = tokens;
+            Tokens = tokens.ToFrozenDictionary(e => e.Id, e => e);
         }
     }
 }

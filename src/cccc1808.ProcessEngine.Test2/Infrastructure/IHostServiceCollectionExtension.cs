@@ -408,9 +408,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton<ISchemaRegistry, SchemaRegistry>()
                 .AddScoped<ISchemaService<Guid>, EFSchemaService<Guid>>()
                 .AddScoped<ISchemaValidator, SchemaValidator<Guid>>()
-                .AddScoped<SchemaSingleProcessHandler<Guid>>()
+                .AddScoped<ITokenExecutionService<Guid>, EFTokenExecutionService<Guid>>()
                 .AddScoped<ISchemaSerializer, SchemaSerializer>()
-                .AddScoped<IActionStateSerializer, ActionStateSerializer>();
+                .AddScoped<IActionStateSerializer, ActionStateSerializer>()
+                .AddScoped<SchemaSingleProcessHandler<Guid>>()
+                ;
 
             foreach (var elem in registrations)
             {
@@ -418,6 +420,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 services.AddScoped(elem.ProcessHandlerType);
                 services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+
+                services.AddScoped(elem.ProcessStateHandlerType);
+                services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
             }
 
             return services;

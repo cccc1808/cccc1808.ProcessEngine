@@ -29,15 +29,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         public ConditionTokenAction(
             string id,
-            string checkHandlerKey,
-            string? actionHandlerKey,
-            ITokenAction.TransitionDto? transition)
+            string checkHandlerKey)
             : base(
-                  id)
+                  id,
+                  null)
         {
             CheckHandlerKey = checkHandlerKey;
-            ActionHandlerKey = actionHandlerKey;
-            Transition = transition;
         }
     }
 }

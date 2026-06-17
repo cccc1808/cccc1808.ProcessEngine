@@ -24,15 +24,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
         }
 
         public TimerTokenAction(
-            string id, 
-            ITokenAction.TransitionDto? transition, 
-            string? handlerKey,
-            TimeSpan duration)
+            string id,
+            TimeSpan duration     
+            )
             : base(
-                  id)
+                  id,
+                  null)
         {
-            Transition = transition;
-            HandlerKey = handlerKey;
             Duration = duration;
         }
     }

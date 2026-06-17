@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 {
     public class SchemaRegistry : ISchemaRegistry
     {
-        private readonly IReadOnlyDictionary<ProcessTypeDto, Type> _processHandlerRegistration;
+        private readonly IReadOnlyDictionary<ProcessTypeDto, (Type, Type)> _processHandlerRegistration;
         private readonly ConcurrentDictionary<ProcessTypeDto, ProcessSchemaDto> _schemaCache;
 
         public SchemaRegistry(
@@ -31,7 +31,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 }
             }
 
-            _processHandlerRegistration = registrations.ToFrozenDictionary(e => e.ProcessType, e => e.ProcessHandlerType);
+            _processHandlerRegistration = registrations.ToFrozenDictionary(e => e.ProcessType, e => (e.ProcessHandlerType, e.ProcessStateHandlerType));
             _schemaCache = new ConcurrentDictionary<ProcessTypeDto, ProcessSchemaDto>();
         }
 
@@ -52,7 +52,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
         public Type GetProcessHandlerType(ProcessTypeDto processType)
         {
-            return _processHandlerRegistration[processType];
-        }        
+            return _processHandlerRegistration[processType].Item1;
+        }
+
+        public Type GetProcessStateHandlerType(ProcessTypeDto processType)
+        {
+            return _processHandlerRegistration[processType].Item2;
+        }
     }
 }

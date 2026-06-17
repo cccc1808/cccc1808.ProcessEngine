@@ -11,10 +11,13 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -61,8 +64,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         Guid.NewGuid(),
                         TestSchemaProcessHandler.ProcessType.ProcessType,
                         TestSchemaProcessHandler.ProcessType.ProcessVersion,
-                        schemaSerializaer.Serialize(TestSchemaProcessHandler.Schema),
-                        handlerKey: TestSchemaProcessHandler.Key)
+                        schemaSerializaer.Serialize(TestSchemaProcessHandler.Schema))
                     );
 
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
@@ -146,6 +148,119 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
                 processData.ShouldSatisfyAllConditions(
                     e => e.CurrentTokenId.ShouldBe("2"));
+            }
+        }
+
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        public async Task Test2()
+        {
+            var processId = Guid.NewGuid();
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var schemaSerializaer = scope.ServiceProvider.GetRequiredService<ISchemaSerializer>();
+                var validator = scope.ServiceProvider.GetRequiredService<ISchemaValidator>();
+                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
+
+                validator.Validate(TestSchemaProcessHandler2.ProcessType, TestSchemaProcessHandler2.Schema);
+
+                dbContext.Set<SchemaDbEntity<Guid>>().Add(
+                    new SchemaDbEntity<Guid>(
+                        Guid.NewGuid(),
+                        TestSchemaProcessHandler2.ProcessType.ProcessType,
+                        TestSchemaProcessHandler2.ProcessType.ProcessVersion,
+                        schemaSerializaer.Serialize(TestSchemaProcessHandler2.Schema))
+                    );
+
+                dbContext.Set<ProcessDbEntity<Guid>>().Add(
+                    new ProcessDbEntity<Guid>(
+                        processId,
+                        TestSchemaProcessHandler2.ProcessType.ProcessType,
+                        TestSchemaProcessHandler2.ProcessType.ProcessVersion,
+                        1,
+                        DateTimeOffset.MinValue,
+                        false,
+                        ProcessStatusEnum.AsyncExecute,
+                        null
+                        )
+                    );
+
+                var rootTriggerKey = Guid.NewGuid().ToString();
+                await triggerRepository.CreateTriggerAsync(
+                    ITriggerRepository<Guid>.CreateTriggerDto.SimpleRootStreamTrigger(
+                        key: rootTriggerKey,
+                        timerDate: DateTimeOffset.MinValue,
+                        processId: processId,
+                        isRangeTrigger: true,
+                        handlerKey: NoWakeupStreamTriggerRangeHandler<Guid>.Name,
+                        priority: 1,
+                        isActivated: false,
+                        streamProcessIsWaiting: false,
+                        newSignalCounter: 0),
+                    CancellationToken.None);
+
+                dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
+                    new SchemaProcessDataDbEntity<Guid>(
+                        id: Guid.NewGuid(),
+                        processId: processId,
+                        rootTriggerKey: rootTriggerKey,
+                        currentTokenId: TestSchemaProcessHandler2.Schema.StartTokenId
+                        )
+                    );
+
+                await dbContext.SaveChangesAsync(CancellationToken.None);
+            }
+
+            // 2) Выполняем токен 1, посылаем запрос и ждем ответ.
+            string requestId;
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var schemaService = scope.ServiceProvider.GetRequiredService<ISchemaService<Guid>>();
+                var stateHandler = schemaService.GetProcessStateHandler(TestSchemaProcessHandler2.ProcessType);
+
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+
+                var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                var processDatas = await _testService.LoadAsync<SchemaProcessDataDbEntity<Guid>>(scope.ServiceProvider);
+
+                var process = processes.Single(e => e.Id == processId);
+                var processData = processDatas.Single(e => e.ProcessId == processId);
+                var tokenState = stateHandler.DeserializeTokenState(
+                    processData.CurrentTokenId,
+                    processData.CurrentTokenState.ShouldNotBeNull()
+                    )
+                    .ShouldNotBeNull()
+                    .ShouldBeOfType<TestSchemaProcessHandler2.RpcTokenState>();
+
+                process.ShouldSatisfyAllConditions(
+                    e => e.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+
+                processData.ShouldSatisfyAllConditions(
+                    e => e.CurrentTokenId.ShouldBe("1"));
+
+                tokenState.ShouldSatisfyAllConditions(
+                    e => e.CorrelationId.ShouldNotBeNull());
+
+                requestId = tokenState.CorrelationId;
+            }
+
+            // 3) 
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {                
+                var rpc = scope.ServiceProvider.GetRequiredService<TestRequestReponseStore>();
+                var tokenExecutionService = scope.ServiceProvider.GetRequiredService<ITokenExecutionService<Guid>>();
+
+                // 1) Пришел ответ.
+                rpc.ReceiveReponse(requestId, JsonHelper.Empty);
+
+                // 2) Передаем сигнал на процесс напрямую (не через триггер).
+                var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);
+                var processDatas = process.GetComponent<ISchemaProcessComponent>();
+
+                await tokenExecutionService.ExecuteActionAsync(process, actionId: "2", CancellationToken.None);
+
+                process.ShouldSatisfyAllConditions(
+                    e => e.Process.Status.ShouldBe(ProcessStatusEnum.Complete));
             }
         }
     }

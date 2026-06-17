@@ -13,6 +13,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
     {
         string Id { get; }
 
+        string? Name { get; }
+
         /// <summary>
         /// Указывает переход при обрабокте действия.
         /// </summary>

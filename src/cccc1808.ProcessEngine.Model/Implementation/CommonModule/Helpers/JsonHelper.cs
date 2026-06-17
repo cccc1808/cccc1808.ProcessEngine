@@ -19,5 +19,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers
                 options);
             return document.RootElement.Clone();
         }
+
+        public static JsonElement Empty { get; }
+            = ToJsonElement(new { });
     }
 }

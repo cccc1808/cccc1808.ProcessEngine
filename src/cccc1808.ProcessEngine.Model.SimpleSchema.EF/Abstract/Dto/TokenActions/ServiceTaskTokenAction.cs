@@ -19,13 +19,12 @@
 
         public ServiceTaskTokenAction(
             string id,
-            string handlerKey,
-            ITokenAction.TransitionDto? transition) 
+            string handlerKey) 
             : base(
-                id)
+                id,
+                null)
         {
             HandlerKey = handlerKey;
-            Transition = transition;
         }
     }
 }

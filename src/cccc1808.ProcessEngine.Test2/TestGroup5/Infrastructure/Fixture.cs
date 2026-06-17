@@ -30,6 +30,8 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProviders;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
 
 using Confluent.Kafka;
 
@@ -190,12 +192,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = null,
                         },
-                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1)
+                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1)
                     )
                     
                     .AddSchemaProcess(
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler>(TestSchemaProcessHandler.ProcessType)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, TestSchemaProcessStateHandler>(TestSchemaProcessHandler.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, TestSchemaProcessStateHandler2>(TestSchemaProcessHandler2.ProcessType)
                         );
+
+                services.AddSingleton<TestRequestReponseStore>();
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(

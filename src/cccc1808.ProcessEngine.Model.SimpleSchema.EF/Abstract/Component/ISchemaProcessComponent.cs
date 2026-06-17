@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.ActionComponent;
@@ -14,8 +15,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component
 
         string RootTriggerKey { get; }
 
-        string CurrentTokenId { get; set; }
+        string CurrentTokenId { get; }
 
+        object? CurrentTokenState { get; set; }
+
+        object ProcessState { get; }        
 
         bool TryGetActionState<TState>(string name, out TState state)
             where TState : ITokenActionStateComponent;
@@ -23,8 +27,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component
         void AddActionState<TState>(TState state)
             where TState : ITokenActionStateComponent;
 
-        void ClearActionStates();
-
         IReadOnlyCollection<ITokenActionStateComponent> AllActionStates();
+
+        void MoveToken(string tokenId);
     }
 }

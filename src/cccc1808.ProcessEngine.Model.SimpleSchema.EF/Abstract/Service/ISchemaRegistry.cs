@@ -18,5 +18,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service
         bool TryStoreSchema(ProcessTypeDto processType, ProcessSchemaDto schema);
 
         Type GetProcessHandlerType(ProcessTypeDto processType);
+
+        Type GetProcessStateHandlerType(ProcessTypeDto processType);
     }
 }

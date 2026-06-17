@@ -23,7 +23,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity
 
         public string CurrentTokenId { get; set; }
 
-        public JsonElement ActionState { get; set; }
+        public JsonElement? CurrentTokenState { get; set; }
+
+        public JsonElement CurrentTokenActionState { get; set; }        
+
+        public JsonElement? ProcessState { get; set; }
 
         [Obsolete]
         public SchemaProcessDataDbEntity()
@@ -44,7 +48,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity
             ProcessId = processId;
             RootTriggerKey = rootTriggerKey;
             CurrentTokenId = currentTokenId;
-            ActionState = JsonHelper.ToJsonElement(Array.Empty<int>());
+            CurrentTokenActionState = JsonHelper.ToJsonElement(Array.Empty<int>());
+            CurrentTokenState = null;
+            ProcessState = null;
         }
     }
 }

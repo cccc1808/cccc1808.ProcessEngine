@@ -7,11 +7,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
@@ -27,21 +24,24 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Db
         private readonly IEFDbContext _dbContext;
         private readonly ISchemaRegistry _schemaRegistry;
         private readonly IActionStateSerializer _actionStateSerializer;
+        private readonly ISchemaService<TId> _schemaService;
 
         public EFSchemaProcessDataDbEntityDbProvider(
             IEFDbContext dbContext,
             ISchemaRegistry schemaRegistry,
-            IActionStateSerializer actionStateSerializer)
+            IActionStateSerializer actionStateSerializer,
+            ISchemaService<TId> schemaService)
         {
             _dbContext = dbContext;
             _schemaRegistry = schemaRegistry;
             _actionStateSerializer = actionStateSerializer;
+            _schemaService = schemaService;
         }
 
         public async Task LoadProcessDataAsync(
-            IDictionary<TId, IProcessContainer<TId>> processes, 
+            IDictionary<TId, IProcessContainer<TId>> processes,
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
-            bool isAsyncExecution, 
+            bool isAsyncExecution,
             CancellationToken cancellationToken)
         {
             var currentProcesses = byTypeIndex
@@ -55,20 +55,27 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Db
                 return;
             }
 
-            var dbData =  await _dbContext.Set<SchemaProcessDataDbEntity<TId>>()
+            var dbData = await _dbContext.Set<SchemaProcessDataDbEntity<TId>>()
                 .Where(e => currentProcesses.Select(e => e.Id).Contains(e.ProcessId))
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
 
             foreach (var elem in currentProcesses)
             {
+                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.ProcessType);
+
                 var entity = dbData[elem.Id];
 
-                {                    
-                    var component = new EFSchemaProcessComponentProxy<TId>(
-                        entity,
-                        _actionStateSerializer.Deserialize(entity.ActionState));
-                    elem.AddComponent<ISchemaProcessComponent>(component);
-                }                
+                var component = new EFSchemaProcessComponentProxy<TId>(
+                    entity,
+                    _actionStateSerializer.Deserialize(entity.CurrentTokenActionState),
+                    entity.CurrentTokenState.HasValue 
+                        ? handler.DeserializeTokenState(entity.CurrentTokenId, entity.CurrentTokenState.Value) 
+                        : null,
+                    entity.ProcessState.HasValue 
+                        ? handler.DeserializeProcessState(entity.ProcessState.Value) 
+                        : null);
+
+                elem.AddComponent<ISchemaProcessComponent>(component);
             }
         }
 
@@ -85,8 +92,18 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Db
 
             foreach (var elem in currentProcesses)
             {
+                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.ProcessType);
                 var component = (EFSchemaProcessComponentProxy<TId>)elem.GetComponent<ISchemaProcessComponent>();
-                component.Entity.ActionState = _actionStateSerializer.Serialize(component.AllActionStates());
+
+                component.Entity.CurrentTokenActionState = _actionStateSerializer.Serialize(component.AllActionStates());
+
+                component.Entity.CurrentTokenState = component.CurrentTokenState is not null
+                    ? handler.SerializeTokenState(elem, component.CurrentTokenState)
+                    : null;
+
+                component.Entity.ProcessState = component.ProcessState is not null
+                    ? handler.SerializeProcessState(elem, component.ProcessState)
+                    : null;
             }
 
             return Task.CompletedTask;

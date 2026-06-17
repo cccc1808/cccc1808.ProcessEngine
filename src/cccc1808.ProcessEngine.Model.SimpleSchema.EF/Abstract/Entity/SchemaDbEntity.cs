@@ -20,21 +20,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity
 
         public JsonElement Schema { get; set; }
 
-        public string HandlerKey { get; set; }
-
 
         public SchemaDbEntity(
             TId id, 
             long processTypeId, 
             int processVersion,
-            JsonElement schema,
-            string handlerKey)
+            JsonElement schema)
         {
             Id = id;
             ProcessTypeId = processTypeId;
             ProcessVersion = processVersion;
             Schema = schema;
-            HandlerKey = handlerKey;
         }
     }
 }

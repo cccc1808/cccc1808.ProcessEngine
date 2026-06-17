@@ -11,7 +11,8 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components
 {
-    public class EFSchemaProcessComponentProxy<TId> : ISchemaProcessComponent
+    public class EFSchemaProcessComponentProxy<TId> 
+        : ISchemaProcessComponent
     {
         private readonly Dictionary<string, ITokenActionStateComponent> _actionState;
 
@@ -19,16 +20,24 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components
 
         public string RootTriggerKey => Entity.RootTriggerKey;
 
-        public string CurrentTokenId { get => Entity.CurrentTokenId; set => Entity.CurrentTokenId = value; }
+        public string CurrentTokenId { get => Entity.CurrentTokenId; private set => Entity.CurrentTokenId = value; }
 
         public bool AutoDetectStreamTriggers => true;
 
+        public object CurrentTokenState { get; set; }
+
+        public object ProcessState { get; }
+
         public EFSchemaProcessComponentProxy(
             SchemaProcessDataDbEntity<TId> entity,
-            ICollection<ITokenActionStateComponent> actionState)
+            ICollection<ITokenActionStateComponent> actionState,
+            object? currentTokenState,
+            object? processState)
         {
             _actionState = actionState.ToDictionary(e => e.Id, e => e);
             Entity = entity;
+            CurrentTokenState = currentTokenState!;
+            ProcessState = processState!;
         }
 
         public void AddActionState<TState>(TState state)
@@ -50,14 +59,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components
             return false;
         }
 
-        public void ClearActionStates()
-        {
-            _actionState.Clear();
-        }
-
         public IReadOnlyCollection<ITokenActionStateComponent> AllActionStates()
         {
             return _actionState.Values;
+        }
+
+        public void MoveToken(string tokenId)
+        {
+            _actionState.Clear();
+            CurrentTokenState = null!;
+            CurrentTokenId = tokenId;
         }
     }
 }

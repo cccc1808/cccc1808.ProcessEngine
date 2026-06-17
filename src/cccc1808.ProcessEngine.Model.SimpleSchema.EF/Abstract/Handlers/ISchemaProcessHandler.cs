@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
 {
@@ -13,33 +15,31 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
         bool CanExecuteServiceTask(string name);
 
         ValueTask<bool> ExecuteServiceTask(
-            string name,
-            string actionId,
-            IProcessContainer<TId> process, 
+            ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
         bool CanCheckCondition(string name);
 
         ValueTask<bool> CheckConditionAsync(
-            string name,
-            string actionId,
-            IProcessContainer<TId> process,
+            ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
         bool CanExecuteConditionHandler(string name);
 
-        ValueTask<bool> ExecuteConditionHandlerAsync(
-            string name,
-            string actionId,
-            IProcessContainer<TId> process,
+        ValueTask ExecuteConditionHandlerAsync(
+            ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
         bool CanExecuteTimer(string name);
 
         ValueTask<bool> ExecuteTimerAsync(
-            string name,
+            ExecuteParametersDto parameters,
+            CancellationToken cancellationToken);
+
+        public readonly record struct ExecuteParametersDto(
+            string handlerName,
             string actionId,
             IProcessContainer<TId> process,
-            CancellationToken cancellationToken);
+            ISchemaProcessComponent schemaComponent);
     }
 }

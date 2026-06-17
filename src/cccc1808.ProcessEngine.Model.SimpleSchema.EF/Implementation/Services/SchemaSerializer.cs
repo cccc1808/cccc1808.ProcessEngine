@@ -27,11 +27,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         e => new TokenContainer() 
                         {
                             Id = e.Id,
+                            Name = e.Name,
                             Actions = e.Actions
                                 .Select(
                                     e => new ActionContainer() 
                                     {
                                         Id = e.Id,
+                                        Name = e.Name,
                                         Kind = e switch 
                                         { 
                                             ServiceTaskTokenAction => KindEnum.ServiceTask, 
@@ -59,7 +61,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 container.Tokens
                     .Select(
                         e => new TokenDto(
-                            e.Id, 
+                            e.Id,
                             e.Actions
                                 .Select(
                                     e => e.Kind switch 
@@ -73,8 +75,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                     )
                                 .ToArray()
                         )
+                        {
+                            Name = e.Name
+                        }
                         )
-                    .ToFrozenDictionary(e => e.Id, e => e)
+                    .ToArray()
                 );          
 
             return result;
@@ -93,18 +98,22 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
         public class TokenContainer 
         {
-            public string Id { get; set; } = default!;
+            public required string Id { get; set; } = default!;
 
-            public ActionContainer[] Actions { get; set; } = default!;
+            public required string? Name { get; set; } = default!;
+
+            public required ActionContainer[] Actions { get; set; } = default!;
         }
 
         public class ActionContainer
         {
-            public string Id { get; set; } = default!;
+            public required string Id { get; set; } = default!;
 
-            public KindEnum Kind { get; set; }
+            public required string? Name { get; set; } = default!;
 
-            public JsonElement Data { get; set; }
+            public required KindEnum Kind { get; set; }
+
+            public required JsonElement Data { get; set; }
         }
 
         public enum KindEnum
