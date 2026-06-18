@@ -89,11 +89,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                             .Select(e => e.Trim())
                             .ToArray();
 
+                        var targerParts = relationParts[1].Split(':');
+
                         var relation = new RelationDto()
                         {
                             SourceId = relationParts[0].TrimStart(MermaidSchemaExporter1.Prefix),
-                            TargetId = relationParts[1].TrimStart(MermaidSchemaExporter1.Prefix),
+                            TargetId = targerParts[0].Trim().TrimStart(MermaidSchemaExporter1.Prefix),
                             Kind = RelationDto.KindEnum.Inheritance,
+                            Label = targerParts.Length == 2 
+                                ? targerParts[1].Trim()
+                                : null,
                         };
 
                         if (!result.Relations.TryGetValue(relation.SourceId, out var relations))
@@ -110,11 +115,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                             .Select(e => e.Trim())
                             .ToArray();
 
+                        var targerParts = relationParts[1].Split(':');
+
                         var relation = new RelationDto()
                         {
                             SourceId = relationParts[0].TrimStart(MermaidSchemaExporter1.Prefix),
-                            TargetId = relationParts[1].TrimStart(MermaidSchemaExporter1.Prefix),
+                            TargetId = targerParts[0].Trim().TrimStart(MermaidSchemaExporter1.Prefix),
                             Kind = RelationDto.KindEnum.Association,
+                            Label = targerParts.Length == 2
+                                ? targerParts[1].Trim()
+                                : null,
                         };
 
                         if (!result.Relations.TryGetValue(relation.SourceId, out var relations))
@@ -196,6 +206,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
 
                 public required KindEnum Kind { get; set; }
 
+                public required string? Label { get; set; }
 
                 public enum KindEnum 
                 {
