@@ -12,6 +12,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         public string? Name { get; set; }
 
+        public bool ActivatedOnStart { get; set; }
+
         [Obsolete]
         public BaseTokenAction() 
         {
@@ -24,6 +26,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
         { 
             Id = id;
             Name = name;
+            ActivatedOnStart = true;
         }
     }
 }

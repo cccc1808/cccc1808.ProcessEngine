@@ -19,9 +19,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component
 
         object? CurrentTokenState { get; set; }
 
-        object ProcessState { get; }        
+        object ProcessState { get; }
 
-        bool TryGetActionState<TState>(string name, out TState state)
+        bool TryGetActionState<TState>(string id, out TState state)
             where TState : ITokenActionStateComponent;
 
         void AddActionState<TState>(TState state)

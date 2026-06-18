@@ -10,11 +10,24 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
 {
-    public interface ISchemaProcessHandler<TId>
+    public interface ISchemaProcessHandler
+    {
+        public readonly record struct ExecuteServiceTaskResult(
+            bool IsComplete,
+            string[] ActivateActions);
+
+        public readonly record struct ExecuteConditionResult(
+            string[] ActivateActions);
+
+        public readonly record struct ExecuteTimerResult(
+            string[] ActivateActions);
+    }
+
+    public interface ISchemaProcessHandler<TId> : ISchemaProcessHandler
     {
         bool CanExecuteServiceTask(string name);
 
-        ValueTask<bool> ExecuteServiceTask(
+        ValueTask<ExecuteServiceTaskResult> ExecuteServiceTask(
             ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
@@ -26,13 +39,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
 
         bool CanExecuteConditionHandler(string name);
 
-        ValueTask ExecuteConditionHandlerAsync(
+        ValueTask<ExecuteConditionResult> ExecuteConditionHandlerAsync(
             ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
         bool CanExecuteTimer(string name);
 
-        ValueTask<bool> ExecuteTimerAsync(
+        ValueTask<ExecuteTimerResult> ExecuteTimerAsync(
             ExecuteParametersDto parameters,
             CancellationToken cancellationToken);
 
@@ -40,6 +53,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
             string handlerName,
             string actionId,
             IProcessContainer<TId> process,
-            ISchemaProcessComponent schemaComponent);
+            ISchemaProcessComponent schemaComponent);        
     }
 }

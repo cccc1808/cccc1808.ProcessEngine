@@ -8,6 +8,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
 {
     public interface ITokenActionStateComponent
     {
+        /// <summary>
+        /// Id действия.
+        /// </summary>
         string Id { get; }
     }
 }

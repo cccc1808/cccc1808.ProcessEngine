@@ -16,6 +16,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
         string? Name { get; }
 
         /// <summary>
+        /// Действие активируется в начале выполнения токена.
+        /// </summary>
+        bool ActivatedOnStart { get; }
+
+        /// <summary>
         /// Указывает переход при обрабокте действия.
         /// </summary>
         /// <param name="TargetTokenId">Идентефикатор токена на который нужно выполнить переход.</param>
@@ -30,6 +35,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
             public static TransitionDto Complete()
                 => new TransitionDto(null, true);
-        }        
+        }
     }
 }
