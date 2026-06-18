@@ -78,7 +78,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                 builder.AddClass(
                     name: elem.Id,
                     out var tokenNode,
-                    annotation: elem.Name);
+                    annotation: elem.Name);                
 
                 builder.AddProperty(
                     tokenNode,
@@ -115,6 +115,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                         actionNode,
                         "Type",
                         MermaidSchemaExporter1.TypeEnum.TokenAction.ToString());
+
+                    builder.AddProperty(
+                        actionNode,
+                        nameof(elem2.ActivatedOnStart),
+                        elem2.ActivatedOnStart.ToString());
 
                     ITokenAction.TransitionDto? transition = null;
                     switch (elem2)

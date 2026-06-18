@@ -12,7 +12,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         public string? Name { get; set; }
 
+        public string? Description { get; set; }
+
         public bool ActivatedOnStart { get; set; }
+
+        public string[] CanRunAction { get; set; }
+            = Array.Empty<string>();
 
         [Obsolete]
         public BaseTokenAction() 

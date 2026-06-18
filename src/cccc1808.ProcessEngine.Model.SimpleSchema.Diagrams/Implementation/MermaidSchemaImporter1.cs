@@ -40,11 +40,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                     : value;
             }
 
-            var tokenInfos = new Dictionary<string, string>(diagramDto.Classes.Count);
+            var tokenInfos = new Dictionary<string, MermaidParser.ClassDiagramDto.ClassDto>(diagramDto.Classes.Count);
             var actions = new Dictionary<string, ITokenAction>(diagramDto.Classes.Count);
             var transitionTargets = new HashSet<string>(diagramDto.Classes.Count);
 
-            foreach (var elem in diagramDto.Classes)
+            foreach (var elem in diagramDto.Classes.Values)
             {
                 var type = ParseType(elem);
 
@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
 
                     case MermaidSchemaExporter1.TypeEnum.Token:
                         {
-                            tokenInfos.Add(elem.Name, elem.Annotation);
+                            tokenInfos.Add(elem.Name, elem);
 
                             break;
                         }
@@ -66,10 +66,22 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                         {
                             var actionType = ParseActionType(elem);
 
-                            var id = elem.Name.Split('.')[1];
+                            var id = elem.Name.Split(MermaidSchemaExporter1.Prefix)[1];
 
-                            var transitionRelation = diagramDto.Relations.TryGetValue(elem.Name, out var relations)
-                                ? relations.Single()
+                            var name = elem.Annotation;
+                            var desription = elem.Notes.SingleOrDefault();
+
+                            var activatedOnStart = bool.Parse(elem.Properties[nameof(ITokenAction.ActivatedOnStart)]);
+
+                            var canRunAction = diagramDto.Relations.TryGetValue(elem.Name, out var relations)
+                                ? relations
+                                    .Where(e => e.Kind == MermaidParser.ClassDiagramDto.RelationDto.KindEnum.Association)
+                                    .Select(e => e.TargetId.Split(MermaidSchemaExporter1.Prefix)[1])
+                                    .ToArray()
+                                : Array.Empty<string>();
+
+                            var transitionRelation = diagramDto.Relations.TryGetValue(elem.Name, out relations)
+                                ? relations.SingleOrDefault(e => e.Kind == MermaidParser.ClassDiagramDto.RelationDto.KindEnum.Inheritance)
                                 : null;
 
                             ITokenAction.TransitionDto? transition = null;
@@ -95,8 +107,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                             handlerKey: elem.Properties[nameof(ServiceTaskTokenAction.HandlerKey)]
                                             ) 
                                         {
-                                            Name = elem.Annotation,
+                                            Name = name,
+                                            Description = desription,
+                                            ActivatedOnStart = activatedOnStart,
                                             Transition = transition,
+                                            CanRunAction = canRunAction,
                                         };
                                         actions.Add(elem.Name, action);
                                         break;
@@ -108,9 +123,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                             id,
                                             checkHandlerKey: elem.Properties[nameof(ConditionTokenAction.CheckHandlerKey)])
                                         {
-                                            Name = elem.Annotation,
+                                            Name = name,
+                                            Description = desription,
+                                            ActivatedOnStart = activatedOnStart,
                                             ActionHandlerKey = ValueOrNull(elem.Properties[nameof(ConditionTokenAction.ActionHandlerKey)]),
                                             Transition = transition,
+                                            CanRunAction = canRunAction,
                                         };
                                         actions.Add(elem.Name, action);
                                         break;
@@ -123,8 +141,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                             TimeSpan.Parse(elem.Properties[nameof(TimerTokenAction.Duration)]))
                                         {
                                             Name = elem.Annotation,
+                                            Description = elem.Notes.SingleOrDefault(),
+                                            ActivatedOnStart = activatedOnStart,
                                             HandlerKey = ValueOrNull(elem.Properties[nameof(TimerTokenAction.HandlerKey)]),
                                             Transition = transition,
+                                            CanRunAction = canRunAction,
                                         };
                                         actions.Add(elem.Name, action);
                                         break;
@@ -151,9 +172,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                         .Relations[elem.Key]
                         .Select(e => actions[e.TargetId])
                         .ToArray()
-                    ) 
+                    )
                 { 
-                    Name = elem.Value,
+                    Name = elem.Value.Annotation,
+                    Description = elem.Value.Notes.SingleOrDefault(),
                 };
                 tokens.Add(token);
             }
@@ -163,7 +185,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
             return new ProcessSchemaDto(
                 startToken.Id,
                 tokens
-                );
+                )
+            { 
+                Description = diagramDto.Notes.SingleOrDefault(),
+            };
         }
         
     }

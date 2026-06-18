@@ -15,10 +15,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         string? Name { get; }
 
+        string? Description { get; }
+
         /// <summary>
         /// Действие активируется в начале выполнения токена.
         /// </summary>
         bool ActivatedOnStart { get; }
+
+        string[] CanRunAction { get; }
 
         /// <summary>
         /// Указывает переход при обрабокте действия.

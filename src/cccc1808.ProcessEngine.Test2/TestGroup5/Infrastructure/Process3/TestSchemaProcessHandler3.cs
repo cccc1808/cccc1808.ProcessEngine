@@ -111,25 +111,42 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                         new ServiceTaskTokenAction("1", handlerKey: "SendRequest")
                         {
                             Name = "Отправляем запрос.",
+                            Description =
+@"1) Отправляет запрос и увеличивает счетчик попыток.
+2) Запускает действия 2 и 3.",
                             ActivatedOnStart = true,
-                        },                        
+                            CanRunAction = ["2", "3"],
+                        },
                         new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
                         {
                             Name = "Ждем ответ.",
+                            Description =
+@"1) Проверяет поступление ответа.
+2) Если ответ поступил, то переходит на следующий токен.",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
                         },
                         new TimerTokenAction("3", TimeSpan.FromSeconds(30))
                         {
                             Name = "Timeout ожидания ответа.",
+                            Description =
+@"Таймаут ожидания ответа.
+1) Если количество попыток не превышено, 
+то запускает действие 1 для отправки повторного запроса.
+иначе сбрасывает счетчик и записыват в процесс ошибку.",
                             ActivatedOnStart = false,
+                            CanRunAction = ["1"],
                         }
                         )
                     {
-                        Name = "RPC with retry."
+                        Name = "RPC with retry.",
+                        Description = "Обработка request-reponse с несколькими попытками в случае отсутсвия ответа.",
                     },
                 ]
-                );
+                )
+            { 
+                Description = "Request-Rersponse with retry",
+            };
 
         private static RpcTokenState GetOrCreateTokenState(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
