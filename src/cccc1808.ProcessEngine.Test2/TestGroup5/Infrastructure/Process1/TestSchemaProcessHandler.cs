@@ -37,7 +37,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
                         "1", 
                         new ServiceTaskTokenAction("1", handlerKey: "1")
                         {
-                            Transition = ITokenAction.TransitionDto.Target("2"),
+                            Transition = ITokenAction.TransitionDto.Target("2", comment: "Переход на токен 2"),
                         }
                         ),
                     new TokenDto(

@@ -110,16 +110,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                         "1",
                         new ServiceTaskTokenAction("1", handlerKey: "SendRequest")
                         {
-                            Name = "Отправляем запрос.",
+                            Name = "Отправка запроса",
                             Description =
 @"1) Отправляет запрос и увеличивает счетчик попыток.
 2) Запускает действия 2 и 3.",
                             ActivatedOnStart = true,
-                            CanRunAction = ["2", "3"],
+                            CanRunAction = [
+                                new ITokenAction.RunActionDeclarationDto("2", Comment: "Активируем действие проверки ответа"), 
+                                new ITokenAction.RunActionDeclarationDto("3", Comment: "Активируем действие таймера повторной отправки")
+                                ],
                         },
                         new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
                         {
-                            Name = "Ждем ответ.",
+                            Name = "Проверка поступления ответа",
                             Description =
 @"1) Проверяет поступление ответа.
 2) Если ответ поступил, то переходит на следующий токен.",
@@ -128,24 +131,26 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                         },
                         new TimerTokenAction("3", TimeSpan.FromSeconds(30))
                         {
-                            Name = "Timeout ожидания ответа.",
+                            Name = "Timeout ожидания ответа",
                             Description =
 @"Таймаут ожидания ответа.
 1) Если количество попыток не превышено, 
 то запускает действие 1 для отправки повторного запроса.
 иначе сбрасывает счетчик и записыват в процесс ошибку.",
                             ActivatedOnStart = false,
-                            CanRunAction = ["1"],
+                            CanRunAction = [
+                                new ITokenAction.RunActionDeclarationDto("1", Comment: "Активируем повторную отправку запроса")
+                                ],
                         }
                         )
                     {
-                        Name = "RPC with retry.",
-                        Description = "Обработка request-reponse с несколькими попытками в случае отсутсвия ответа.",
+                        Name = "Запрос ответ токен",
+                        Description = "Обработка request-reponse с retry в случае отсутсвия ответа.",
                     },
                 ]
                 )
             { 
-                Description = "Request-Rersponse with retry",
+                Description = "Тестовый процесс",
             };
 
         private static RpcTokenState GetOrCreateTokenState(

@@ -183,7 +183,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                 to: tokensNodes[transition.Value.TargetTokenId],
                                 fromRelationshipType: RelationshipType.Unspecified,
                                 toRelationshipType: RelationshipType.Inheritance,
-                                label: "transition");
+                                label: transition.Value.Comment);
                         }
                         else 
                         {
@@ -191,8 +191,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                 from: actionNode,
                                 to: endNode,
                                 fromRelationshipType: RelationshipType.Unspecified,
-                                toRelationshipType: RelationshipType.Inheritance,
-                                label: "Transition");
+                                toRelationshipType: RelationshipType.Inheritance);
                         }
                     }
                 }
@@ -205,10 +204,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                         {
                             builder.AddRelationship(
                                 from: actionsNodes[$"{elem.Id}.{elem2.Id}"],
-                                to: actionsNodes[$"{elem.Id}.{elem3}"],
+                                to: actionsNodes[$"{elem.Id}.{elem3.ActivateActionId}"],
                                 fromRelationshipType: RelationshipType.Unspecified,
                                 toRelationshipType: RelationshipType.Association,
-                                label: "Run action");
+                                label: elem3.Comment);
                         }
                     }
                 }

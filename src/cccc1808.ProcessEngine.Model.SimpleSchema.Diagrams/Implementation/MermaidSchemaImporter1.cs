@@ -76,9 +76,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                             var canRunAction = diagramDto.Relations.TryGetValue(elem.Name, out var relations)
                                 ? relations
                                     .Where(e => e.Kind == MermaidParser.ClassDiagramDto.RelationDto.KindEnum.Association)
-                                    .Select(e => e.TargetId.Split(MermaidSchemaExporter1.Prefix)[1])
+                                    .Select(e => new ITokenAction.RunActionDeclarationDto(
+                                        ActivateActionId: e.TargetId.Split(MermaidSchemaExporter1.Prefix)[1],
+                                        Comment: e.Label
+                                        ))
                                     .ToArray()
-                                : Array.Empty<string>();
+                                : Array.Empty<ITokenAction.RunActionDeclarationDto>();
 
                             var transitionRelation = diagramDto.Relations.TryGetValue(elem.Name, out relations)
                                 ? relations.SingleOrDefault(e => e.Kind == MermaidParser.ClassDiagramDto.RelationDto.KindEnum.Inheritance)
@@ -93,7 +96,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation
                                 }
                                 else
                                 {
-                                    transition = ITokenAction.TransitionDto.Target(transitionRelation.TargetId);
+                                    transition = ITokenAction.TransitionDto.Target(
+                                        transitionRelation.TargetId, 
+                                        comment: transitionRelation.Label);
                                     transitionTargets.Add(transition.Value.TargetTokenId);
                                 }                                
                             }
