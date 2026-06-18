@@ -75,26 +75,30 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                 if (actionsResult.IsBreak)
                 {
+                    // Предпологается, что про произошло событие, которые завершает текущий токен:
+                    // * Завершение процесса.
+                    // * Переход на другой токен.
                     break;
                 }
 
+                // Предпологается ошибка (если нужно, то статус переключен на WaitEvent).
                 if (process.CurrentSession.CurrentSessionHaveError)
                 {
                     break;
                 }
-            }
 
-            // Если мы ошибки, то статус ожидания и выполнение приостановлено.
-            if (process.CurrentSession.CurrentSessionHaveError)
-            {
-                return;
+                // Ручная остановка асинхронной сессии.
+                if (process.CurrentSession.StopAsyncProcessingSession)
+                {
+                    // Основной предпологаемый кейс - долгий ServiceTask, который еще не завершился, но произошел SoftTimeout.
+                    break;
+                }
             }
 
             await SetActionResultAsync(
                 process,
                 processData,
                 actionsResult,
-                isAsyncExecuting: true,
                 cancellationToken);
         }
 
@@ -127,7 +131,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 process, 
                 processData,
                 actionResult,
-                isAsyncExecuting: false,
                 cancellationToken);
         }
 
@@ -389,7 +392,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
            IProcessContainer<TId> process,
            ISchemaProcessComponent component,
            ActionResult result,
-           bool isAsyncExecuting,
            CancellationToken cancellationToken)
         {
             static bool HaveAsyncExecutingActions(ISchemaProcessComponent component)
@@ -413,7 +415,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 component.MoveToken(
                     result.MoveTokenId);
 
-                if (!isAsyncExecuting)
+                if (!process.InAsyncExecuting)
                 {
                     // Продолжение асинхронного выполнения на другом токене.
                     _processSetter.SetStatus(process, ProcessStatusEnum.AsyncExecute);
@@ -433,11 +435,18 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             }
 
             // Вызов из асинхронного выполнения.
-            if (isAsyncExecuting)
+            if (process.InAsyncExecuting)
             {
                 if (result.IsAsyncExecuting)
                 {
+                    // Предпологается process.Process.Status == ProcessStatusEnum.AsyncExecute
                     // Продолжение асинхронного выполнения на текущем токене.
+                    return;
+                }
+
+                if (process.CurrentSession.CurrentSessionHaveError)
+                {
+                    // Если ошибка в текущей сесси. То не трогаем статус.
                     return;
                 }
 
@@ -475,6 +484,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             // Вызов из внешнего кода.
             else
             {
+                // Предпологается process.Process.Status == ProcessStatusEnum.WaitEvent
                 var haveAsyncExecuting = HaveAsyncExecutingActions(component);
 
                 if (result.IsAsyncExecuting || haveAsyncExecuting)
@@ -484,7 +494,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 }
                 else
                 {
-                    // Продолжение ожидания сигнала.
+                    // Продожаем ожидать следюущий сигнал.
                 }
             }
         }
