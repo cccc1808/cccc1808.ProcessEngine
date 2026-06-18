@@ -81,6 +81,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                 var actionIds = new HashSet<string>(elem.Actions.Length);
                 var haveTransition = false;
+                var haveActiveOnStart = false;
                 foreach (var elem2 in elem.Actions)
                 {
                     if (actionIds.Contains(elem2.Id)) 
@@ -88,6 +89,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         throw new Exception("Несколько действий с одинаковым id.");
                     }
                     actionIds.Add(elem2.Id);
+
+                    if (elem2.ActivatedOnStart)
+                    {
+                        haveActiveOnStart = true;
+                    }
 
                     switch (elem2)
                     {
@@ -193,7 +199,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 if (!haveTransition)
                 {
                     throw new Exception("Токен не содержит перехода.");
-                }                
+                }    
+                
+                if (!haveActiveOnStart)
+                {
+                    throw new Exception("Токен не содержит ни одного активного на старте действия.");
+                }
             }
 
             if (needComplete)

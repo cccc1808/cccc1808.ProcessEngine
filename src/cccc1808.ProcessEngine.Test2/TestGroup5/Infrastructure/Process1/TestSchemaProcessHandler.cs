@@ -21,11 +21,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
             RegistryServiceTask("1", TestActionAsync);
         }
 
-        private ValueTask<bool> TestActionAsync(
+        private ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult> TestActionAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
-            return ValueTask.FromResult(true);
+            return ValueTask.FromResult(
+                new ISchemaProcessHandler.ExecuteServiceTaskResult(IsComplete: true, []));
         }
 
         public static ProcessSchemaDto Schema { get; }

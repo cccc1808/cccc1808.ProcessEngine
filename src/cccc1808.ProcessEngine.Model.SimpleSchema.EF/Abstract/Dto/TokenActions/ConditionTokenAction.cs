@@ -35,6 +35,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
                   null)
         {
             CheckHandlerKey = checkHandlerKey;
-        }
+        }        
     }
 }

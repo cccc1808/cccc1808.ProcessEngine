@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
             RegistryConditionTaskCheck("CheckResponse", CheckReponseReceivedAsync);
         }
 
-        private ValueTask<bool> SendRequestHandlerAsync(
+        private ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult> SendRequestHandlerAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
@@ -42,7 +42,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
                 typedTokenState.CorrelationId,
                 JsonHelper.Empty);
 
-            return ValueTask.FromResult(true);
+            return ValueTask.FromResult(
+                new ISchemaProcessHandler.ExecuteServiceTaskResult(IsComplete: true, ["2"]));
         }
 
         private ValueTask<bool> CheckReponseReceivedAsync(
@@ -70,10 +71,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
                         new ServiceTaskTokenAction("1", handlerKey: "SendRequest")
                         {
                             Name = "Отправляем запрос.",
+                            ActivatedOnStart = true,
                         },
                         new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
                         {
                             Name = "Ждем ответ.",
+                            ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
                         }
                         )

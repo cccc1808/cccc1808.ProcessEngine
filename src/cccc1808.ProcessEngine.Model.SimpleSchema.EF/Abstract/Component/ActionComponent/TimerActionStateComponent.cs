@@ -11,9 +11,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
     {
         public string Id { get; set; }
 
-        public DateTimeOffset Date { get; set; }
+        public StatusEnum Status { get; set; }
 
-        public bool IsComplete { get; set; }
+        public DateTimeOffset? Date { get; set; }
 
         [Obsolete]
         public TimerActionStateComponent()
@@ -23,12 +23,18 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
 
         public TimerActionStateComponent(
             string id,
-            DateTimeOffset date,
-            bool isComplete)
+            StatusEnum status)
         {
             Id = id;
-            Date = date;
-            IsComplete = isComplete;
+            Status = status;
+        }
+
+        public enum StatusEnum
+        {
+            NoActivated,
+            CreatingTimer,
+            WaitingTimer,
+            Complete
         }
     }
 }

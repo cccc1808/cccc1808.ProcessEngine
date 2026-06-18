@@ -12,20 +12,20 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
     public abstract class BaseSchemaProcessHandler<TId> 
         : ISchemaProcessHandler<TId>
     {
-        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>> _serviceTaskHandlers;
+        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult>>> _serviceTaskHandlers;
         private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>> _checkConditionHandlers;
-        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask>> _executeConditionHandlers;
-        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>> _timerHandlers;
+        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>>> _executeConditionHandlers;
+        private readonly Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>>> _timerHandlers;
         
         protected BaseSchemaProcessHandler()
         {
-            _serviceTaskHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>>(5);
+            _serviceTaskHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult>>>(5);
             _checkConditionHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>>(5);
-            _executeConditionHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask>>(5);
-            _timerHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>>>(5);
+            _executeConditionHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>>>(5);
+            _timerHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>>>(5);
         }
         
-        protected void RegistryServiceTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>> handler)
+        protected void RegistryServiceTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult>> handler)
         {
             _serviceTaskHandlers.Add(key, handler);
         }
@@ -35,12 +35,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             _checkConditionHandlers.Add(key, handler);
         }
 
-        protected void RegistryConditionTaskExecute(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask> handler)
+        protected void RegistryConditionTaskExecute(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>> handler)
         {
             _executeConditionHandlers.Add(key, handler);
         }
 
-        protected void RegistryTimerTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>> handler)
+        protected void RegistryTimerTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>> handler)
         {
             _timerHandlers.Add(key, handler);
         }
@@ -50,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             return _serviceTaskHandlers.ContainsKey(name);
         }
 
-        public async ValueTask<bool> ExecuteServiceTask(
+        public async ValueTask<ISchemaProcessHandler<TId>.ExecuteServiceTaskResult> ExecuteServiceTask(
             ISchemaProcessHandler<TId>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
@@ -74,11 +74,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             return _executeConditionHandlers.ContainsKey(name);
         }
 
-        public async ValueTask ExecuteConditionHandlerAsync(
+        public async ValueTask<ISchemaProcessHandler<TId>.ExecuteConditionResult> ExecuteConditionHandlerAsync(
             ISchemaProcessHandler<TId>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
-            await _executeConditionHandlers[parameters.handlerName](parameters, cancellationToken);
+            return await _executeConditionHandlers[parameters.handlerName](parameters, cancellationToken);
         }
 
         public bool CanExecuteTimer(string name)
@@ -86,7 +86,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             return _timerHandlers.ContainsKey(name);
         }
 
-        public async ValueTask<bool> ExecuteTimerAsync(
+        public async ValueTask<ISchemaProcessHandler<TId>.ExecuteTimerResult> ExecuteTimerAsync(
             ISchemaProcessHandler<TId>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {

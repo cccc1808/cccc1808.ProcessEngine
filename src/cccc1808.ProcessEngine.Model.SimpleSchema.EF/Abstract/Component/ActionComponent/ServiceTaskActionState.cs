@@ -11,21 +11,27 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
     {
         public string Id { get; set; }
 
-        public bool IsComplete { get; set; }
+        public StatusEnum Status { get; set; }
 
         [Obsolete]
         public ServiceTaskActionState() 
         {
             Id = default!;
-            IsComplete = false;
         }
 
         public ServiceTaskActionState(
             string id,
-            bool isComplete)
+            StatusEnum status)
         {
             Id = id;
-            IsComplete = isComplete;
+            Status = status;
+        }
+
+        public enum StatusEnum 
+        {
+            NoActivated,
+            Executing,
+            Complete
         }
     }
 }
