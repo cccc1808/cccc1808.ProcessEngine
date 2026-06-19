@@ -47,9 +47,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                 JsonHelper.Empty);
             
             return ValueTask.FromResult(
-                new ISchemaProcessHandler.ExecuteServiceTaskResult(
-                    IsComplete: true,
-                    ["2", "3"]));
+                ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
+                    isComplete: true,
+                    ISchemaProcessHandler.ActivateActionDto.ActivateConditionAction("2", asyncExecuteOrWaitSignal: false),
+                    ISchemaProcessHandler.ActivateActionDto.ActivateTimerAction("3"))
+                );
         }
 
         private ValueTask<bool> CheckReponseReceivedAsync(
@@ -73,7 +75,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
             return ValueTask.FromResult(state.IsReceived);
         }
 
-        private ValueTask<ISchemaProcessHandler.ExecuteTimerResult> WaitResponseTimeoutTimerAsync(
+        private ISchemaProcessHandler.ExecuteTimerResult WaitResponseTimeoutTimerAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
@@ -81,15 +83,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
 
             if (state.IsReceived)
             {
-                return ValueTask.FromResult(
-                    new ISchemaProcessHandler.ExecuteTimerResult([]));
+                // Ответ пришел. Ничего не делаем.
+                return ISchemaProcessHandler.ExecuteTimerResult.Result();
             }
 
             if (state.TryCount < 3)
             {
                 // Посылаем запрос повторно.
-                return ValueTask.FromResult(
-                    new ISchemaProcessHandler.ExecuteTimerResult(["1"]));
+                return ISchemaProcessHandler.ExecuteTimerResult.Result(
+                    ISchemaProcessHandler.ActivateActionDto.ExecuteServiceTask("1"));
             }
 
             state.TryCount = 0;
@@ -98,8 +100,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                 new Exception($"Превышено количетсво попыток отправить запрос, ответ не получен {parameters.schemaComponent.CurrentTokenId}."),
                 allowRetry: false);
 
-            return ValueTask.FromResult(
-                 new ISchemaProcessHandler.ExecuteTimerResult([]));
+            return ISchemaProcessHandler.ExecuteTimerResult.Result();
         }
 
         public static ProcessSchemaDto Schema { get; }

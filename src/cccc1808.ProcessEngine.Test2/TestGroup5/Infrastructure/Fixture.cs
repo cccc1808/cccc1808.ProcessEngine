@@ -32,6 +32,7 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProv
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
 
 using Confluent.Kafka;
 
@@ -198,7 +199,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     
                     .AddSchemaProcess(
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, TestSchemaProcessStateHandler>(TestSchemaProcessHandler.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, TestSchemaProcessStateHandler2>(TestSchemaProcessHandler2.ProcessType)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, TestSchemaProcessStateHandler2>(TestSchemaProcessHandler2.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, TestSchemaProcessStateHandler4>(TestSchemaProcessHandler4.ProcessType)
                         );
 
                 services.AddSingleton<TestRequestReponseStore>();

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
 {
@@ -14,13 +15,70 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
     {
         public readonly record struct ExecuteServiceTaskResult(
             bool IsComplete,
-            string[] ActivateActions);
+            ActivateActionDto[] ActivateActions)
+        {
+            public static ExecuteServiceTaskResult Result(bool isComplete, params ActivateActionDto[] activateActions)
+                => new ExecuteServiceTaskResult(isComplete, activateActions);
+        }
 
         public readonly record struct ExecuteConditionResult(
-            string[] ActivateActions);
+            ActivateActionDto[] ActivateActions)
+        {
+            public static ExecuteConditionResult Result(params ActivateActionDto[] activateActions)
+                => new ExecuteConditionResult(activateActions);
+        }
 
         public readonly record struct ExecuteTimerResult(
-            string[] ActivateActions);
+            ActivateActionDto[] ActivateActions)
+        {
+            public static ExecuteTimerResult Result(params ActivateActionDto[] activateActions)
+                => new ExecuteTimerResult(activateActions);
+        }
+
+        /// <summary>
+        /// Указывает на необходимость активировать действие.
+        /// </summary>
+        /// <param name="ActionId">Идентефикатор действия.</param>
+        /// <param name="AsyncExecuteOrWaitSignal">
+        /// True - асинхронное выполнение нужно сейчас,
+        /// False - асинхронное выполнение не нужно, ожидается внешний сигнал или воздействие.
+        /// </param>
+        public readonly record struct ActivateActionDto(
+            string ActionId,
+            bool AsyncExecuteOrWaitSignal)
+        {
+            /// <summary>
+            /// <see cref="ServiceTaskTokenAction"/>.
+            /// Если активируем, то всегда нужно асинхронное выполнение.
+            /// Иначе - true, и так выполняется.
+            /// </summary>
+            public static ActivateActionDto ExecuteServiceTask(string actionId)
+                => new ActivateActionDto(actionId, AsyncExecuteOrWaitSignal: true);
+
+            /// <summary>
+            /// <see cref="TimerTokenAction"/>.
+            /// Если активируем, то нужно создать таймер триггер и будет асинхронное выполнение.
+            /// Иначе - false, ожидает срабатывания таймера.
+            /// </summary>
+            /// <param name="actionId"></param>
+            /// <returns></returns>
+            public static ActivateActionDto ActivateTimerAction(string actionId)
+                => new ActivateActionDto(actionId, AsyncExecuteOrWaitSignal: true);
+
+            /// <summary>
+            /// <see cref="ConditionTokenAction"/>.
+            /// </summary>
+            /// <param name="actionId">Идентефикатор действия.</param>
+            /// <param name="asyncExecuteOrWaitSignal">
+            /// True - условие можно проверить прямо сейчас.
+            /// False - улосвие нужно будет првоерять только после внешнего сигнала или воздействия.
+            /// </param>
+            /// <returns></returns>
+            public static ActivateActionDto ActivateConditionAction(
+                string actionId,
+                bool asyncExecuteOrWaitSignal)
+                => new ActivateActionDto(actionId, asyncExecuteOrWaitSignal);
+        }
     }
 
     public interface ISchemaProcessHandler<TId> : ISchemaProcessHandler

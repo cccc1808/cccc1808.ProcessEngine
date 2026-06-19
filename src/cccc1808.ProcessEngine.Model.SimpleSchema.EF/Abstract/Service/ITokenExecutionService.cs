@@ -27,7 +27,20 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service
         ValueTask ExecuteActionAsync(
             IProcessContainer<TId> process,
             string actionId,
-            CancellationToken cancellationToken,
-            string? tokenId = null);
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Проверить, что 
+        /// * tokenId является активным токеном
+        /// * conditionActionId является ConditionAction в состоянии ожидания выполнения условия
+        /// </summary>
+        /// <param name="tokenId">Id ожидаемого токена.</param>
+        /// <param name="conditionActionId">Id ожидаемого ConditionAction в состоянии проверки условия.</param>
+        /// <returns></returns>
+        ValueTask ValidateTokenState(
+            IProcessContainer<TId> process,
+            string tokenId,
+            string? conditionActionId,
+            CancellationToken cancellationToken);
     }
 }
