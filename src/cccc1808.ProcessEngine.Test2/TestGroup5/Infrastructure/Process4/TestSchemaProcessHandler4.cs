@@ -103,18 +103,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                             Name = "Пользовательский ввод 1",
                             ActionHandlerKey = "I1",
                             ActivatedOnStart = true,
+                            CanRunAction = [new ITokenAction.RunActionDeclarationDto("I2", "Переходим на ввод 2")],
                         },
                         new ConditionTokenAction("I2", "I2")
                         {
                             Name = "Пользовательский ввод 2",
                             ActionHandlerKey = "I2",
                             ActivatedOnStart = false,
+                            CanRunAction = [new ITokenAction.RunActionDeclarationDto("I3", "Переходим на ввод 3")],
                         },
                         new ConditionTokenAction("I3", "I3")
                         {
                             Name = "Пользовательский ввод 3 и рассчет результата",
                             ActionHandlerKey = "I3",
                             ActivatedOnStart = false,
+                            CanRunAction = [new ITokenAction.RunActionDeclarationDto("R", "Переходим на финал")],
                         },
                         new ConditionTokenAction("R", "R")
                         {
@@ -124,10 +127,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                         }
                         )
                     {
-                        Name = "Пользовательский ввод"
+                        Name = "Пользовательский ввод",
+                        Description = "Токен пользовательского ввода",
                     },
                 ]
-                );
+                )
+            {
+                Description = "Пример процесса с пользовательским вводом"
+            };
 
         public static UserInputTokenState GetOrCreateTokenState(
             ISchemaProcessComponent component)
