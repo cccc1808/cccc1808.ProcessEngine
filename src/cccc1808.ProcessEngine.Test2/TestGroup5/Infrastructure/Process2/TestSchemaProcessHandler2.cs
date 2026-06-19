@@ -12,6 +12,8 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 
+using static cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers.ISchemaProcessHandler;
+
 namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
 {
     internal class TestSchemaProcessHandler2 : BaseSchemaProcessHandler<Guid>
@@ -28,7 +30,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
             RegistryConditionTaskCheck("CheckResponse", CheckReponseReceivedAsync);
         }
 
-        private ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult> SendRequestHandlerAsync(
+        private ISchemaProcessHandler.ExecuteServiceTaskResult SendRequestHandlerAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
@@ -42,11 +44,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
                 typedTokenState.CorrelationId,
                 JsonHelper.Empty);
 
-            return ValueTask.FromResult(
-                new ISchemaProcessHandler.ExecuteServiceTaskResult(IsComplete: true, ["2"]));
+            return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
+                isComplete: true,
+                ActivateActionDto.ActivateConditionAction("2", asyncExecuteOrWaitSignal: false)
+                );
         }
 
-        private ValueTask<bool> CheckReponseReceivedAsync(
+        private bool CheckReponseReceivedAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
@@ -55,11 +59,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
             // Запрос еще не отправлен.
             if (typedTokenState is null)
             {
-                return ValueTask.FromResult(false);
+                return false;
             }
 
             var received = _testRequestReponseStore.ResponseReceived(typedTokenState.CorrelationId, out _);
-            return ValueTask.FromResult(received);
+            return received;
         }
 
         public static ProcessSchemaDto Schema { get; }

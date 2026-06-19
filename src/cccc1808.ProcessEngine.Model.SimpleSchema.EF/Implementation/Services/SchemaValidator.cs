@@ -166,7 +166,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                                 if (!haveAction)
                                 {
-                                    throw new Exception("TimerTokenAction не содержит не хенндлера ни перехода.");
+                                    throw new Exception("ConditionTokenAction не содержит не хенндлера ни перехода.");
                                 }
 
                                 break;

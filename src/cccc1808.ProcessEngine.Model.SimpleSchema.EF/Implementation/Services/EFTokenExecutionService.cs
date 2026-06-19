@@ -50,6 +50,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             _schemaService = schemaService;
         }
 
+        #region ITokenExecutionService
+
         public async ValueTask ExecuteTokenAsync(
             IProcessContainer<TId> process,
             CancellationToken cancellationToken)
@@ -105,18 +107,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
         public async ValueTask ExecuteActionAsync(
             IProcessContainer<TId> process, 
             string actionId, 
-            CancellationToken cancellationToken,
-            string? tokenId = null)
+            CancellationToken cancellationToken)
         {
             var processData = process.GetComponent<ISchemaProcessComponent>();
             var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
             var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
-
-            if (tokenId is not null && tokenId != token.Id)
-            {
-                throw new Exception(
-                    $"Текущий токен процесса не соответсвует ожидаемому токену. {tokenId}, {token.Id}");
-            }
 
             var actionResult = await InnerExecuteActionAsync(
                 process,
@@ -124,8 +119,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 processHandler,
                 token,
                 token.GetAction(actionId),
-                cancellationToken
-                );
+                cancellationToken);
 
             await SetActionResultAsync(
                 process, 
@@ -133,6 +127,78 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 actionResult,
                 cancellationToken);
         }
+
+        public async ValueTask ValidateTokenState(
+            IProcessContainer<TId> process, 
+            string tokenId,
+            string? conditionActionId, 
+            CancellationToken cancellationToken)
+        {
+            static string BuildError(
+                string tokenId,
+                string? actionId,
+                string detail) => $"Ожидается активный токен и дейтсвие. {tokenId}. {actionId}. {detail}";
+
+            var processData = process.GetComponent<ISchemaProcessComponent>();
+            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
+
+            if (tokenId != token.Id)
+            {
+                throw new Exception(
+                    BuildError(tokenId, conditionActionId, $"Фактический токен. {token.Id}"));
+            }
+
+            if (conditionActionId is not null)
+            {
+                var action = token.GetAction(conditionActionId);
+
+                switch (action)
+                {
+                    case TimerTokenAction:
+                    case ServiceTaskTokenAction:
+                        throw new Exception(
+                            BuildError(tokenId, conditionActionId, $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {conditionActionId}"));
+
+                    case ConditionTokenAction: 
+                        {
+                            if (!processData.TryGetActionState<ConditionActionStateComponent>(conditionActionId, out var state))
+                            {
+                                if (action.ActivatedOnStart)
+                                {
+                                    break;
+                                }
+
+                                throw new Exception(
+                                    BuildError(tokenId, conditionActionId, "Действие не запущено."));
+                            }
+
+                            switch (state.Status)
+                            {
+                                case ConditionActionStateComponent.StatusEnum.NoActivated:
+                                    throw new Exception(
+                                        BuildError(tokenId, conditionActionId, "Действие не активировано."));
+
+                                case ConditionActionStateComponent.StatusEnum.Complete:
+                                    throw new Exception(
+                                        BuildError(tokenId, conditionActionId, "Действие завершено."));
+
+                                case ConditionActionStateComponent.StatusEnum.CheckCondition:
+                                    break;
+
+                                default: 
+                                    throw new NotImplementedException(state.Status.ToString());
+                            }
+
+                            break;
+                        }
+
+                    default: throw new NotImplementedException(action.GetType().FullName);
+                }
+            }
+        }
+
+        #endregion
 
         #region InnerExecuteActionAsync
 
@@ -185,7 +251,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             TimerTokenAction timerTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, timerTokenAction);
+            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: false, out _);
 
             switch (state.Status)
             {
@@ -216,8 +282,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                 case TimerActionStateComponent.StatusEnum.WaitingTimer:
                     {
+                        _ = state.Date ?? throw new Exception("[Bug] Дата таймера не может быть пустой у взведенного таймера.");
+
                         // Условие выполнения действия.
-                        var condition = _dateTimeProvider.UtcNow >= state.Date;
+                        var condition = _dateTimeProvider.UtcNow >= state.Date.Value;
 
                         if (!condition)
                         {
@@ -226,7 +294,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                         state.Status = TimerActionStateComponent.StatusEnum.Complete;
 
-                        var haveActivations = false;
+                        var needAsyncExecuting = false;
                         if (timerTokenAction.HandlerKey is not null)
                         {
                             var executeResult = await processHandler.ExecuteTimerAsync(
@@ -237,7 +305,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                     component),
                                 cancellationToken);
 
-                            haveActivations = ActivateActions(
+                            needAsyncExecuting = ActivateActions(
                                 token,
                                 component,
                                 executeResult.ActivateActions);
@@ -249,7 +317,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         }
 
                         // Если была активация, то значит есть что выполнять.
-                        if (haveActivations)
+                        if (needAsyncExecuting)
                         {
                             return ActionResult.AsyncExecutingResult();
                         }
@@ -269,7 +337,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             ConditionTokenAction conditionTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, conditionTokenAction);
+            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: false, out _);
 
             switch (state.Status)
             {
@@ -337,7 +405,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             ServiceTaskTokenAction serviceTaskTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, serviceTaskTokenAction);
+            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: false, out _);
 
             switch (state.Status)
             {
@@ -394,20 +462,20 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
            ActionResult result,
            CancellationToken cancellationToken)
         {
-            static bool HaveAsyncExecutingActions(ISchemaProcessComponent component)
-            {
-                return component.AllActionStates().Any(
-                    e => e switch 
-                    {
-                        TimerActionStateComponent timerActionState => timerActionState.Status is TimerActionStateComponent.StatusEnum.CreatingTimer,
-                        ConditionActionStateComponent conditionActionState => false,
-                        ServiceTaskActionState serviceTaskActionState => serviceTaskActionState.Status is ServiceTaskActionState.StatusEnum.Executing,
+            //static bool HaveAsyncExecutingActions(ISchemaProcessComponent component)
+            //{
+            //    return component.AllActionStates().Any(
+            //        e => e switch 
+            //        {
+            //            TimerActionStateComponent timerActionState => timerActionState.Status is TimerActionStateComponent.StatusEnum.CreatingTimer,
+            //            ConditionActionStateComponent conditionActionState => false,
+            //            ServiceTaskActionState serviceTaskActionState => serviceTaskActionState.Status is ServiceTaskActionState.StatusEnum.Executing,
 
-                        _ => 
-                        throw new NotImplementedException(e.GetType().FullName)
-                    }
-                    );
-            }
+            //            _ => 
+            //            throw new NotImplementedException(e.GetType().FullName)
+            //        }
+            //        );
+            //}
 
             if (result.MoveTokenId is not null)
             {
@@ -437,9 +505,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             // Вызов из асинхронного выполнения.
             if (process.InAsyncExecuting)
             {
+                // Здесь работаем с намерением ProcessStatusEnum.AsyncExecute -> ProcessStatusEnum.WaitEvent
+
                 if (result.IsAsyncExecuting)
                 {
-                    // Предпологается process.Process.Status == ProcessStatusEnum.AsyncExecute
+                    // Предпологается process.Process.Status == AsyncExecute
                     // Продолжение асинхронного выполнения на текущем токене.
                     return;
                 }
@@ -450,9 +520,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     return;
                 }
 
-                var haveAsyncExecuting = HaveAsyncExecutingActions(component);
+                //var haveAsyncExecuting = HaveAsyncExecutingActions(component);
 
-                if (!haveAsyncExecuting)
+                //if (!haveAsyncExecuting)
                 {
                     // Ожидание сигнала.
                     _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
@@ -476,7 +546,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         }
                     }
                 }
-                else
+                //else
                 {
                     // Продолжение асинхронного выполнения на текущем токене.
                 }
@@ -484,10 +554,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             // Вызов из внешнего кода.
             else
             {
-                // Предпологается process.Process.Status == ProcessStatusEnum.WaitEvent
-                var haveAsyncExecuting = HaveAsyncExecutingActions(component);
+                // Здесь работаем с намерением ProcessStatusEnum.WaitEvent -> ProcessStatusEnum.AsyncExecute
 
-                if (result.IsAsyncExecuting || haveAsyncExecuting)
+                // Предпологается process.Process.Status == ProcessStatusEnum.WaitEvent
+                //var haveAsyncExecuting = HaveAsyncExecutingActions(component);
+
+                if (result.IsAsyncExecuting /*|| haveAsyncExecuting*/)
                 {
                     // Переход в асинхронное выполнение.
                     _processSetter.SetStatus(process, ProcessStatusEnum.AsyncExecute);
@@ -499,62 +571,78 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             }
         }
 
+        #region GetOrCreateActionState
+
         private static TimerActionStateComponent GetOrCreateActionState(
             ISchemaProcessComponent processData,
-            TimerTokenAction tokenAction)
+            TimerTokenAction tokenAction,
+            bool isActivate,
+            out bool isCreated)
         {
             if (processData.TryGetActionState<TimerActionStateComponent>(tokenAction.Id, out var state))
             {
+                isCreated = false;
                 return state;
             }
 
             state = new TimerActionStateComponent(
                 tokenAction.Id,
-                tokenAction.ActivatedOnStart
-                ? TimerActionStateComponent.StatusEnum.CreatingTimer
-                : TimerActionStateComponent.StatusEnum.NoActivated);
+                tokenAction.ActivatedOnStart || isActivate
+                    ? TimerActionStateComponent.StatusEnum.CreatingTimer
+                    : TimerActionStateComponent.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
+            isCreated = true;
             return state;
         }
 
         private static ServiceTaskActionState GetOrCreateActionState(
             ISchemaProcessComponent processData,
-            ServiceTaskTokenAction tokenAction)
+            ServiceTaskTokenAction tokenAction,
+            bool isActivate,
+            out bool isCreated)
         {
             if (processData.TryGetActionState<ServiceTaskActionState>(tokenAction.Id, out var state))
             {
+                isCreated = false;
                 return state;
             }
 
             state = new ServiceTaskActionState(
                 tokenAction.Id,
-                tokenAction.ActivatedOnStart
-                ? ServiceTaskActionState.StatusEnum.Executing
-                : ServiceTaskActionState.StatusEnum.NoActivated);
+                tokenAction.ActivatedOnStart || isActivate
+                    ? ServiceTaskActionState.StatusEnum.Executing
+                    : ServiceTaskActionState.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
+            isCreated = true;
             return state;
         }
 
         private static ConditionActionStateComponent GetOrCreateActionState(
             ISchemaProcessComponent processData,
-            ConditionTokenAction tokenAction)
+            ConditionTokenAction tokenAction,
+            bool isActivate,
+            out bool isCreated)
         {
             if (processData.TryGetActionState<ConditionActionStateComponent>(tokenAction.Id, out var state))
             {
+                isCreated = false;
                 return state;
             }
 
             state = new ConditionActionStateComponent(
                 tokenAction.Id,
-                tokenAction.ActivatedOnStart
-                ? ConditionActionStateComponent.StatusEnum.CheckCondition
-                : ConditionActionStateComponent.StatusEnum.NoActivated);
+                tokenAction.ActivatedOnStart || isActivate
+                    ? ConditionActionStateComponent.StatusEnum.CheckCondition
+                    : ConditionActionStateComponent.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
+            isCreated = true;
             return state;
         }
+
+        #endregion
 
         private static ActionResult TransitionResult(
             in ITokenAction.TransitionDto transition)
@@ -573,9 +661,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
         private static bool ActivateActions(
             TokenDto token,
             ISchemaProcessComponent component,
-            string[] activateActions)
+            ISchemaProcessHandler.ActivateActionDto[] activateActions)
         {
-            var haveActivations = false;
+            var needAsyncExecute = false;
 
             foreach (var elem in activateActions)
             {
@@ -585,26 +673,38 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 //        $"Действие пытается активировать действие, которое не задекларировано. {token.Id}. {elem}.");
                 //}
 
-                var activateAction = token.GetAction(elem);
+                var activateAction = token.GetAction(elem.ActionId);
                 switch (activateAction)
                 {
                     case TimerTokenAction timerTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, timerTokenAction);
+                            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: true, out var isCreated);
 
                             switch (state.Status)
                             {
                                 case TimerActionStateComponent.StatusEnum.NoActivated:
                                 case TimerActionStateComponent.StatusEnum.Complete:
                                     {
+                                        // Создаем таймер - асинхронное выполнение.
                                         state.Status = TimerActionStateComponent.StatusEnum.CreatingTimer;
-                                        haveActivations = true;
+                                        needAsyncExecute = needAsyncExecute || true;
+
                                         break;
                                     }
 
                                 case TimerActionStateComponent.StatusEnum.CreatingTimer:
+                                    {
+                                        // Создаем таймер - асинхронное выполнение.
+                                        needAsyncExecute = needAsyncExecute || true;
+
+                                        break;
+                                    }
+
                                 case TimerActionStateComponent.StatusEnum.WaitingTimer:
                                     {
+                                        // Если таймер уже создан, пусть ждет сигнал.
+                                        needAsyncExecute = needAsyncExecute || false;
+
                                         break;
                                     }
 
@@ -618,7 +718,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                     case ConditionTokenAction conditionTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, conditionTokenAction);
+                            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: true, out var isCreated);
 
                             switch (state.Status)
                             {
@@ -626,12 +726,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 case ConditionActionStateComponent.StatusEnum.Complete:
                                     {
                                         state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
-                                        haveActivations = true;
+                                        // Нужна ли проверка сейчас - как указал параметр.
+                                        needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
+
                                         break;
                                     }
 
                                 case ConditionActionStateComponent.StatusEnum.CheckCondition:
                                     {
+                                        // Нужна ли проверка сейчас - как указал параметр.
+                                        needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
+
                                         break;
                                     }
 
@@ -644,21 +749,25 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                     case ServiceTaskTokenAction serviceTaskTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, serviceTaskTokenAction);
+                            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: true, out var isCreated);
 
                             switch (state.Status)
                             {
                                 case ServiceTaskActionState.StatusEnum.NoActivated:
                                 case ServiceTaskActionState.StatusEnum.Complete:
                                     {
+                                        // Действие запущено - выполняемся.
                                         state.Status = ServiceTaskActionState.StatusEnum.Executing;
-                                        haveActivations = true;
+                                        needAsyncExecute = needAsyncExecute || true;
 
                                         break;
                                     }
 
                                 case ServiceTaskActionState.StatusEnum.Executing:
                                     {
+                                        // Действие запущено - выполняемся.
+                                        needAsyncExecute = needAsyncExecute || true;
+
                                         break;
                                     }
 
@@ -671,8 +780,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 }
             }
 
-            return haveActivations;
-        }
+            return needAsyncExecute;
+        }        
+
+        #region types
 
         /// <summary>
         /// Результат обработки действия.
@@ -734,5 +845,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     MoveTokenId: null);
             }
         }
+
+        #endregion
     }
 }

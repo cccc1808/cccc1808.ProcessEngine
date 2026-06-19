@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
@@ -21,12 +20,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
             RegistryServiceTask("1", TestActionAsync);
         }
 
-        private ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult> TestActionAsync(
+        private ISchemaProcessHandler.ExecuteServiceTaskResult TestActionAsync(
             ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
             CancellationToken cancellationToken)
         {
-            return ValueTask.FromResult(
-                new ISchemaProcessHandler.ExecuteServiceTaskResult(IsComplete: true, []));
+            return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
+                isComplete: true);
         }
 
         public static ProcessSchemaDto Schema { get; }

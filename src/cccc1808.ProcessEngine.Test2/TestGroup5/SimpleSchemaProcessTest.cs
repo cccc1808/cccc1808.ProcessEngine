@@ -18,6 +18,7 @@ using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -261,6 +262,124 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
                 process.ShouldSatisfyAllConditions(
                     e => e.Process.Status.ShouldBe(ProcessStatusEnum.Complete));
+            }
+        }
+
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        public async Task Test4()
+        {
+            var processId = Guid.NewGuid();
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var schemaSerializaer = scope.ServiceProvider.GetRequiredService<ISchemaSerializer>();
+                var validator = scope.ServiceProvider.GetRequiredService<ISchemaValidator>();
+                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
+
+                validator.Validate(TestSchemaProcessHandler4.ProcessType, TestSchemaProcessHandler4.Schema);
+
+                dbContext.Set<SchemaDbEntity<Guid>>().Add(
+                    new SchemaDbEntity<Guid>(
+                        Guid.NewGuid(),
+                        TestSchemaProcessHandler4.ProcessType.ProcessType,
+                        TestSchemaProcessHandler4.ProcessType.ProcessVersion,
+                        schemaSerializaer.Serialize(TestSchemaProcessHandler4.Schema))
+                    );
+
+                dbContext.Set<ProcessDbEntity<Guid>>().Add(
+                    new ProcessDbEntity<Guid>(
+                        processId,
+                        TestSchemaProcessHandler4.ProcessType.ProcessType,
+                        TestSchemaProcessHandler4.ProcessType.ProcessVersion,
+                        1,
+                        DateTimeOffset.MinValue,
+                        false,
+                        ProcessStatusEnum.WaitEvent,
+                        null
+                        )
+                    );
+
+                var rootTriggerKey = Guid.NewGuid().ToString();
+                await triggerRepository.CreateTriggerAsync(
+                    ITriggerRepository<Guid>.CreateTriggerDto.SimpleRootStreamTrigger(
+                        key: rootTriggerKey,
+                        timerDate: DateTimeOffset.MinValue,
+                        processId: processId,
+                        isRangeTrigger: true,
+                        handlerKey: NoWakeupStreamTriggerRangeHandler<Guid>.Name,
+                        priority: 1,
+                        isActivated: false,
+                        streamProcessIsWaiting: true,
+                        newSignalCounter: 0),
+                    CancellationToken.None);
+
+                dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
+                    new SchemaProcessDataDbEntity<Guid>(
+                        id: Guid.NewGuid(),
+                        processId: processId,
+                        rootTriggerKey: rootTriggerKey,
+                        currentTokenId: TestSchemaProcessHandler4.Schema.StartTokenId
+                        )
+                    );
+
+                await dbContext.SaveChangesAsync(CancellationToken.None);
+            }
+
+            // 2) 
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var tokenExecutionService = scope.ServiceProvider.GetRequiredService<ITokenExecutionService<Guid>>();
+
+                var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);
+                var processDatas = process.GetComponent<ISchemaProcessComponent>();
+
+                {
+                    await tokenExecutionService.ValidateTokenState(
+                        process,
+                        "1",
+                        "I1",
+                        CancellationToken.None);
+                    var state = TestSchemaProcessHandler4.GetOrCreateTokenState(processDatas);
+
+                    state.UserInput1 = 1;
+                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I1", CancellationToken.None);
+
+                    process.ShouldSatisfyAllConditions(
+                        e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+                }
+
+                {
+                    await tokenExecutionService.ValidateTokenState(
+                        process,
+                        "1",
+                        "I2",
+                        CancellationToken.None);
+                    var state = (TestSchemaProcessHandler4.UserInputTokenState)processDatas.CurrentTokenState;
+
+                    state.UserInput2 = 1;
+                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I2", CancellationToken.None);
+
+                    process.ShouldSatisfyAllConditions(
+                        e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+                }
+
+                {
+                    await tokenExecutionService.ValidateTokenState(
+                        process,
+                        "1",
+                        "I3",
+                        CancellationToken.None);
+                    var state = (TestSchemaProcessHandler4.UserInputTokenState)processDatas.CurrentTokenState;
+
+                    state.UserInput3 = 1;
+                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I3", CancellationToken.None);
+
+                    state.CalculatedResult.ShouldNotBeNull()
+                        .ShouldBeEquivalentTo(state.UserInput1 + state.UserInput2 + state.UserInput3);
+
+                    process.ShouldSatisfyAllConditions(
+                        e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+                }
             }
         }
     }

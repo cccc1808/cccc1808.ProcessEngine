@@ -24,26 +24,76 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             _executeConditionHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>>>(5);
             _timerHandlers = new Dictionary<string, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>>>(5);
         }
-        
-        protected void RegistryServiceTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult>> handler)
+
+        #region Registry
+
+        protected void RegistryServiceTask(
+            string key, 
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteServiceTaskResult>> handler)
         {
             _serviceTaskHandlers.Add(key, handler);
         }
 
-        protected void RegistryConditionTaskCheck(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>> handler)
+        protected void RegistryServiceTask(
+            string key, 
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ISchemaProcessHandler.ExecuteServiceTaskResult> handler)
+        {
+            _serviceTaskHandlers.Add(
+                key, 
+                (p, t) => ValueTask.FromResult(handler(p, t)));
+        }
+
+        protected void RegistryConditionTaskCheck(
+            string key, 
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<bool>> handler)
         {
             _checkConditionHandlers.Add(key, handler);
         }
 
-        protected void RegistryConditionTaskExecute(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>> handler)
+        protected void RegistryConditionTaskCheck(
+            string key,
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, bool> handler)
+        {
+            _checkConditionHandlers.Add(
+                key, 
+                (p,t) => ValueTask.FromResult(handler(p, t)));
+        }
+
+        protected void RegistryConditionTaskExecute(
+            string key, 
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteConditionResult>> handler)
         {
             _executeConditionHandlers.Add(key, handler);
         }
 
-        protected void RegistryTimerTask(string key, Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>> handler)
+        protected void RegistryConditionTaskExecute(
+            string key,
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ISchemaProcessHandler.ExecuteConditionResult> handler)
+        {
+            _executeConditionHandlers.Add(
+                key,
+                (p, t) => ValueTask.FromResult(handler(p, t)));
+        }
+
+        protected void RegistryTimerTask(
+            string key, 
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ValueTask<ISchemaProcessHandler.ExecuteTimerResult>> handler)
         {
             _timerHandlers.Add(key, handler);
         }
+
+        protected void RegistryTimerTask(
+            string key,
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ISchemaProcessHandler.ExecuteTimerResult> handler)
+        {
+            _timerHandlers.Add(
+                key,
+                (p, t) => ValueTask.FromResult(handler(p,t)));
+        }
+
+        #endregion
+
+        #region ISchemaProcessHandler
 
         public bool CanExecuteServiceTask(string name)
         {
@@ -92,5 +142,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
         {
             return await _timerHandlers[parameters.handlerName](parameters, cancellationToken);
         }
+
+        #endregion
     }
 }
