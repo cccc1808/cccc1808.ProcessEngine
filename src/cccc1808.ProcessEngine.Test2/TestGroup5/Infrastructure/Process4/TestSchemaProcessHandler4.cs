@@ -148,15 +148,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(4, 1);
 
-        public class UserInputTokenState
+        public class UserInputTokenState : SchemaProcessStateTypelessHandler.ITypeContainer
         {
+            public string? AssemblyQualifiedName { get; set; }
+
             public required int? UserInput1 { get; set; }
 
             public required int? UserInput2 { get; set; }
 
             public required int? UserInput3 { get; set; }
 
-            public required int? CalculatedResult { get; set; }
+            public required int? CalculatedResult { get; set; }            
         }
     }
 }

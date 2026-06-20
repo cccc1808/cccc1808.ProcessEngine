@@ -15,10 +15,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
 
         JsonElement? SerializeProcessState(IProcessContainer<TId> process, object state);
 
-        object? DeserializeProcessState(JsonElement jsonState);
+        object DeserializeProcessState(JsonElement jsonState);
 
         JsonElement? SerializeTokenState(IProcessContainer<TId> process, object state);
 
-        object? DeserializeTokenState(string currentTokenId, JsonElement jsonState);        
+        object DeserializeTokenState(string currentTokenId, JsonElement jsonState);        
     }
 }

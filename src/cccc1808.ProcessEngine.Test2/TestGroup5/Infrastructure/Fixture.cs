@@ -198,9 +198,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     )
                     
                     .AddSchemaProcess(
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, TestSchemaProcessStateHandler>(TestSchemaProcessHandler.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, TestSchemaProcessStateHandler2>(TestSchemaProcessHandler2.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, TestSchemaProcessStateHandler4>(TestSchemaProcessHandler4.ProcessType)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType)
                         );
 
                 services

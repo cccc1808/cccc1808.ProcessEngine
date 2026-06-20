@@ -88,6 +88,7 @@ using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using static cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners.IInMemoryQueueProcessRunner;
 
@@ -421,7 +422,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddScoped(elem.ProcessHandlerType);
                 services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
 
-                services.AddScoped(elem.ProcessStateHandlerType);
+                services.TryAddScoped(elem.ProcessStateHandlerType);
                 services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
             }
 

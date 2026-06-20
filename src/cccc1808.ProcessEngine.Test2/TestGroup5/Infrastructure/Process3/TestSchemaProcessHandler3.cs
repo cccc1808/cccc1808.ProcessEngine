@@ -150,13 +150,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(2, 1);
 
-        public class RpcTokenState
+        public class RpcTokenState : SchemaProcessStateTypelessHandler.ITypeContainer
         {
+            public string? AssemblyQualifiedName { get; set; }
+
             public required int TryCount { get; set; }
 
             public required string? CorrelationId { get; set; }
 
-            public required bool IsReceived { get; set; }
+            public required bool IsReceived { get; set; }            
         }
     }
 }
