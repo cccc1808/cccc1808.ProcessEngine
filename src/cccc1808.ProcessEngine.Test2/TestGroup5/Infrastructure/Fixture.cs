@@ -30,9 +30,12 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProviders;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Dto;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Storage;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5;
 
 using Confluent.Kafka;
 
@@ -48,6 +51,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
     {
         public const string Name = "FixtureCollection 5";
         public const int TestTimeout = 115000;
+
+        public static string TriggerEvents 
+            => "trigger_events";
 
         public class Fixture : IAsyncLifetime
         {
@@ -122,7 +128,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         (s) => new TestDbContext(
                         s,
                         $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"),
-                        typeof(EFSchemaProcessDataDbEntityDbProvider<Guid>)
+                        typeof(EFSchemaProcessDataDbEntityDbProvider<Guid>),
+                        typeof(ParentChildDbProvider)
                         )
 
                     .AddKafkaServices(
@@ -151,7 +158,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     )
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
-                            "trigger_events"
+                            FixtureCollection.TriggerEvents
                             )
                         {
                             BatchSize = 1,
@@ -175,7 +182,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
-                                    QueueName = "trigger_events",
+                                    QueueName = TriggerEvents,
                                     QueueConsumeMessagesLimit = 10,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
                                 }
@@ -194,16 +201,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             SoftTimeout = null,
                         },
                         new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1)
+                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1)
                     )
                     
                     .AddSchemaProcess(
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, TestSchemaProcessStateHandler>(TestSchemaProcessHandler.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, TestSchemaProcessStateHandler2>(TestSchemaProcessHandler2.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, TestSchemaProcessStateHandler4>(TestSchemaProcessHandler4.ProcessType)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType)
                         );
 
-                services.AddSingleton<TestRequestReponseStore>();
+                services
+                    .AddSingleton<TestRequestReponseStore>()
+                    .AddScoped<ExternalHandlers4>();
+
+                services.AddSingleton(
+                    new ChildRegistrationDto(TestSchemaProcessHandler52.ProcessType));
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(

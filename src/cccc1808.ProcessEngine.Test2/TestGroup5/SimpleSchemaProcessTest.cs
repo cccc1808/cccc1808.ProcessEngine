@@ -328,51 +328,38 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 2) 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var tokenExecutionService = scope.ServiceProvider.GetRequiredService<ITokenExecutionService<Guid>>();
+                var externalHandlerService = scope.ServiceProvider.GetRequiredService<ExternalHandlers4>();
 
-                var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);
-                var processDatas = process.GetComponent<ISchemaProcessComponent>();
+                var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);                
 
                 {
-                    await tokenExecutionService.ValidateTokenState(
+                    await externalHandlerService.UIUserInput1Async(
                         process,
-                        "1",
-                        "I1",
+                        inputValue: 1,
                         CancellationToken.None);
-                    var state = TestSchemaProcessHandler4.GetOrCreateTokenState(processDatas);
-
-                    state.UserInput1 = 1;
-                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I1", CancellationToken.None);
 
                     process.ShouldSatisfyAllConditions(
                         e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
                 }
 
                 {
-                    await tokenExecutionService.ValidateTokenState(
+                    await externalHandlerService.UIUserInput2Async(
                         process,
-                        "1",
-                        "I2",
+                        inputValue: 1,
                         CancellationToken.None);
-                    var state = (TestSchemaProcessHandler4.UserInputTokenState)processDatas.CurrentTokenState;
-
-                    state.UserInput2 = 1;
-                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I2", CancellationToken.None);
 
                     process.ShouldSatisfyAllConditions(
                         e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
                 }
 
                 {
-                    await tokenExecutionService.ValidateTokenState(
+                    await externalHandlerService.UIUserInput3Async(
                         process,
-                        "1",
-                        "I3",
+                        inputValue: 1,
                         CancellationToken.None);
-                    var state = (TestSchemaProcessHandler4.UserInputTokenState)processDatas.CurrentTokenState;
 
-                    state.UserInput3 = 1;
-                    await tokenExecutionService.ExecuteActionAsync(process, actionId: "I3", CancellationToken.None);
+                    var state = TestSchemaProcessHandler4.GetOrCreateUserInputTokenState(
+                        process.GetComponent<ISchemaProcessComponent>());
 
                     state.CalculatedResult.ShouldNotBeNull()
                         .ShouldBeEquivalentTo(state.UserInput1 + state.UserInput2 + state.UserInput3);

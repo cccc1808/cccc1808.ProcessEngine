@@ -17,6 +17,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Configuration;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Storage;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -123,7 +125,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     {
                         new SchemaProcessDataDbEntityCondifuration<Guid>().Configure(b);
                         b.Property(e => e.Id).ValueGeneratedNever();
-                    });                
+                    });
+
+                // ----------
+
+                modelBuilder.Entity<ParentChildProcessDbEntity>(
+                    b =>
+                    {
+                        new PrentChildProcessDbEntityConfiguration().Configure(b);
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                    });
 
                 // ----------
             }
@@ -137,6 +148,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
 
             await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""schema_db_entity_guid"" CASCADE", []);
             await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""schema_process_data_db_entity_guid"" CASCADE", []);
+
+            await Database.ExecuteSqlRawAsync(@"TRUNCATE TABLE ""public"".""parent_child_process_db_entity"" CASCADE", []);
         }
     }
 }

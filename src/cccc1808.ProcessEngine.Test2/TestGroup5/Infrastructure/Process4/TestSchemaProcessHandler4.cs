@@ -16,81 +16,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
 {
     internal class TestSchemaProcessHandler4 : BaseSchemaProcessHandler<Guid>
     {
-        public TestSchemaProcessHandler4() :
-            base()
-        {
-            RegistryConditionTaskCheck("I1", UserInput1ExecutedAsync);
-            RegistryConditionTaskExecute("I1", UserInput1ExecuteAsync);
-
-            RegistryConditionTaskCheck("I2", UserInput2ExecutedAsync);
-            RegistryConditionTaskExecute("I2", UserInput2ExecuteAsync);
-
-            RegistryConditionTaskCheck("I3", UserInput3ExecutedAsync);
-            RegistryConditionTaskExecute("I3", UserInput3ExecuteAsync);
-
-            RegistryConditionTaskCheck("R", RAsync);
-        }
-
-        private bool UserInput1ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);            
-            return state.UserInput1.HasValue;
-        }
-
-        private ISchemaProcessHandler.ExecuteConditionResult UserInput1ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);
-            return ISchemaProcessHandler.ExecuteConditionResult.Result(
-                ISchemaProcessHandler.ActivateActionDto.ActivateConditionAction("I2", asyncExecuteOrWaitSignal: false));
-        }
-
-        private bool UserInput2ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);
-            return state.UserInput2.HasValue;
-        }
-
-        private ISchemaProcessHandler.ExecuteConditionResult UserInput2ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);
-            return ISchemaProcessHandler.ExecuteConditionResult.Result(
-                ISchemaProcessHandler.ActivateActionDto.ActivateConditionAction("I3", asyncExecuteOrWaitSignal: false));
-        }
-
-        private bool UserInput3ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);
-            return state.UserInput3.HasValue;
-        }
-
-        private ISchemaProcessHandler.ExecuteConditionResult UserInput3ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateTokenState(parameters.schemaComponent);
-
-            state.CalculatedResult = state.UserInput1.Value + state.UserInput2.Value + state.UserInput3.Value;
-
-            return new ISchemaProcessHandler.ExecuteConditionResult(
-                [new ISchemaProcessHandler.ActivateActionDto("R", AsyncExecuteOrWaitSignal: false)]);
-        }
-
-        private bool RAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            return false;
-        }
+        public static ProcessTypeDto ProcessType { get; }
+            = new ProcessTypeDto(4, 1);
 
         public static ProcessSchemaDto Schema { get; }
             = new ProcessSchemaDto(
@@ -139,7 +66,89 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                 Description = "Пример процесса с пользовательским вводом"
             };
 
-        public static UserInputTokenState GetOrCreateTokenState(
+        public TestSchemaProcessHandler4() :
+            base()
+        {
+            RegistryConditionTaskCheck("I1", UserInput1ExecutedAsync);
+            RegistryConditionTaskExecute("I1", UserInput1ExecuteAsync);
+
+            RegistryConditionTaskCheck("I2", UserInput2ExecutedAsync);
+            RegistryConditionTaskExecute("I2", UserInput2ExecuteAsync);
+
+            RegistryConditionTaskCheck("I3", UserInput3ExecutedAsync);
+            RegistryConditionTaskExecute("I3", UserInput3ExecuteAsync);
+
+            RegistryConditionTaskCheck("R", RAsync);
+        }
+
+        #region handlers
+
+        private bool UserInput1ExecutedAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);            
+            return state.UserInput1.HasValue;
+        }
+
+        private ISchemaProcessHandler.ExecuteConditionResult UserInput1ExecuteAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
+            return ISchemaProcessHandler.ExecuteConditionResult.Result(
+                ISchemaProcessHandler.ActivateActionDto.ConditionAction("I2", asyncExecuteOrWaitSignal: false));
+        }
+
+        private bool UserInput2ExecutedAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
+            return state.UserInput2.HasValue;
+        }
+
+        private ISchemaProcessHandler.ExecuteConditionResult UserInput2ExecuteAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
+            return ISchemaProcessHandler.ExecuteConditionResult.Result(
+                ISchemaProcessHandler.ActivateActionDto.ConditionAction("I3", asyncExecuteOrWaitSignal: false));
+        }
+
+        private bool UserInput3ExecutedAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
+            return state.UserInput3.HasValue;
+        }
+
+        private ISchemaProcessHandler.ExecuteConditionResult UserInput3ExecuteAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
+
+            state.CalculatedResult = state.UserInput1.Value + state.UserInput2.Value + state.UserInput3.Value;
+
+            return new ISchemaProcessHandler.ExecuteConditionResult(
+                [new ISchemaProcessHandler.ActivateActionDto("R", AsyncExecuteOrWaitSignal: false)]);
+        }
+
+        private bool RAsync(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
+            CancellationToken cancellationToken)
+        {
+            return false;
+        }
+
+        #endregion
+
+        #region state
+
+        public static UserInputTokenState GetOrCreateUserInputTokenState(
             ISchemaProcessComponent component)
         {
             var state = (UserInputTokenState?)component.CurrentTokenState 
@@ -153,20 +162,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
             component.CurrentTokenState = state;
 
             return state;
-        }
+        }        
 
-        public static ProcessTypeDto ProcessType { get; }
-            = new ProcessTypeDto(4, 1);
-
-        public class UserInputTokenState
+        public class UserInputTokenState : SchemaProcessStateTypelessHandler.ITypeContainer
         {
+            public string? AssemblyQualifiedName { get; set; }
+
             public required int? UserInput1 { get; set; }
 
             public required int? UserInput2 { get; set; }
 
             public required int? UserInput3 { get; set; }
 
-            public required int? CalculatedResult { get; set; }
+            public required int? CalculatedResult { get; set; }            
         }
+
+        #endregion
     }
 }

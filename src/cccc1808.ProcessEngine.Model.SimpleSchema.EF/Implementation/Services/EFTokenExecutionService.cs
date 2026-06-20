@@ -59,11 +59,48 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             var processData = process.GetComponent<ISchemaProcessComponent>();
             var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
             var processStateHandler = _schemaService.GetProcessStateHandler(process.Process.Info.ProcessType);
-            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);            
+
+            // Отбираем только те действия, которые активированы на текущий момент.
+            var forExecuting = token.Actions
+                .Where(e => 
+                {
+                    switch (e)
+                    {
+                        case ServiceTaskTokenAction serviceTaskTokenAction:
+                            {
+                                var state = GetOrCreateActionState(processData, serviceTaskTokenAction, isActivate: false);
+
+                                return state.Status
+                                    is ServiceTaskActionState.StatusEnum.Executing;
+                            }
+
+                        case TimerTokenAction timerTokenAction:
+                            {
+                                var state = GetOrCreateActionState(processData, timerTokenAction, isActivate: false);
+
+                                return state.Status
+                                    is TimerActionStateComponent.StatusEnum.CreatingTimer
+                                    or TimerActionStateComponent.StatusEnum.WaitingTimer;
+                            }
+
+                        case ConditionTokenAction conditionTokenAction:
+                            {
+                                var state = GetOrCreateActionState(processData, conditionTokenAction, isActivate: false);
+
+                                return state.Status
+                                    is ConditionActionStateComponent.StatusEnum.CheckCondition;
+                            }
+
+                        default:
+                            throw new NotImplementedException(e.GetType().FullName);
+                    }
+                    })
+                .ToArray();
 
             var actionsResult = ActionResult.EmptyResult();
 
-            foreach (var elem in token.Actions)
+            foreach (var elem in forExecuting)
             {
                 var actionResult = await InnerExecuteActionAsync(
                     process,
@@ -251,7 +288,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             TimerTokenAction timerTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: false, out _);
+            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: false);
 
             switch (state.Status)
             {
@@ -337,7 +374,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             ConditionTokenAction conditionTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: false, out _);
+            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: false);
 
             switch (state.Status)
             {
@@ -362,7 +399,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                         state.Status = ConditionActionStateComponent.StatusEnum.Complete;
 
-                        var haveActivations = false;
+                        var needAsyncExecuting = false;
                         if (conditionTokenAction.ActionHandlerKey is not null)
                         {
                             var executeResult = await processHandler.ExecuteConditionHandlerAsync(
@@ -373,7 +410,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                     component),
                                 cancellationToken);
 
-                            haveActivations = ActivateActions(
+                            needAsyncExecuting = ActivateActions(
                                 token,
                                 component,
                                 executeResult.ActivateActions);
@@ -385,7 +422,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         }
 
                         // Если была активация, то значит есть что выполнять.
-                        if (haveActivations)
+                        if (needAsyncExecuting)
                         {
                             return ActionResult.AsyncExecutingResult();
                         }
@@ -405,7 +442,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             ServiceTaskTokenAction serviceTaskTokenAction,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: false, out _);
+            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: false);
 
             switch (state.Status)
             {
@@ -423,7 +460,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 component),
                             cancellationToken);
 
-                        var haveActivations = ActivateActions(
+                        var needAsyncExecuting = ActivateActions(
                             token,
                             component,
                             executeResult.ActivateActions);
@@ -441,7 +478,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         }
 
                         // Если была активация, то значит есть что выполнять.
-                        if (haveActivations)
+                        if (needAsyncExecuting)
                         {
                             return ActionResult.AsyncExecutingResult();
                         }
@@ -576,12 +613,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
         private static TimerActionStateComponent GetOrCreateActionState(
             ISchemaProcessComponent processData,
             TimerTokenAction tokenAction,
-            bool isActivate,
-            out bool isCreated)
+            bool isActivate)
         {
             if (processData.TryGetActionState<TimerActionStateComponent>(tokenAction.Id, out var state))
             {
-                isCreated = false;
                 return state;
             }
 
@@ -592,19 +627,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     : TimerActionStateComponent.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
-            isCreated = true;
             return state;
         }
 
         private static ServiceTaskActionState GetOrCreateActionState(
             ISchemaProcessComponent processData,
             ServiceTaskTokenAction tokenAction,
-            bool isActivate,
-            out bool isCreated)
+            bool isActivate)
         {
             if (processData.TryGetActionState<ServiceTaskActionState>(tokenAction.Id, out var state))
             {
-                isCreated = false;
                 return state;
             }
 
@@ -615,19 +647,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     : ServiceTaskActionState.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
-            isCreated = true;
             return state;
         }
 
         private static ConditionActionStateComponent GetOrCreateActionState(
             ISchemaProcessComponent processData,
             ConditionTokenAction tokenAction,
-            bool isActivate,
-            out bool isCreated)
+            bool isActivate)
         {
             if (processData.TryGetActionState<ConditionActionStateComponent>(tokenAction.Id, out var state))
             {
-                isCreated = false;
                 return state;
             }
 
@@ -638,7 +667,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     : ConditionActionStateComponent.StatusEnum.NoActivated);
             processData.AddActionState(state);
 
-            isCreated = true;
             return state;
         }
 
@@ -678,7 +706,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 {
                     case TimerTokenAction timerTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: true, out var isCreated);
+                            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: true);
 
                             switch (state.Status)
                             {
@@ -718,7 +746,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                     case ConditionTokenAction conditionTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: true, out var isCreated);
+                            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: true);
 
                             switch (state.Status)
                             {
@@ -749,7 +777,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                     case ServiceTaskTokenAction serviceTaskTokenAction:
                         {
-                            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: true, out var isCreated);
+                            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: true);
 
                             switch (state.Status)
                             {

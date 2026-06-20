@@ -46,7 +46,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
 
             return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
                 isComplete: true,
-                ActivateActionDto.ActivateConditionAction("2", asyncExecuteOrWaitSignal: false)
+                ActivateActionDto.ConditionAction("2", asyncExecuteOrWaitSignal: false)
                 );
         }
 
@@ -93,8 +93,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(2, 1);
 
-        public class RpcTokenState
+        public class RpcTokenState : SchemaProcessStateTypelessHandler.ITypeContainer
         {
+            public string? AssemblyQualifiedName { get; set; }
+
             public required string CorrelationId { get; set; }
         }
     }

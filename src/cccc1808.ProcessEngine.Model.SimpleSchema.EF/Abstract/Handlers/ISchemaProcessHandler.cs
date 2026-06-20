@@ -52,7 +52,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
             /// Если активируем, то всегда нужно асинхронное выполнение.
             /// Иначе - true, и так выполняется.
             /// </summary>
-            public static ActivateActionDto ExecuteServiceTask(string actionId)
+            public static ActivateActionDto ServiceTask(string actionId)
                 => new ActivateActionDto(actionId, AsyncExecuteOrWaitSignal: true);
 
             /// <summary>
@@ -62,7 +62,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
             /// </summary>
             /// <param name="actionId"></param>
             /// <returns></returns>
-            public static ActivateActionDto ActivateTimerAction(string actionId)
+            public static ActivateActionDto TimerAction(string actionId)
                 => new ActivateActionDto(actionId, AsyncExecuteOrWaitSignal: true);
 
             /// <summary>
@@ -74,7 +74,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers
             /// False - улосвие нужно будет првоерять только после внешнего сигнала или воздействия.
             /// </param>
             /// <returns></returns>
-            public static ActivateActionDto ActivateConditionAction(
+            public static ActivateActionDto ConditionAction(
                 string actionId,
                 bool asyncExecuteOrWaitSignal)
                 => new ActivateActionDto(actionId, asyncExecuteOrWaitSignal);
