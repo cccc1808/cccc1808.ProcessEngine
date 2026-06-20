@@ -203,7 +203,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, TestSchemaProcessStateHandler4>(TestSchemaProcessHandler4.ProcessType)
                         );
 
-                services.AddSingleton<TestRequestReponseStore>();
+                services
+                    .AddSingleton<TestRequestReponseStore>()
+                    .AddScoped<ExternalHandlers4>();
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
