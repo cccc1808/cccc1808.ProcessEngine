@@ -9,6 +9,9 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities
 {
+    /// <summary>
+    /// TODO: Можно добавить поля (ParentProcessId, ParentProcessLocked) в SchemaProcessDataDbEntity, чтобы было в одной таблице.
+    /// </summary>
     public class ParentChildProcessDbEntity : 
         IId<Guid>, 
         IProcessLinked<Guid>

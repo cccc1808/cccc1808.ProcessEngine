@@ -18,6 +18,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         public string? ActionHandlerKey { get; set; }
 
+        /// <summary>
+        /// TODO: возможно сделать так же как и CanRunAction,
+        /// чтобы можно было выбирать один из (в зависимости от условия).
+        /// А на схеме отображать через декларирование.
+        /// </summary>
         public ITokenAction.TransitionDto? Transition { get; set; }
 
 
