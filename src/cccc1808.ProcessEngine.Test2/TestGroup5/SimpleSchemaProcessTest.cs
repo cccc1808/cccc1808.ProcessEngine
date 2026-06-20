@@ -358,7 +358,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         inputValue: 1,
                         CancellationToken.None);
 
-                    var state = TestSchemaProcessHandler4.GetOrCreateTokenState(
+                    var state = TestSchemaProcessHandler4.GetOrCreateUserInputTokenState(
                         process.GetComponent<ISchemaProcessComponent>());
 
                     state.CalculatedResult.ShouldNotBeNull()

@@ -49,8 +49,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
             return ValueTask.FromResult(
                 ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
                     isComplete: true,
-                    ISchemaProcessHandler.ActivateActionDto.ActivateConditionAction("2", asyncExecuteOrWaitSignal: false),
-                    ISchemaProcessHandler.ActivateActionDto.ActivateTimerAction("3"))
+                    ISchemaProcessHandler.ActivateActionDto.ConditionAction("2", asyncExecuteOrWaitSignal: false),
+                    ISchemaProcessHandler.ActivateActionDto.TimerAction("3"))
                 );
         }
 
@@ -91,7 +91,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
             {
                 // Посылаем запрос повторно.
                 return ISchemaProcessHandler.ExecuteTimerResult.Result(
-                    ISchemaProcessHandler.ActivateActionDto.ExecuteServiceTask("1"));
+                    ISchemaProcessHandler.ActivateActionDto.ServiceTask("1"));
             }
 
             state.TryCount = 0;

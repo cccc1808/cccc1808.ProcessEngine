@@ -28,5 +28,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
             Name = name;
             ActivatedOnStart = true;
         }
+
+        public override string ToString()
+        {
+            return $"{Id} | {Name}";
+        }
     }
 }

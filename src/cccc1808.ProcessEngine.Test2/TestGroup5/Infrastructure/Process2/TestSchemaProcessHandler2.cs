@@ -46,7 +46,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
 
             return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
                 isComplete: true,
-                ActivateActionDto.ActivateConditionAction("2", asyncExecuteOrWaitSignal: false)
+                ActivateActionDto.ConditionAction("2", asyncExecuteOrWaitSignal: false)
                 );
         }
 

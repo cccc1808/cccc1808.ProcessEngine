@@ -19,7 +19,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         {
             _tokenExecutionService = tokenExecutionService;
         }
-
         /// <summary>
         /// Хендлер пользовательского ввода 1.
         /// </summary>
@@ -36,7 +35,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                 "I1",
                 CancellationToken.None);
 
-            var state = TestSchemaProcessHandler4.GetOrCreateTokenState(processDatas);
+            var state = TestSchemaProcessHandler4.GetOrCreateUserInputTokenState(processDatas);
             state.UserInput1 = 1;
 
             await _tokenExecutionService.ExecuteActionAsync(process, actionId: "I1", cancellationToken);            
@@ -58,7 +57,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                 "I2",
                 CancellationToken.None);
 
-            var state = TestSchemaProcessHandler4.GetOrCreateTokenState(processDatas);
+            var state = TestSchemaProcessHandler4.GetOrCreateUserInputTokenState(processDatas);
             state.UserInput2 = 1;
 
             await _tokenExecutionService.ExecuteActionAsync(process, actionId: "I2", cancellationToken);
@@ -80,7 +79,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                 "I3",
                 CancellationToken.None);
 
-            var state = TestSchemaProcessHandler4.GetOrCreateTokenState(processDatas);
+            var state = TestSchemaProcessHandler4.GetOrCreateUserInputTokenState(processDatas);
             state.UserInput3 = 1;
 
             await _tokenExecutionService.ExecuteActionAsync(process, actionId: "I3", cancellationToken);
