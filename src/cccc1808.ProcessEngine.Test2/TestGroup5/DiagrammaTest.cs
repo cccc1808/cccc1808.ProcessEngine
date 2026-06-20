@@ -5,11 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.SimpleSchema.Diagrams.Implementation;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5;
 
 using Shouldly;
 
@@ -20,68 +22,36 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
         [Fact]
         public void Test1()
         {
-            var serializer = new SchemaSerializer();
-            var exporter = new MermaidSchemaExporter1();
-            var parser = new MermaidParser();
-            var import = new MermaidSchemaImporter1();
-
-            var diagramm = exporter.Export(
-                TestSchemaProcessHandler.Schema,
-                new MermaidSchemaExporter1.ExportOptions(
-                    TestSchemaProcessHandler.ProcessType.ToString(), 
-                    withCanRun: true));
-
-            var model = parser.ParseClassDiagramm(diagramm);
-            var importedSchema = import.Import(model);
-
-            serializer.Serialize(TestSchemaProcessHandler.Schema).GetRawText()
-                .ShouldBeEquivalentTo(serializer.Serialize(importedSchema).GetRawText());
+            TestDiagram(TestSchemaProcessHandler.Schema);
         }
 
         [Fact]
         public void Test2()
         {
-            var serializer = new SchemaSerializer();
-            var exporter = new MermaidSchemaExporter1();
-            var parser = new MermaidParser();
-            var import = new MermaidSchemaImporter1();
-
-            var diagramm = exporter.Export(
-                TestSchemaProcessHandler2.Schema,
-                new MermaidSchemaExporter1.ExportOptions(
-                    TestSchemaProcessHandler2.ProcessType.ToString(),
-                    withCanRun: true));
-
-            var model = parser.ParseClassDiagramm(diagramm);
-            var importedSchema = import.Import(model);
-
-            serializer.Serialize(TestSchemaProcessHandler2.Schema).GetRawText()
-                .ShouldBeEquivalentTo(serializer.Serialize(importedSchema).GetRawText());
+            TestDiagram(TestSchemaProcessHandler2.Schema);
         }
 
         [Fact]
         public void Test3()
         {
-            var serializer = new SchemaSerializer();
-            var exporter = new MermaidSchemaExporter1();
-            var parser = new MermaidParser();
-            var import = new MermaidSchemaImporter1();
-
-            var diagramm = exporter.Export(
-                TestSchemaProcessHandler3.Schema,
-                new MermaidSchemaExporter1.ExportOptions(
-                    TestSchemaProcessHandler3.ProcessType.ToString(), 
-                    withCanRun: true));
-
-            var model = parser.ParseClassDiagramm(diagramm);
-            var importedSchema = import.Import(model);
-
-            serializer.Serialize(TestSchemaProcessHandler3.Schema).GetRawText()
-                .ShouldBeEquivalentTo(serializer.Serialize(importedSchema).GetRawText());
+            TestDiagram(TestSchemaProcessHandler3.Schema);
         }
 
         [Fact]
         public void Test4()
+        {
+            TestDiagram(TestSchemaProcessHandler4.Schema);
+        }
+
+        [Fact]
+        public void Test5()
+        {
+            TestDiagram(TestSchemaProcessHandler51.Schema);
+            TestDiagram(TestSchemaProcessHandler52.Schema);
+        }
+
+        private void TestDiagram(
+            ProcessSchemaDto schema)
         {
             var serializer = new SchemaSerializer();
             var exporter = new MermaidSchemaExporter1();
@@ -89,15 +59,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             var import = new MermaidSchemaImporter1();
 
             var diagramm = exporter.Export(
-                TestSchemaProcessHandler4.Schema,
+                schema,
                 new MermaidSchemaExporter1.ExportOptions(
-                    TestSchemaProcessHandler4.ProcessType.ToString(),
+                    "T",
                     withCanRun: true));
 
             var model = parser.ParseClassDiagramm(diagramm);
             var importedSchema = import.Import(model);
 
-            serializer.Serialize(TestSchemaProcessHandler4.Schema).GetRawText()
+            serializer.Serialize(schema).GetRawText()
                 .ShouldBeEquivalentTo(serializer.Serialize(importedSchema).GetRawText());
         }
     }
