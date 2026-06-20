@@ -18,6 +18,7 @@ using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -247,19 +248,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
             // 3) 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
-            {                
-                var rpc = scope.ServiceProvider.GetRequiredService<TestRequestReponseStore>();
-                var tokenExecutionService = scope.ServiceProvider.GetRequiredService<ITokenExecutionService<Guid>>();
+            {
+                var externalHandler = scope.ServiceProvider.GetRequiredService<ExternalHandlers2>();
 
-                // 1) Пришел ответ.
-                rpc.ReceiveReponse(requestId, JsonHelper.Empty);
-
-                // 2) Передаем сигнал на процесс напрямую (не через триггер).
                 var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);
                 var processDatas = process.GetComponent<ISchemaProcessComponent>();
 
-                await tokenExecutionService.ExecuteActionAsync(process, actionId: "2", CancellationToken.None);
-
+                // 1) Пришел ответ.
+                await externalHandler.ReponseReceivedAsync(
+                    process, 
+                    CancellationToken.None);
+                
                 process.ShouldSatisfyAllConditions(
                     e => e.Process.Status.ShouldBe(ProcessStatusEnum.Complete));
             }

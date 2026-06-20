@@ -34,6 +34,7 @@ using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Dto;
 using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Storage;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5;
 
@@ -215,7 +216,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         );
 
                 services
-                    .AddSingleton<TestRequestReponseStore>()
+                    .AddScoped<ExternalHandlers2>()
+                    .AddScoped<ExternalHandlers3>()
                     .AddScoped<ExternalHandlers4>();
 
                 services.AddSingleton(
