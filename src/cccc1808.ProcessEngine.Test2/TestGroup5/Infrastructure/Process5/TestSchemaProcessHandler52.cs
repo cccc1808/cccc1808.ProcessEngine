@@ -29,7 +29,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                             Name = "Логика дочернего процесса",
                             Description = 
 @"1) Обрабокта
-2) Снятие блокировки блокировки родительского процесса и отправка события на триггер",
+2) Снятие блокировки родительского процесса и отправка события на триггер",
                             ActivatedOnStart = true,
                             Transition = ITokenAction.TransitionDto.Complete(),
                         }

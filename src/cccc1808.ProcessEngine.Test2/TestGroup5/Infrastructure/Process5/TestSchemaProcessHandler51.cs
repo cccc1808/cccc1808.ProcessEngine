@@ -39,25 +39,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                         },
                         new ServiceTaskTokenAction("2", "1_RunChildProcesses")
                         {
-                            Name = "Дочерние процессы",
+                            Name = "Дочерние процессы 1",
                             Description = "2) Запускаем дочерние процессы",
                             ActivatedOnStart = false,
                             CanRunAction = [new ITokenAction.RunActionDeclarationDto("3", "Ожидаем завершения дочерних процессов")],
                         },
                         new ConditionTokenAction("3", "1_CheckChildComplete")
                         {
-                            Name = "Ожидаем завершения дочерних процессов",
+                            Name = "Дочерние процессы 2",
+                            Description = "Проверят, что все дочерние процессы завершены",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
                         }
                         )
                     {
-                        Name = "Родительский процесс",
-                        Description = "Родительский процесс с CoutnerTrigger",
+                        Name = "Дочерние процессы",
+                        Description = "Обработка дочерних процессов",
                     },
                 ]
                 )
             {
+                Description = "Родительский процесс с CounterTrigger"
             };
 
         public static ProcessTypeDto ProcessType { get; }
