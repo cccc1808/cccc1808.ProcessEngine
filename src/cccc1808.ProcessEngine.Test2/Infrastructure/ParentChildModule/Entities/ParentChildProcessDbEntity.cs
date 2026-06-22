@@ -18,6 +18,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities
     {
         public Guid Id { get; set; }
 
+        public long TimeStamp { get; set; }
+
         public Guid ProcessId { get; set; }
 
         public string? TriggerKey { get; set; }
@@ -28,12 +30,14 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities
 
         public ParentChildProcessDbEntity(
             Guid id, 
+            long timeStamp,
             Guid processId,
             string? triggerKey,
             bool isActive,
             Guid childProcessId)
         {
             Id = id;
+            TimeStamp = timeStamp;
             ProcessId = processId;
             TriggerKey = triggerKey;
             IsActive = isActive;

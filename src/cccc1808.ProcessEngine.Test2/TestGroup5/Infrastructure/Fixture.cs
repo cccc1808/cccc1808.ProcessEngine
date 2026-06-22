@@ -199,7 +199,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         new EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options()
                         {
                             RetryLimit = 2,
-                            SoftTimeout = null,
+                            SoftTimeout = TimeSpan.FromSeconds(60),
                         },
                         new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
                         new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
