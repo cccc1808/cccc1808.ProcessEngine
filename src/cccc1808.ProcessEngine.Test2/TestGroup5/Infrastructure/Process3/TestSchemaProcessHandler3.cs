@@ -18,7 +18,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
     internal class TestSchemaProcessHandler3 : BaseSchemaProcessHandler<Guid>
     {
         public static ProcessTypeDto ProcessType { get; }
-            = new ProcessTypeDto(2, 1);
+            = new ProcessTypeDto(3, 1);
 
         public static ProcessSchemaDto Schema { get; }
             = new ProcessSchemaDto(
@@ -28,26 +28,48 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                         "1",
                         new ServiceTaskTokenAction("1", handlerKey: "SendRequest")
                         {
-                            Name = "Отправляем запрос.",
+                            Name = "Отправка запроса",
+                            Description =
+@"1) Отправляет запрос и увеличивает счетчик попыток.
+2) Запускает действия 2 и 3.",
                             ActivatedOnStart = true,
+                            CanRunAction = [
+                                new ITokenAction.RunActionDeclarationDto("2", Comment: "Активируем действие проверки ответа"),
+                                new ITokenAction.RunActionDeclarationDto("3", Comment: "Активируем действие таймера повторной отправки")
+                                ],
                         },
                         new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
                         {
-                            Name = "Ждем ответ.",
+                            Name = "Проверка поступления ответа",
+                            Description =
+@"1) Проверяет поступление ответа.
+2) Если ответ поступил, то переходит на следующий токен.",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
                         },
                         new TimerTokenAction("3", TimeSpan.FromSeconds(30))
                         {
-                            Name = "Timeout ожидания ответа.",
+                            Name = "Timeout ожидания ответа",
+                            Description =
+@"Таймаут ожидания ответа.
+1) Если количество попыток не превышено, 
+то запускает действие 1 для отправки повторного запроса.
+иначе сбрасывает счетчик и записыват в процесс ошибку.",
                             ActivatedOnStart = false,
+                            CanRunAction = [
+                                new ITokenAction.RunActionDeclarationDto("1", Comment: "Активируем повторную отправку запроса")
+                                ],
                         }
                         )
                     {
-                        Name = "RPC with retry."
+                        Name = "Запрос ответ токен",
+                        Description = "Обработка request-reponse с retry в случае отсутсвия ответа.",
                     },
                 ]
-                );
+                )
+            {
+                Description = "Тестовый процесс",
+            };
 
         private readonly IProcessSetter _processSetter;
 
@@ -129,56 +151,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
             return ISchemaProcessHandler.ExecuteTimerResult.Result();
         }
 
-        public static ProcessSchemaDto Schema { get; }
-            = new ProcessSchemaDto(
-                "1",
-                [
-                    new TokenDto(
-                        "1",
-                        new ServiceTaskTokenAction("1", handlerKey: "SendRequest")
-                        {
-                            Name = "Отправка запроса",
-                            Description =
-@"1) Отправляет запрос и увеличивает счетчик попыток.
-2) Запускает действия 2 и 3.",
-                            ActivatedOnStart = true,
-                            CanRunAction = [
-                                new ITokenAction.RunActionDeclarationDto("2", Comment: "Активируем действие проверки ответа"), 
-                                new ITokenAction.RunActionDeclarationDto("3", Comment: "Активируем действие таймера повторной отправки")
-                                ],
-                        },
-                        new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
-                        {
-                            Name = "Проверка поступления ответа",
-                            Description =
-@"1) Проверяет поступление ответа.
-2) Если ответ поступил, то переходит на следующий токен.",
-                            ActivatedOnStart = false,
-                            Transition = ITokenAction.TransitionDto.Complete(),
-                        },
-                        new TimerTokenAction("3", TimeSpan.FromSeconds(30))
-                        {
-                            Name = "Timeout ожидания ответа",
-                            Description =
-@"Таймаут ожидания ответа.
-1) Если количество попыток не превышено, 
-то запускает действие 1 для отправки повторного запроса.
-иначе сбрасывает счетчик и записыват в процесс ошибку.",
-                            ActivatedOnStart = false,
-                            CanRunAction = [
-                                new ITokenAction.RunActionDeclarationDto("1", Comment: "Активируем повторную отправку запроса")
-                                ],
-                        }
-                        )
-                    {
-                        Name = "Запрос ответ токен",
-                        Description = "Обработка request-reponse с retry в случае отсутсвия ответа.",
-                    },
-                ]
-                )
-            { 
-                Description = "Тестовый процесс",
-            };
+        #region state
 
         public static RpcTokenState GetOrCreateTokenState(
             ISchemaProcessComponent component)
