@@ -26,6 +26,8 @@ using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using static cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5.TestSchemaProcessHandler51.ProcessChildTokenState;
+
 namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
 {
     internal class TestSchemaProcessHandler51 : BaseSchemaProcessHandler<Guid>
@@ -51,6 +53,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                             Name = "Ожидаем завершения дочерних процессов",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
+                            Signal = (ulong)SignalsEnum.ChildComplete,
                         }
                         )
                     {
@@ -108,7 +111,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                     priority: parameters.process.Process.Info.Priority,
                     isActivated: false,
                     counter: processState.ChildProcessCount,
-                    isChildTrigger: true), 
+                    isChildTrigger: true,
+                    signal: (ulong)SignalsEnum.ChildComplete), 
                 cancellationToken);
 
             return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
@@ -289,6 +293,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
             public string? AssemblyQualifiedName { get; set; }
 
             public string? TriggerKey { get; set; }
+
+            public enum SignalsEnum
+            {
+                ChildComplete = 2,
+            }
         }
 
         #endregion

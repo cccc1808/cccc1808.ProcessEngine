@@ -691,7 +691,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     state.CompleteAfterDelivery = false;
                     trigger.NeedUpdate = true;
                 }
-            }            
+            }
+
+            public void SetSignalCode(ITriggerComponent<TId> trigger, in BitFlagDto value)
+            {
+                if (trigger.SignalCode.Bits == value.Bits)
+                {
+                    return;
+                }
+
+                trigger.SignalCode = value;
+                trigger.NeedUpdate = true;
+            }
 
             public long DateToTimestamp(DateTimeOffset date)
             {

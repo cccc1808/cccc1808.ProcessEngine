@@ -19,5 +19,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
         /// Отмета события для сопоставления дочерниг триггером (дублируется в ответе).
         /// </summary>
         long? SendTimeStamp { get; }
+
+        /// <summary>
+        /// Тип сигнала.
+        /// </summary>
+        ulong? SignalCode { get; }
     }
 }

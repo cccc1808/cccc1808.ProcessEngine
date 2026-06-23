@@ -372,6 +372,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                                             if (p.state.IsRootTrigger && typedEvent.SendTriggerKey != null)
                                             {
+                                                if (typedEvent.SignalCode.HasValue)
+                                                {
+                                                    // Дописываем коды к текущему.
+                                                    p.triggerSetter.ChildTriggerSetter.SetSignalCode(
+                                                        p.trigger,
+                                                        p.trigger.SignalCode.AddFlag(typedEvent.SignalCode.Value));
+                                                }
+
                                                 // Если это корневой триггер, то посылаем подтверждение о получении сигнала для дочернего триггера.
                                                 p.sendEventsBuffer.Add(
                                                     new ITriggerEventRaiser<TId>.RaiseContainer(

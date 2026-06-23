@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
 {
@@ -52,5 +53,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         #endregion
 
         DateTimeOffset ReservationTimeout { get; set; }
+
+        BitFlagDto SignalCode { get; set; }
     }
 }

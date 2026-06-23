@@ -101,7 +101,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Str
             CancellationToken cancellationToken)
         {
             await _triggerHandlerFacade.ToAsyncExecutingNoWakeupAsync(
-                triggers.Select(e => e.ProcessId).ToArray(),
+                triggers,
                 cancellationToken);
         }
     }

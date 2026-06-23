@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolatio
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components
 {
@@ -62,6 +63,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
         /// Критично ли это?.
         /// </summary>
         public IProcessComponent<TId>.ErrorDto? Error { get; set; }
+
+        public BitFlagDto SignalCode { get => new BitFlagDto(ProcessDbEntity.SignalCode); set => ProcessDbEntity.SignalCode = value.Bits; }
 
         public EFProcessProxyComponent(
             ProcessDbEntity<TId> processDbEntity)

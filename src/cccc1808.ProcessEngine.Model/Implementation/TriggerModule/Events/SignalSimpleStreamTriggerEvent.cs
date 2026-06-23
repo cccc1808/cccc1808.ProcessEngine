@@ -16,6 +16,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 
         public long? SendTimeStamp { get; set; }
 
+        public ulong? SignalCode { get; set; }
+
 
         [Obsolete("Сериализатор.")]
         public SignalSimpleStreamTriggerEvent()
@@ -32,13 +34,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         public SignalSimpleStreamTriggerEvent(
             string triggerKey,
             string sendTriggerKey,
-            long timeStamp)
+            long timeStamp,
+            ulong signals)
             : base(
                   triggerKey,
                   TriggerEventKindEnum.SimpleStreamEvent)
         {
             SendTriggerKey = sendTriggerKey;
             SendTimeStamp = timeStamp;
+            SignalCode = signals;
         }
     }
 }

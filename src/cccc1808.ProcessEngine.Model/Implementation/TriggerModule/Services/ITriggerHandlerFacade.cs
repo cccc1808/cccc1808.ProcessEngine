@@ -45,7 +45,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         /// Треюует предворительного получения update lock.
         /// </summary>
         Task ToAsyncExecutingNoWakeupAsync(
-            ICollection<TId> processIds, 
+            IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken);
 
         /// <summary>

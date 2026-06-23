@@ -30,6 +30,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         /// </summary>
         public DateTimeOffset ReservationTimeout { get; set; }
 
+        public ulong SignalCode { get; set; }
+
         #region Status
 
         /// <summary>

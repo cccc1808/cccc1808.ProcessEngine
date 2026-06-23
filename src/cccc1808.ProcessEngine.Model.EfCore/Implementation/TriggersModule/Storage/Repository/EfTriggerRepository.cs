@@ -163,6 +163,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     signalCounter1: elem.signalCounter1,
                     signalCounter2: elem.signalCounter2,
                     isChildTrigger: elem.isChildTrigger,
+                    signalCode: elem.signalCode,
                     offsetId: default // Заполняется только при обработке, на создании - null.
                     ));
             }
