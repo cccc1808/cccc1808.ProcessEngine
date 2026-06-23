@@ -16,9 +16,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities
         IId<Guid>, 
         IProcessLinked<Guid>
     {
-        public Guid Id { get; set; }
-
-        public long TimeStamp { get; set; }
+        public Guid Id { get; set; }        
 
         public Guid ProcessId { get; set; }
 
@@ -28,20 +26,22 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities
 
         public Guid ChildProcessId { get; set; }
 
+        public int ChildProcessIndex { get; set; }
+
         public ParentChildProcessDbEntity(
-            Guid id, 
-            long timeStamp,
+            Guid id,
             Guid processId,
             string? triggerKey,
             bool isActive,
-            Guid childProcessId)
+            Guid childProcessId,
+            int childProcessIndex)
         {
             Id = id;
-            TimeStamp = timeStamp;
             ProcessId = processId;
             TriggerKey = triggerKey;
             IsActive = isActive;
             ChildProcessId = childProcessId;
+            ChildProcessIndex = childProcessIndex;
         }
     }
 }

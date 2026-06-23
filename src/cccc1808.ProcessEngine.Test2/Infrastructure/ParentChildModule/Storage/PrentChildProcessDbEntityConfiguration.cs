@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Storage
             builder.Property(e => e.TriggerKey)
                 .HasMaxLength(255);
 
-            builder.HasIndex(e => new { e.ProcessId, e.TimeStamp });
+            builder.HasIndex(e => new { e.ProcessId, e.ChildProcessIndex });
 
             builder.HasIndex(e => e.ProcessId)
                 .HasFilter("is_active = true");

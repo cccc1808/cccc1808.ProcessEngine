@@ -13,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
@@ -126,18 +127,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                 Guid processId,
                 ProcessStateDto processState,
                 ProcessChildTokenState tokenState,
+                LinkContainer<int> lastCreatedIndex,
                 CancellationToken cancellationToken)
             {
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var dbContext = serviceProvider.GetRequiredService<DbContext>();
 
-                var batchLimit = Math.Min(processState.ChildProcessCount, tokenState.CreatedChildrenProcessCount.Value + batchSize);
-                var createTimestamp = dateTimeProvider.UtcNow.Ticks;
+                var batchLimit = Math.Min(processState.ChildProcessCount, lastCreatedIndex.Data + batchSize);
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
-                    for (var i = tokenState.CreatedChildrenProcessCount.Value; i < batchLimit; i++)
+                    for (var i = lastCreatedIndex.Data; i < batchLimit; i++)
                     {
                         var createProcessId = Guid.NewGuid();
 
@@ -164,19 +165,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                         dbContext.Set<ParentChildProcessDbEntity>().Add(
                             new ParentChildProcessDbEntity(
                                 Guid.NewGuid(),
-                                timeStamp: createTimestamp,
                                 processId: processId,
                                 triggerKey: tokenState.TriggerKey,
                                 isActive: true,
-                                childProcessId: createProcessId));
+                                childProcessId: createProcessId,
+                                childProcessIndex: i));
                     }
 
                     await dbContext.SaveChangesAsync(cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
 
-                tokenState.CreatedChildrenProcessCount = batchLimit;
-                tokenState.LastCreatedChildTimestamp = createTimestamp;
+                lastCreatedIndex.Data = batchLimit;
             }            
 
             var component = parameters.process.GetComponent<ISchemaProcessComponent>();
@@ -187,46 +187,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
             // Получаем метаданные по последнему созданному процессу.
             var lastCreatedChild = await _dbContext.Set<ParentChildProcessDbEntity>()
                 .AsNoTracking()
-                .OrderByDescending(e => e.TimeStamp)
-                .Select(e => new { e.TimeStamp, e.ProcessId })
+                .OrderByDescending(e => e.ChildProcessIndex)
+                .Select(e => new { e.ProcessId, e.ChildProcessIndex })
                 .FirstOrDefaultAsync(e => e.ProcessId == parameters.process.Id);
 
-            if (lastCreatedChild is null)
-            {
-                // Ни одного дочернего процесса еще не создано.
-                tokenState.CreatedChildrenProcessCount = 0;
-                tokenState.LastCreatedChildTimestamp = null;
-            }
-            else if (lastCreatedChild.TimeStamp != tokenState.LastCreatedChildTimestamp)
-            {
-                // Значение указателя последнего созданного дочернего процесса в состоянии токена не совпадает с фактическим значенеим из БД.
-                // (Это говорит о том, что транзакция по созданию была закоммичена, а транзакция процесса упала и не обновила счетчик).
-                // Поэтому нам необходимо пересчитать количество созданных дочерних процессов.
-                var createdChildersCount = await _dbContext.Set<ParentChildProcessDbEntity>()
-                    .Where(e => e.ProcessId == parameters.process.Id)
-                    .CountAsync();
-
-                tokenState.CreatedChildrenProcessCount = createdChildersCount;
-                tokenState.LastCreatedChildTimestamp = lastCreatedChild.TimeStamp;
-            }
-            else 
-            {
-                // Колчиство дочерних процессов в состоянии токена корректное.
-            }
-
-            if (tokenState.CreatedChildrenProcessCount is null)
-            {
-                throw new Exception("[Bug] Некорректное состояние процесса. Ожидается наличие значения.");
-            }
+            var lastCreatedChildIndex = LinkContainer.Create(
+                lastCreatedChild?.ChildProcessIndex ?? 0);
 
             var result = await SoftTimeoutHelper.ExecuteWithSoftTimeoutAsync(
-                (_serviceProvider, parameters.process, processState, tokenState),
+                (_serviceProvider, parameters.process, processState, tokenState, lastCreatedChildIndex),
                 _dateTimeProvider,
                 softTimeoutComponent.StopDate,
                 checkComplete: static (p) =>
                 {
                     // Все дочерние процессы запущены.
-                    return p.tokenState.CreatedChildrenProcessCount == p.processState.ChildProcessCount;
+                    return p.lastCreatedChildIndex.Data == p.processState.ChildProcessCount;
                 },
                 handler: static async (p, t) => 
                 {
@@ -237,6 +212,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                             p.process.Id,
                             p.processState,
                             p.tokenState,
+                            p.lastCreatedChildIndex,
                             t);
                     }
                 },
@@ -313,10 +289,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
             public string? AssemblyQualifiedName { get; set; }
 
             public string? TriggerKey { get; set; }
-
-            public int? CreatedChildrenProcessCount { get; set; }
-
-            public long? LastCreatedChildTimestamp { get; set; }
         }
 
         #endregion
