@@ -15,6 +15,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
 
         public DateTimeOffset? Date { get; set; }
 
+        public string? TriggerKey { get; set; }
+
         [Obsolete]
         public TimerActionStateComponent()
         {

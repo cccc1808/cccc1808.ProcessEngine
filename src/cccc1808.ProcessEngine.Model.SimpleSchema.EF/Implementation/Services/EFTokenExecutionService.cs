@@ -313,10 +313,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
                         state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;
 
-                        var triggerKey = Guid.NewGuid().ToString();
+                        state.TriggerKey = Guid.NewGuid().ToString();
                         await _triggerRepository.CreateTriggerAsync(
                             ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
-                                triggerKey,
+                                state.TriggerKey,
                                 state.Date.Value,
                                 process.Id,
                                 isRangeTrigger: true,
@@ -330,9 +330,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
                         {
                             processStateWithTriggers.TriggerState.Triggers.Add(
-                                triggerKey, 
+                                state.TriggerKey, 
                                 new TriggerStateContainer.TriggerInfo(
-                                    key: triggerKey,
+                                    key: state.TriggerKey,
                                     // TODO: Поправить зависимость.
                                     removeTriggerQueueName: _options.TriggerEventQueue,
                                     removeTokenId: component.CurrentTokenId,
@@ -356,6 +356,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         }
 
                         state.Status = TimerActionStateComponent.StatusEnum.Complete;
+                        if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers 
+                            && state.TriggerKey is not null)
+                        {
+                            processStateWithTriggers.TriggerState.Triggers.Remove(state.TriggerKey);
+                        }
 
                         var needAsyncExecuting = false;
                         if (timerTokenAction.HandlerKey is not null)
