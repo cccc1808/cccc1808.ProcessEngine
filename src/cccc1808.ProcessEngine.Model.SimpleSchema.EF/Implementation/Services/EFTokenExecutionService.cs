@@ -11,10 +11,13 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.ActionComponent;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
@@ -33,21 +36,30 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
         private readonly IEFDbContext _dbContext;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IProcessSetter _processSetter;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
         private readonly ITriggerRepository<TId> _triggerRepository;
         private readonly ISchemaService<TId> _schemaService;
+
+        private readonly EmergencyTriggerHandler<TId>.OptionsDto _options;
 
         public EFTokenExecutionService(
             IEFDbContext dbContext, 
             IDateTimeProvider dateTimeProvider,
             IProcessSetter processSetter,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
             ITriggerRepository<TId> triggerRepository, 
-            ISchemaService<TId> schemaService)
+            ISchemaService<TId> schemaService,
+
+            EmergencyTriggerHandler<TId>.OptionsDto options)
         {
             _dbContext = dbContext;
             _dateTimeProvider = dateTimeProvider;
             _processSetter = processSetter;
+            _triggerEventRaiser = triggerEventRaiser;
             _triggerRepository = triggerRepository;
             _schemaService = schemaService;
+
+            _options = options;
         }
 
         #region ITokenExecutionService
@@ -299,11 +311,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 case TimerActionStateComponent.StatusEnum.CreatingTimer:
                     {
                         state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
-                        state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;                        
+                        state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;
 
+                        var triggerKey = Guid.NewGuid().ToString();
                         await _triggerRepository.CreateTriggerAsync(
                             ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
-                                Guid.NewGuid().ToString(),
+                                triggerKey,
                                 state.Date.Value,
                                 process.Id,
                                 isRangeTrigger: true,
@@ -313,6 +326,19 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 isActivated: true,
                                 isChildTrigger: true),
                             cancellationToken);
+
+                        if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                        {
+                            processStateWithTriggers.TriggerState.Triggers.Add(
+                                triggerKey, 
+                                new TriggerStateContainer.TriggerInfo(
+                                    key: triggerKey,
+                                    // TODO: Поправить зависимость.
+                                    removeTriggerQueueName: _options.TriggerEventQueue,
+                                    removeTokenId: component.CurrentTokenId,
+                                    removeIfTokenMove: true,
+                                    removeIfProcessComplete: true));
+                        }
 
                         return ActionResult.EmptyResult();
                     }
@@ -516,6 +542,31 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
             if (result.MoveTokenId is not null)
             {
+                // Автоматическое удаление триггеров при изменении токена.
+                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                {
+                    var forRemove = processStateWithTriggers.TriggerState.Triggers.Values
+                        .Where(e => 
+                            e.RemoveIfTokenMove
+                            && (e.RemoveTokenId is null || e.RemoveTokenId == component.CurrentTokenId))
+                        .ToArray();
+
+                    await _triggerEventRaiser.RaiseAsync(
+                        forRemove
+                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                                e.RemoveTriggerQueueName, 
+                                process.Id,
+                                new RemoveTriggerEvent(e.Key))
+                            )
+                            .ToArray(),
+                        cancellationToken);
+
+                    foreach (var elem in forRemove)
+                    {
+                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
+                    }
+                }
+
                 // Меняем токен.
                 component.MoveToken(
                     result.MoveTokenId);
@@ -531,6 +582,29 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
             if (result.IsComplete)
             {
+                // Автоматическое удаление триггеров при завершении процесса.
+                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                {
+                    var forRemove = processStateWithTriggers.TriggerState.Triggers.Values
+                        .Where(e => e.RemoveIfProcessComplete)
+                        .ToArray();
+
+                    await _triggerEventRaiser.RaiseAsync(
+                        forRemove
+                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                                e.RemoveTriggerQueueName,
+                                process.Id,
+                                new RemoveTriggerEvent(e.Key))
+                            )
+                            .ToArray(),
+                        cancellationToken);
+
+                    foreach (var elem in forRemove)
+                    {
+                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
+                    }
+                }
+
                 // Завершение процесса.
                 component.MoveToken(
                     component.CurrentTokenId);
