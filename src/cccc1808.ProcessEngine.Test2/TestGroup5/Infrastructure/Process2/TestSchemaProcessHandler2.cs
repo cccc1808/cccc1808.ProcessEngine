@@ -26,6 +26,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
                         {
                             Name = "Отправляем запрос.",
                             ActivatedOnStart = true,
+                            CanRunAction = [new ITokenAction.RunActionDeclarationDto("2", "Ожидаем ответ")]
                         },
                         new ConditionTokenAction("2", checkHandlerKey: "CheckResponse")
                         {

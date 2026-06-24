@@ -15,10 +15,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
 
         string? Name { get; }
 
+        string? Description { get; }
+
         /// <summary>
         /// Действие активируется в начале выполнения токена.
         /// </summary>
         bool ActivatedOnStart { get; }
+
+        RunActionDeclarationDto[] CanRunAction { get; }
 
         /// <summary>
         /// Указывает переход при обрабокте действия.
@@ -27,14 +31,21 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
         /// <param name="IsComplete">Указывает, что процесс завершен.</param>
         public readonly record struct TransitionDto(
             string? TargetTokenId,
-            bool IsComplete
+            bool IsComplete,
+            string? Comment = null
             )
         {
-            public static TransitionDto Target(string targetTokenid)
-                => new TransitionDto(targetTokenid, false);
+            public static TransitionDto Target(
+                string targetTokenid,
+                string? comment = null)
+                => new TransitionDto(targetTokenid, IsComplete: false, comment);
 
             public static TransitionDto Complete()
-                => new TransitionDto(null, true);
+                => new TransitionDto(null, IsComplete: true, null);
         }
+
+        public readonly record struct RunActionDeclarationDto(
+            string ActivateActionId,
+            string? Comment = null);
     }
 }

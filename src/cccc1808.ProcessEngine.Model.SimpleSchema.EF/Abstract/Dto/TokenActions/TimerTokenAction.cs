@@ -12,12 +12,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions
     public class TimerTokenAction 
         : BaseTokenAction
     {
-        public ITokenAction.TransitionDto? Transition { get; set; }
+        public TimeSpan Duration { get; set; }
 
         public string? HandlerKey { get; set; }
 
-        public TimeSpan Duration { get; set; }
-
+        public ITokenAction.TransitionDto? Transition { get; set; }
+        
         [Obsolete]
         public TimerTokenAction()
         {

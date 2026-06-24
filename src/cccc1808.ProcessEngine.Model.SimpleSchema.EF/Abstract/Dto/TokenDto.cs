@@ -14,6 +14,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto
 
         public string? Name { get; init; }
 
+        public string? Description { get; init; }
+
         public ITokenAction[] Actions { get; }
 
         public TokenDto(

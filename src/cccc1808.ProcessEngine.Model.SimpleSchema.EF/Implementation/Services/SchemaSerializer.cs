@@ -21,6 +21,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             var container = new ProcessSchemaDtoContainer() 
             {
                 StartTokenId = schema.StartTokenId,
+                Desciption = schema.Description,
                 Tokens = schema.Tokens
                     .Values
                     .Select(
@@ -28,6 +29,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         {
                             Id = e.Id,
                             Name = e.Name,
+                            Description = e.Description,
                             Actions = e.Actions
                                 .Select(
                                     e => new ActionContainer() 
@@ -64,7 +66,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                             e.Id,
                             e.Actions
                                 .Select(
-                                    e => e.Kind switch 
+                                    e => e.Kind switch
                                     {
                                         KindEnum.ServiceTask => (ITokenAction)e.Data.Deserialize<ServiceTaskTokenAction>()!,
                                         KindEnum.Timer => e.Data.Deserialize<TimerTokenAction>()!,
@@ -76,11 +78,15 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 .ToArray()
                         )
                         {
-                            Name = e.Name
+                            Name = e.Name,
+                            Description = e.Description,
                         }
                         )
                     .ToArray()
-                );          
+                )
+            { 
+                Description = container.Desciption,
+            };          
 
             return result;
         }       
@@ -88,12 +94,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
         public class ProcessSchemaDtoContainer
         {
-            public string StartTokenId { get; set; } = default!;
+            public required string StartTokenId { get; set; }
+
+            public required string? Desciption { get; set; }
 
             /// <summary>
             /// Токены схемы процесса.
             /// </summary>
-            public TokenContainer[] Tokens { get; set; } = default!;
+            public required TokenContainer[] Tokens { get; set; } = default!;
         }
 
         public class TokenContainer 
@@ -101,6 +109,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             public required string Id { get; set; } = default!;
 
             public required string? Name { get; set; } = default!;
+
+            public required string? Description { get; set; }
 
             public required ActionContainer[] Actions { get; set; } = default!;
         }

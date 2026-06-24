@@ -17,6 +17,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto
         /// </summary>
         public string StartTokenId { get; }
 
+        public string? Description { get; init; }
+
         /// <summary>
         /// Токены схемы процесса.
         /// </summary>

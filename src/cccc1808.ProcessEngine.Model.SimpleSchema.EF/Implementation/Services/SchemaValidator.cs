@@ -79,17 +79,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                     throw new Exception($"Не реализована сериализация состояния токена {elem.Id}");
                 }
 
-                var actionIds = new HashSet<string>(elem.Actions.Length);
+                var actionIds = elem.Actions.Select(e => e.Id).ToHashSet();
+                if (actionIds.Count != elem.Actions.Length)
+                {
+                    throw new Exception("Есть действия с повторяющимя именем.");
+                }
+
                 var haveTransition = false;
                 var haveActiveOnStart = false;
+                var activeOnStartHaveTransitionOrActivation = false;
                 foreach (var elem2 in elem.Actions)
                 {
-                    if (actionIds.Contains(elem2.Id)) 
-                    {
-                        throw new Exception("Несколько действий с одинаковым id.");
-                    }
-                    actionIds.Add(elem2.Id);
-
                     if (elem2.ActivatedOnStart)
                     {
                         haveActiveOnStart = true;
@@ -100,6 +100,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         case TimerTokenAction timerTokenAction: 
                             {
                                 var haveAction = false;
+                                if (elem2.ActivatedOnStart)
+                                {
+                                    if (timerTokenAction.Transition.HasValue || timerTokenAction.CanRunAction.Any())
+                                    {
+                                        activeOnStartHaveTransitionOrActivation = true;
+                                    }
+                                }
 
                                 if (timerTokenAction.HandlerKey is not null)
                                 {
@@ -108,7 +115,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                         throw new Exception(timerTokenAction.HandlerKey);
                                     }
 
-                                    haveAction = true;
+                                    haveAction = true;                                    
                                 }
 
                                 if (timerTokenAction.Transition.HasValue)
@@ -135,6 +142,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         case ConditionTokenAction conditionTokenAction:
                             {
                                 var haveAction = false;
+                                if (elem2.ActivatedOnStart)
+                                {
+                                    if (conditionTokenAction.Transition.HasValue || conditionTokenAction.CanRunAction.Any())
+                                    {
+                                        activeOnStartHaveTransitionOrActivation = true;
+                                    }
+                                }
 
                                 if (!handler.CanCheckCondition(conditionTokenAction.CheckHandlerKey))
                                 {
@@ -174,6 +188,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                         case ServiceTaskTokenAction serviceTaskTokenAction:
                             {
+                                if (elem2.ActivatedOnStart)
+                                {
+                                    if (serviceTaskTokenAction.Transition.HasValue || serviceTaskTokenAction.CanRunAction.Any())
+                                    {
+                                        activeOnStartHaveTransitionOrActivation = true;
+                                    }
+                                }
+
                                 if (!handler.CanExecuteServiceTask(serviceTaskTokenAction.HandlerKey))
                                 {
                                     throw new Exception(serviceTaskTokenAction.HandlerKey);
@@ -194,6 +216,15 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 break;
                             }                    
                     }
+
+                    foreach (var elem3 in elem2.CanRunAction)
+                    {
+                        if (!actionIds.Contains(elem3.ActivateActionId))
+                        {
+                            throw new Exception(
+                                $"Задекларирован переход, но действие не найдено. {elem.Id}. {elem2.Id}. {elem3.ActivateActionId}.");
+                        }
+                    }
                 }
 
                 if (!haveTransition)
@@ -204,6 +235,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 if (!haveActiveOnStart)
                 {
                     throw new Exception("Токен не содержит ни одного активного на старте действия.");
+                }
+
+                if (!activeOnStartHaveTransitionOrActivation)
+                {
+                    throw new Exception("Ни одно активное на старте действие не содержит переходов и активаций других действий.");
                 }
             }
 
