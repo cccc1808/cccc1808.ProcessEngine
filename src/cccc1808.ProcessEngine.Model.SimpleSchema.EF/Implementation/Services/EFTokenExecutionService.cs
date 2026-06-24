@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
@@ -99,6 +100,26 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                         case ConditionTokenAction conditionTokenAction:
                             {
                                 var state = GetOrCreateActionState(processData, conditionTokenAction, isActivate: false);
+
+                                if (conditionTokenAction.Signal.HasValue)
+                                {
+                                    if (state.Status is ConditionActionStateComponent.StatusEnum.WaitSignal)
+                                    {                                        
+                                        if (process.Process.SignalCode.ContainsFlag(conditionTokenAction.Signal.Value))
+                                        {
+                                            // Сигнал поступил на процесс.
+                                            state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
+                                        }
+                                    }
+
+                                    if (state.Status is ConditionActionStateComponent.StatusEnum.CheckCondition)
+                                    {
+                                        // Сигнал перевел condition в статус проверки, удаляем.
+                                        _processSetter.SetSignalCode(
+                                            process,
+                                            process.Process.SignalCode.RemoveFlag(conditionTokenAction.Signal.Value));
+                                    }
+                                }
 
                                 return state.Status
                                     is ConditionActionStateComponent.StatusEnum.CheckCondition;
@@ -574,13 +595,15 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
 
                 // Меняем токен.
                 component.MoveToken(
-                    result.MoveTokenId);
+                    result.MoveTokenId);                
 
                 if (!process.InAsyncExecuting)
                 {
                     // Продолжение асинхронного выполнения на другом токене.
                     _processSetter.SetStatus(process, ProcessStatusEnum.AsyncExecute);
                 }
+
+                _processSetter.SetSignalCode(process, new BitFlagDto());
 
                 return;
             }
@@ -614,6 +637,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 component.MoveToken(
                     component.CurrentTokenId);
                 _processSetter.SetStatus(process, ProcessStatusEnum.Complete);
+                _processSetter.SetSignalCode(process, new BitFlagDto());
 
                 return;
             }
@@ -739,11 +763,22 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                 return state;
             }
 
+            var status = ConditionActionStateComponent.StatusEnum.NoActivated;
+            if (tokenAction.ActivatedOnStart || isActivate)
+            {
+                if (!tokenAction.Signal.HasValue)
+                {
+                    status = ConditionActionStateComponent.StatusEnum.CheckCondition;
+                }
+                else 
+                {
+                    status = ConditionActionStateComponent.StatusEnum.WaitSignal;
+                }                
+            }
+
             state = new ConditionActionStateComponent(
                 tokenAction.Id,
-                tokenAction.ActivatedOnStart || isActivate
-                    ? ConditionActionStateComponent.StatusEnum.CheckCondition
-                    : ConditionActionStateComponent.StatusEnum.NoActivated);
+                status);
             processData.AddActionState(state);
 
             return state;
@@ -832,9 +867,27 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 case ConditionActionStateComponent.StatusEnum.NoActivated:
                                 case ConditionActionStateComponent.StatusEnum.Complete:
                                     {
-                                        state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
-                                        // Нужна ли проверка сейчас - как указал параметр.
-                                        needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
+                                        if (!elem.AsyncExecuteOrWaitSignal)
+                                        {
+                                            if (conditionTokenAction.Signal.HasValue)
+                                            {
+                                                // Ожидание конкреного сигнала.
+                                                state.Status = ConditionActionStateComponent.StatusEnum.WaitSignal;
+                                                needAsyncExecute = needAsyncExecute || false;
+                                            }
+                                            else 
+                                            {
+                                                // Ожидание любого сигнала
+                                                state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
+                                                needAsyncExecute = needAsyncExecute || false;
+                                            }
+                                        }
+                                        else 
+                                        {
+                                            state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
+                                            // Нужна ли проверка сейчас - как указал параметр.
+                                            needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
+                                        }
 
                                         break;
                                     }

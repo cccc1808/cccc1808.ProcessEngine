@@ -1,5 +1,6 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services
 {
@@ -38,5 +39,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services
             IProcessContainer<TId> process,
             Exception ex,
             bool allowRetry);
+
+        void SetSignalCode<TId>(
+            IProcessContainer<TId> process, 
+            in BitFlagDto value);
     }
 }

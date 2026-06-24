@@ -176,7 +176,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                     new SignalSimpleStreamTriggerEvent(
                                         triggerKey: rootTriggerKey,
                                         sendTriggerKey: elem.Trigger.Key,
-                                        timeStamp: sendTimestamp
+                                        timeStamp: sendTimestamp,
+                                        signals: elem.Trigger.SignalCode.Bits
                                         )
                                     ));
 

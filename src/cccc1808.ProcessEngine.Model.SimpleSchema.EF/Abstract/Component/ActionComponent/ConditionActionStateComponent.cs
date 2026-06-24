@@ -31,6 +31,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.Action
         public enum StatusEnum
         {
             NoActivated,
+            WaitSignal,
             CheckCondition,
             Complete,
         }

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
@@ -224,6 +225,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent.IChildTriggerDto state,
                 long deliveryTimestamp
                 );
+
+            void SetSignalCode(
+                ITriggerComponent<TId> trigger, 
+                in BitFlagDto value);
 
             long DateToTimestamp(DateTimeOffset date);
 

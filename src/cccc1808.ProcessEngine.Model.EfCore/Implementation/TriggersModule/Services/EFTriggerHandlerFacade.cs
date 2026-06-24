@@ -9,10 +9,11 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 
 using Microsoft.EntityFrameworkCore;
@@ -23,15 +24,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
     public class EFTriggerHandlerFacade<TId> : ITriggerHandlerFacade<TId>
     {
         private readonly IEFDbContext _dbContext;
+        private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IWakeupService<TId> _wakeupService;
+        private readonly IWakeupService<TId> _wakeupService;       
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
+            ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore, 
             IWakeupService<TId> wakeupService)
         {
             _dbContext = dbContext;
+            _triggerSetter = triggerSetter;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
         }        
@@ -165,14 +169,32 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         }
 
         public async Task ToAsyncExecutingNoWakeupAsync(
-            ICollection<TId> processIds,
+            IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
-            await _dbContext.Set<ProcessDbEntity<TId>>()
-                .Where(e => processIds.Contains(e.Id) && e.Status == Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
-                .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.Status, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute),
-                    cancellationToken);
+            var processes = await _dbContext.Set<ProcessDbEntity<TId>>()
+                .Where(e => triggers.Select(e => e.ProcessId).Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
+
+            foreach (var elem in triggers)
+            {
+                var process = processes[elem.ProcessId];
+
+                // TODO: Schema process. Тут сразу можно проверять, есть ли обработчик на SignalCode,
+                // и если нет ни одного, то не пробуждать процесс вообще (правда стоит учесть необязательность наличия SignalCode).
+                process.Status = ProcessStatusEnum.AsyncExecute;
+
+                // Взводим сигнал.
+                process.SignalCode = new BitFlagDto(process.SignalCode)
+                    .AddFlag(elem.SignalCode)
+                    .Bits;
+
+                // Если это корневой триггер, то сбрасываем сигналы.
+                if (elem.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot)
+                {
+                    _triggerSetter.ChildTriggerSetter.SetSignalCode(elem, new BitFlagDto());
+                }
+            }
         }
 
         public async Task ToAsyncExecutingWakeupAsync(
