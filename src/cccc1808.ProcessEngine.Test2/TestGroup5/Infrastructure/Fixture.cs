@@ -26,9 +26,11 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProviders;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Dto;
 using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Storage;
@@ -208,6 +210,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     )
                     
                     .AddSchemaProcess(
+                        tokenExecutionOptions: new TokenExecutionService<Guid>.OptionsDto() 
+                        { 
+                            AutoDetectStreamTriggers = true,
+                            GoWaitTriggerQueueName = TriggerEvents,
+                            AutoRemoveTriggerQueueName = TriggerEvents,
+                            TimerTriggerHandler = EFTimerChildTriggerHandler<Guid>.Name,
+                        },
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType),

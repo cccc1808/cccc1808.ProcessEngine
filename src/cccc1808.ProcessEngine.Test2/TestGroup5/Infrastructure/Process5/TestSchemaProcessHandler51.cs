@@ -15,12 +15,13 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
 using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities;
 
 using Microsoft.EntityFrameworkCore;

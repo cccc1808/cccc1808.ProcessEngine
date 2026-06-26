@@ -7,8 +7,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
 {
