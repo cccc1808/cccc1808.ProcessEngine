@@ -79,10 +79,20 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Queries;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Serializers;
 using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using static cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners.IInMemoryQueueProcessRunner;
 
@@ -391,6 +401,41 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddTestService(this IServiceCollection services)
         {
             services.AddSingleton<TestService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddSchemaProcess(
+            this IServiceCollection services,
+            TokenExecutionService<Guid>.OptionsDto tokenExecutionOptions,
+            params SchemaProcessRegistrationDto[] registrations)
+        {
+            services
+                .AddSingleton<ISchemaRegistry, SchemaRegistry>()
+                .AddScoped<ISchemaValidator, SchemaValidator<Guid>>()
+
+                .AddScoped<ISchemaService<Guid>, SchemaService<Guid>>()
+                .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
+                
+                .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
+                .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()
+                .AddSingleton(tokenExecutionOptions)
+
+                .AddScoped<ISchemaSerializer, SchemaSerializer>()
+                .AddScoped<IActionStateSerializer, ActionStateSerializer>()
+                .AddScoped<SchemaSingleProcessHandler<Guid>>()
+                ;
+
+            foreach (var elem in registrations)
+            {
+                services.AddSingleton(elem);
+
+                services.AddScoped(elem.ProcessHandlerType);
+                services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+
+                services.TryAddScoped(elem.ProcessStateHandlerType);
+                services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
+            }
 
             return services;
         }

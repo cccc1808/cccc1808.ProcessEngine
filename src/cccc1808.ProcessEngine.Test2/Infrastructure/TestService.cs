@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
@@ -127,6 +129,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public async Task<ProcessDbEntity<Guid>[]> LoadProcessAsync(IServiceProvider serviceProvider)
             => await LoadAsync<ProcessDbEntity<Guid>>(serviceProvider);
+
+        public async Task<IProcessContainer<Guid>> LoadProcessContainerAsync(IServiceProvider serviceProvider, Guid id)
+        {
+            var repository = serviceProvider.GetRequiredService<IProcessRepository<Guid>>();
+            var result = await repository.GetWaitingRangeAsync([id], updateLock: false, CancellationToken.None);
+            return result.FirstOrDefault();
+        }
 
         public async Task<TriggerDbEntity<Guid>[]> LoadTriggersAsync(IServiceProvider serviceProvider)
             => await LoadAsync<TriggerDbEntity<Guid>>(serviceProvider);

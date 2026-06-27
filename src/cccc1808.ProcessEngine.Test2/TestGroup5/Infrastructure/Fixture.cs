@@ -7,20 +7,16 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
@@ -30,9 +26,19 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProviders;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
-using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Dto;
+using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChildModule.Storage;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
+using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5;
 
 using Confluent.Kafka;
 
@@ -41,18 +47,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
 
-using Xunit.Sdk;
-
-namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
+namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
 {
     [CollectionDefinition(Name, DisableParallelization = true)]
     public class FixtureCollection : ICollectionFixture<FixtureCollection.Fixture>
-    {       
-        public const string Name = "FixtureCollection 2";
+    {
+        public const string Name = "FixtureCollection 5";
         public const int TestTimeout = 115000;
 
+        public static string TriggerEvents 
+            => "trigger_events";
+
         public class Fixture : IAsyncLifetime
-        {           
+        {
             private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;
 
             private KafkaContainer KafkaContainer { get; set; } = null!;
@@ -73,19 +80,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                 }
 
                 var tryStartCount = 0;
-                while(true)
+                while (true)
                 {
                     var startTasks = new Task[]
                     {
                         PostgreSqlContainer.StartAsync(),
                         KafkaContainer.StartAsync()
                     };
-                    try 
+                    try
                     {
                         await Task.WhenAll(startTasks);
                         break;
                     }
-                    catch(Docker.DotNet.DockerApiException)
+                    catch (Docker.DotNet.DockerApiException)
                     {
                         if (tryStartCount > 2)
                         {
@@ -93,7 +100,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         }
                         tryStartCount++;
                     }
-                }                
+                }
 
                 ServiceProvider = ConfigureServices();
 
@@ -124,9 +131,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         (s) => new TestDbContext(
                         s,
                         $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"),
-                        typeof(EFWakeupDbProvider<Guid>),
-                        typeof(ChildProcessDbProvider),
-                        typeof(RootTriggerDbProvider)
+                        typeof(EFSchemaProcessDataDbEntityDbProvider<Guid>),
+                        typeof(ParentChildDbProvider)
                         )
 
                     .AddKafkaServices(
@@ -142,21 +148,20 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddParallelLimitProcessRunner()
 
                     .AddWakeupServices(
-                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
+                        [],
                         []
                     )
 
                     .AddTriggerServices(
                         new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler)),
                         new TriggerRegistryDto(EmergencyTriggerHandler<Guid>.Name, typeof(EmergencyTriggerHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(Services.RootTrigger.ChildTriggerHandler.Name, typeof(Services.RootTrigger.ChildTriggerHandler))
+                        new TriggerRegistryDto(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>.Name, typeof(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>))
                     )
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
-                            "trigger_events"
+                            FixtureCollection.TriggerEvents
                             )
                         {
                             BatchSize = 1,
@@ -171,7 +176,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             {
                                 SingleTriggerBatchSize = (_) => 1,
                             }
-                            ) 
+                            )
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
@@ -180,37 +185,59 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
-                                    QueueName = "trigger_events",
+                                    QueueName = TriggerEvents,
                                     QueueConsumeMessagesLimit = 10,
                                     QueueConsumeBatchTimeout = TimeSpan.FromSeconds(1),
                                 }
-                            }                            
+                            }
                         },
-                        new TriggerOptions<Guid>() 
+                        new TriggerOptions<Guid>()
                         {
                             PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
                         }
                         )
 
                     .AddProcessServices(
-                        new EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options() 
+                        new EFChangeTrackerProcessRepository<Guid, ProcessDbEntity<Guid>>.Options()
                         {
                             RetryLimit = 2,
-                            SoftTimeout = null,
+                            SoftTimeout = TimeSpan.FromSeconds(60),
                         },
-                        new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1)
-                    );
+                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1),
+                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1)
+                    )
+                    
+                    .AddSchemaProcess(
+                        tokenExecutionOptions: new TokenExecutionService<Guid>.OptionsDto() 
+                        { 
+                            AutoDetectStreamTriggers = true,
+                            GoWaitTriggerQueueName = TriggerEvents,
+                            AutoRemoveTriggerQueueName = TriggerEvents,
+                            TimerTriggerHandler = EFTimerChildTriggerHandler<Guid>.Name,
+                        },
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType)
+                        );
+
+                services
+                    .AddScoped<ExternalHandlers2>()
+                    .AddScoped<ExternalHandlers3>()
+                    .AddScoped<ExternalHandlers4>();
+
+                services.AddSingleton(
+                    new ChildRegistrationDto(TestSchemaProcessHandler52.ProcessType));
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
                     s => new ParallelLimitProcessRunner<Guid>(
                         s,
                         new ParallelLimitProcessRunner<Guid>.OptionsDto(
-                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1() 
+                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1()
                             {
                                 RangeBatchSize = (e) => e,
                                 SingleBatchSize = (e) => e,
@@ -225,30 +252,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
                                     s.GetRequiredService<IWakeupService<Guid>>(),
-                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestProcessBody>()),
+                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<SchemaSingleProcessHandler<Guid>>()),
                                     s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                     ),
                                 s.GetRequiredService<ITransactionManager>()
                                 )
                         )
-                        { 
+                        {
                             ExceptionDelay = TimeSpan.Zero,
                             DbExecuteParallelismLimit = 1,
                         })
                 );
-                services
-                    .AddScoped<TestProcessBody>()
-                    .AddSingleton<TestProcessBody.TestState>();                
 
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()
-                    { 
+                    {
                         ValidateOnBuild = true,
                         ValidateScopes = true
                     });
             }
 
-            public async Task CleanEnvironmentAsync() 
+            public async Task CleanEnvironmentAsync()
             {
                 await using (var scope = ServiceProvider.CreateAsyncScope())
                 {
@@ -256,7 +280,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         var dbContext = scope.ServiceProvider.GetRequiredService<TestDbContext>();
                         await dbContext.TruncateAllAsync();
-                    }                   
+                    }
 
                     // Kafka
                     {

@@ -433,6 +433,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
             public TimeSpan? SoftTimeout { get; set; }
                 = TimeSpan.FromMinutes(1);
+
+            public Options() 
+            { }
         }
     }
 }

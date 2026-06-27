@@ -1,0 +1,46 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+
+namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
+{
+    public interface ITokenExecutionService<TId>
+    {
+        /// <summary>
+        /// Выполнить обработку действий токена.
+        /// (Из асинхронного выполнения - процесс AsyncExecuting).
+        /// </summary>
+        /// <returns></returns>
+        ValueTask ExecuteTokenAsync(
+            IProcessContainer<TId> process, 
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Выполнить обработку дейтсвия токена.
+        /// (Из внешнего кода - процесс WaitEvent).
+        /// </summary>
+        /// <returns></returns>
+        ValueTask ExecuteActionAsync(
+            IProcessContainer<TId> process,
+            string actionId,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Проверить, что 
+        /// * tokenId является активным токеном
+        /// * conditionActionId является ConditionAction в состоянии ожидания выполнения условия
+        /// </summary>
+        /// <param name="tokenId">Id ожидаемого токена.</param>
+        /// <param name="conditionActionId">Id ожидаемого ConditionAction в состоянии проверки условия.</param>
+        /// <returns></returns>
+        ValueTask ValidateTokenState(
+            IProcessContainer<TId> process,
+            string tokenId,
+            string? conditionActionId,
+            CancellationToken cancellationToken);
+    }
+}

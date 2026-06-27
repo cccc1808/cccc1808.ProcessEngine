@@ -20,7 +20,6 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 
 using Microsoft.Extensions.DependencyInjection;
 
