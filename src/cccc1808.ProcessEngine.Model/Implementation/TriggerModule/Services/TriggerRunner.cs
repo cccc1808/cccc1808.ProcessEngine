@@ -65,6 +65,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var receivedMessages = new LinkContainer<int>(0);
                 var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
                 var recheckProcessStatusBuffer = new Dictionary<string, bool>();
+                var recheckIgnoreSignalBuffer = new HashSet<string>();
 
                 var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
                     queueProviderFactory,
@@ -82,9 +83,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
                         recheckProcessStatusBuffer.Clear();
+                        recheckIgnoreSignalBuffer.Clear();
 
                         await consumer.ConsumeBatchAsync(
-                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger, recheckProcessStatusBuffer),
+                            (
+                                options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger,
+                                recheckProcessStatusBuffer, recheckIgnoreSignalBuffer
+                                ),
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
@@ -100,9 +105,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 triggerEvents.Add(triggerEvent);
                                 p.receivedMessages.Data++;
 
-                                if (triggerEvent.Kind == TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent)
+                                switch (triggerEvent.Kind)
                                 {
-                                    p.recheckProcessStatusBuffer.Add(triggerEvent.TriggerKey, false);
+                                    case TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent:
+                                        {
+                                            if (!p.recheckProcessStatusBuffer.ContainsKey(triggerEvent.TriggerKey))
+                                            {
+                                                p.recheckProcessStatusBuffer.Add(triggerEvent.TriggerKey, false);
+                                            }
+                                            
+                                            break;
+                                        }
+
+                                    case TriggerEventKindEnum.RecheckIgnoreRootTriggerEvent:
+                                        {
+                                            if (!p.recheckIgnoreSignalBuffer.Contains(triggerEvent.TriggerKey))
+                                            {
+                                                p.recheckIgnoreSignalBuffer.Add(triggerEvent.TriggerKey);
+                                            }
+                                            
+                                            break;
+                                        }
                                 }
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
@@ -127,6 +150,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     eventTypeMismathErrorHandler,
                                     groupByTrigger,
                                     recheckProcessStatusBuffer,
+                                    recheckIgnoreSignalBuffer,
                                     cancellationToken);
                             }
                             catch (Exception ex)
@@ -185,6 +209,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
                 Dictionary<string, List<ITriggerEvent>> groupByTrigger,
                 Dictionary<string, bool> recheckProcessStatusBuffer,
+                HashSet<string> recheckIgnoreSignalBuffer,
                 CancellationToken cancellationToken)
             {
                 var emergencyOptions = serviceProvider.GetRequiredService<EmergencyTriggerHandler<TId>.OptionsDto>();
@@ -220,6 +245,22 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
                     }
 
+                    Dictionary<string, BitFlagDto> recheckIgnoreSignalBuffer2;
+                    if (recheckIgnoreSignalBuffer.Any())
+                    {
+                        var processIds = recheckIgnoreSignalBuffer
+                            .Select(e => triggers[e].ProcessId)
+                            .ToArray();
+
+                        // [MVCC Only]: подумать если иначе.
+                        // TODO: проверяе что процесс спит.
+                        recheckIgnoreSignalBuffer2 = await repository.CheckProcessIgnoreFlag(processIds, cancellationToken);
+                    }
+                    else 
+                    {
+                        recheckIgnoreSignalBuffer2 = new Dictionary<string, BitFlagDto>(0);
+                    }
+                    
                     var now = dateTimeProvider.UtcNow;
                     var sendEventsBuffer = new List<ITriggerEventRaiser<TId>.RaiseContainer>(triggers.Count);
                     foreach (var elem in groupByTrigger)
@@ -246,7 +287,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 emergencyOptions,
                                 now,
                                 messages: elem.Value, 
-                                recheckProcessStatusBuffer, 
+                                recheckProcessStatusBuffer,
+                                recheckIgnoreSignalBuffer2,
                                 sendEventsBuffer
                                 ),
                             // 1) counter
@@ -276,6 +318,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
@@ -323,8 +369,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     )
                                                 ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
-                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),                                        
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
@@ -353,7 +403,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.emergencyOptions, state, p.now, p.recheckProcessStatusBuffer, p.sendEventsBuffer),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.emergencyOptions, state, p.now, p.recheckProcessStatusBuffer, p.recheckIgnoreSignalBuffer2, p.sendEventsBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
@@ -368,8 +418,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                         {
-                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
-
                                             if (p.state.IsRootTrigger && typedEvent.SendTriggerKey != null)
                                             {
                                                 if (typedEvent.SignalCode.HasValue)
@@ -390,6 +438,66 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                         timestamp: typedEvent.SendTimeStamp.Value!
                                                         )
                                                     ));
+
+                                                // Проверяем игнорирование сигнала.
+                                                if (!p.trigger.IgnoreSignalCode.ContainsFlag(typedEvent.SignalCode.Value))
+                                                {
+                                                    p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+                                                }
+                                            }
+                                            else 
+                                            {
+                                                p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+                                            }
+                                        },
+                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
+                                        {
+                                            if (!p.state.IsRootTrigger)
+                                            {
+                                                // TODO: mismath.
+                                                return;
+                                            }
+
+                                            p.triggerSetter.ChildTriggerSetter.SetIgnoreCode(p.trigger, new BitFlagDto(typedEvent.SignalCode));
+                                            var currentSignal = p.trigger.SignalCode.RemoveFlag(p.trigger.IgnoreSignalCode);
+
+                                            if (!currentSignal.IsEmpty)
+                                            {
+                                                p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+                                            }
+                                            else 
+                                            {
+                                                // TODO: setter.
+                                                // Все текущие сигналы игнорируются.
+                                                p.state.NewSignalCounter = 0;
+                                            }
+                                        },
+                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) => 
+                                        {
+                                            // Emergency trigger сообщил, что рассинхронилизировался IgnoreSignal (потеря события).
+                                            if (!p.state.IsRootTrigger)
+                                            {
+                                                // TODO: mismath.
+                                                return;
+                                            }
+
+                                            if (!p.recheckIgnoreSignalBuffer2.TryGetValue(p.trigger.Key, out var processIgnoreSignal))
+                                            {                                                    
+                                                return;
+                                            }
+
+                                            if (p.trigger.IgnoreSignalCode.Bits == processIgnoreSignal.Bits)
+                                            {
+                                                return;
+                                            }
+
+                                            // Обновляем Ignore значением из процесса.
+                                            p.triggerSetter.ChildTriggerSetter.SetIgnoreCode(p.trigger, processIgnoreSignal);
+                                            var currentSignal = p.trigger.SignalCode.RemoveFlag(p.trigger.IgnoreSignalCode);
+
+                                            if (!currentSignal.IsEmpty)
+                                            {
+                                                p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             }
                                         },
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
@@ -454,7 +562,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),                                        
+                                            p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),
+                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                         {
                                             if (p.state.ProcessedOffset <= typedEvent.ProcessedOffset)
@@ -662,10 +774,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             }
                         }
 
-                        await handler.ExecuteAsync(
-                            forExecute,
-                            cancellationToken
-                            );
+                        {
+                            var awakened = await handler.ExecuteAsync(
+                                forExecute,
+                                cancellationToken);
+                            foreach (var elem in triggers)
+                            {
+                                if (!awakened.Contains(elem.ProcessId))
+                                {
+                                    triggerSetter.OneOfTriggerSetter.OneOf(
+                                        elem,
+                                        1,
+                                        counterHandler: static (_, _) => { },
+                                        timerHandler: static (_) => { },
+                                        simpleStreamHandler: static (s, _) => s.StreamsProcessIsWaiting = true,
+                                        offsetStreamHanler: static (s, _) => s.StreamsProcessIsWaiting = true
+                                        );
+                                }
+                            }
+                        }
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);

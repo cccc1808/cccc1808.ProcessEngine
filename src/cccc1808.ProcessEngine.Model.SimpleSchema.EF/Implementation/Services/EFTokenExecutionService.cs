@@ -332,7 +332,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                 priority:
                                 process.Process.Info.Priority,
                                 isActivated: true,
-                                isChildTrigger: true),
+                                isChildTrigger: true,
+                                signal: timerTokenAction.Signal),
                             cancellationToken);
 
                         return ActionResult.EmptyResult();
@@ -534,6 +535,51 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
             //        }
             //        );
             //}
+
+            static BitFlagDto GetFilter(
+                TokenDto token,
+                ISchemaProcessComponent component) 
+            {
+                var result = BitFlagDto.Empty;
+
+                foreach (var elem in component.AllActionStates())
+                {
+                    switch (elem)
+                    {
+                        case TimerActionStateComponent timerActionState:
+                            {
+                                if (timerActionState.Status is TimerActionStateComponent.StatusEnum.WaitingTimer)
+                                {
+                                    var action = (TimerTokenAction)token.GetAction(timerActionState.Id);
+                                    if (action.Signal.HasValue)
+                                    {
+                                        result = result.AddFlag(action.Signal.Value);
+                                    }
+                                }
+
+                                break;
+                            }
+
+                        case ConditionActionStateComponent conditionActionStateComponent:
+                            {
+                                if (conditionActionStateComponent.Status 
+                                    is ConditionActionStateComponent.StatusEnum.WaitSignal
+                                    or ConditionActionStateComponent.StatusEnum.CheckCondition)
+                                {
+                                    var action = (TimerTokenAction)token.GetAction(conditionActionStateComponent.Id);
+                                    if (action.Signal.HasValue)
+                                    {
+                                        result = result.AddFlag(action.Signal.Value);
+                                    }
+                                }
+
+                                break;
+                            }
+                    }
+                }
+
+                return result;
+            }
 
             if (result.MoveTokenId is not null)
             {

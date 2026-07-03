@@ -14,6 +14,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -234,6 +235,39 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 
                             }
                         }
+                        else if (
+                            setter.StreamSetter.IsStreamTrigger(elem.Trigger) 
+                            && elem.Trigger.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot)
+                        {
+                            // 5) Проверяем что был потерян IgnoreSignalCode.
+
+                            var state = (ITriggerComponent.ISimpleStreamDto)elem.Trigger.State;
+
+                            // Возможно событие об удаления кода из списка игнорирования было потеряно.
+                            var needCheckProcess =
+                                !elem.Trigger.SignalCode.IsEmpty
+                                && !elem.Trigger.IgnoreSignalCode.IsEmpty
+                                && !elem.Trigger.IsActivated
+                                && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout
+                                && state.StreamsProcessIsWaiting;
+
+                            var processIgnoreSignal = await query
+                                .GetProcessIgnoreAsync(elem.Trigger.ProcessId, cancellationToken);
+
+                            if (processIgnoreSignal.Bits != elem.Trigger.IgnoreSignalCode.Bits)
+                            {
+                                // Скорее всего событие было утеряно, посылаем триггеру событие, чтобы он перепроверил.
+                                triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                    options.TriggerEventQueue,
+                                    elem.Trigger.ProcessId,
+                                    new RecheckSignalFilterRootTriggerEvent(elem.Trigger.Key)
+                                    ));
+
+                                notProcesseTriggers.Remove(elem.Trigger.Key);
+
+                                // TODO: log warning;
+                            }
+                        }
                     }
 
                     await triggerEventRaiser.RaiseAsync(triggersEvents, cancellationToken);
@@ -326,7 +360,24 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                    sendTimestamp);
                             }                               
                         }
-                        await typedHandler.ExecuteAsync(forExecute, cancellationToken);
+
+                        {
+                            var awakened = await typedHandler.ExecuteAsync(forExecute, cancellationToken);
+                            foreach (var elem3 in forExecute)
+                            {
+                                if (!awakened.Contains(elem3.ProcessId))
+                                {
+                                    setter.OneOfTriggerSetter.OneOf(
+                                        elem3,
+                                        1,
+                                        counterHandler: static (_, _) => { },
+                                        timerHandler: static (_) => { },
+                                        simpleStreamHandler: static (s, _) => s.StreamsProcessIsWaiting = true,
+                                        offsetStreamHanler: static (s, _) => s.StreamsProcessIsWaiting = true
+                                        );
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -352,6 +403,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 ICollection<string> triggersKeys,
                 CancellationToken cancellationToken
                 );
+
+            Task<BitFlagDto> GetProcessIgnoreAsync(
+                TId processId, 
+                CancellationToken cancellationToken);
 
             public readonly record struct StatusInfo(
                 TId triggerId,

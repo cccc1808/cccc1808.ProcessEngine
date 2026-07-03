@@ -91,11 +91,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Ret
             return result;
         }        
 
-        public async ValueTask ExecuteAsync(
+        public async ValueTask<ISet<TId>> ExecuteAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
-            await _triggerHandlerFacade.ToAsyncExecutingNoWakeupAsync(
+            return await _triggerHandlerFacade.ToAsyncExecutingNoWakeupAsync(
                 triggers, 
                 cancellationToken);
         }

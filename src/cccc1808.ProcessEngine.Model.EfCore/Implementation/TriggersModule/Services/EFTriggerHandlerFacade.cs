@@ -168,33 +168,85 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             }
         }
 
-        public async Task ToAsyncExecutingNoWakeupAsync(
+        public async Task<ISet<TId>> ToAsyncExecutingNoWakeupAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
+            // Предпологается, что блокировка была выше.
             var processes = await _dbContext.Set<ProcessDbEntity<TId>>()
                 .Where(e => triggers.Select(e => e.ProcessId).Contains(e.Id))
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
+            var result = new HashSet<TId>(processes.Count);
             foreach (var elem in triggers)
             {
                 var process = processes[elem.ProcessId];
-
-                // TODO: Schema process. Тут сразу можно проверять, есть ли обработчик на SignalCode,
-                // и если нет ни одного, то не пробуждать процесс вообще (правда стоит учесть необязательность наличия SignalCode).
-                process.Status = ProcessStatusEnum.AsyncExecute;
-
-                // Взводим сигнал.
-                process.SignalCode = new BitFlagDto(process.SignalCode)
-                    .AddFlag(elem.SignalCode)
-                    .Bits;
-
+                
                 // Если это корневой триггер, то сбрасываем сигналы.
-                if (elem.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot)
+                if (elem.Kind is not ITriggerComponent.TriggerKind.SimpleStreamRoot)
                 {
-                    _triggerSetter.ChildTriggerSetter.SetSignalCode(elem, new BitFlagDto());
+                    // TODO: Schema process. Тут сразу можно проверять, есть ли обработчик на SignalCode,
+                    // и если нет ни одного, то не пробуждать процесс вообще (правда стоит учесть необязательность наличия SignalCode).
+                    process.Status = ProcessStatusEnum.AsyncExecute;
+
+                    // Взводим сигнал.
+                    process.SignalCode = new BitFlagDto(process.SignalCode)
+                        .AddFlag(elem.SignalCode)
+                        .Bits;
+
+                    elem.SignalCode = BitFlagDto.Empty;
+                }
+                else 
+                {
+                    // Процесс выступает источником перечня списка игноирования.
+                    _triggerSetter.ChildTriggerSetter.SetIgnoreCode(elem, new BitFlagDto(process.IgnoreSignalCode));                  
+
+                    // Ничего не игнорируется.
+                    if (elem.IgnoreSignalCode.IsEmpty)
+                    {
+                        process.Status = ProcessStatusEnum.AsyncExecute;
+
+                        // Все сигналы доставлены.
+                        process.SignalCode = new BitFlagDto(process.SignalCode)
+                            .AddFlag(elem.SignalCode)
+                            .Bits;
+                        _triggerSetter.ChildTriggerSetter.SetSignalCode(
+                            elem, 
+                            BitFlagDto.Empty);
+
+                        result.Add(process.Id);
+                    }
+                    // Используется игнорирование (каждый триггер должен быть с кодом).
+                    else 
+                    {
+                        // Определяем какие сигналы готов принять процесс.
+                        var targetCodes = elem.SignalCode.RemoveFlag(elem.IgnoreSignalCode);
+
+                        // Все текущие сигналы игнорируются.
+                        if (targetCodes.IsEmpty)
+                        {
+                            // Процесс не пробуждается.
+                        }
+                        else 
+                        {
+                            process.Status = ProcessStatusEnum.AsyncExecute;
+
+                            // Передаем только не игнорируемые сигналы.
+                            process.SignalCode = new BitFlagDto(process.SignalCode)
+                               .AddFlag(targetCodes)
+                               .Bits;
+
+                            _triggerSetter.ChildTriggerSetter.SetSignalCode(
+                                elem, 
+                                elem.SignalCode.RemoveFlag(targetCodes));
+
+                            result.Add(process.Id);
+                        }                           
+                    }
                 }
             }
+
+            return result;
         }
 
         public async Task ToAsyncExecutingWakeupAsync(

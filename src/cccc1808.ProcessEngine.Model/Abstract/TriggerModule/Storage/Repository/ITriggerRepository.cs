@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
 {
@@ -42,6 +43,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             ICollection<TId> processIds,
             CancellationToken cancellationToken
             );
+
+        Task<Dictionary<string, BitFlagDto>> CheckProcessIgnoreFlag(
+            ICollection<TId> processIds,
+            CancellationToken cancellationToken);
 
         public readonly record struct CreateTriggerDto(
             string key,

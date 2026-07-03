@@ -69,6 +69,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 
         BitFlagDto SignalCode { get; set; }
 
+        BitFlagDto IgnoreSignalCode { get; set; }
+
         /// <summary>
         /// <see cref="ITriggerComponent.IChildTriggerDto"/>.
         /// Не null если триггер является дочерним.

@@ -93,6 +93,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// </summary>
         public ulong SignalCode { get; set; }
 
+        public ulong IgnoreSignalCode { get; set; }
+
         /// <summary>
         /// Замечание: можно хранить кастомное состояние в json/bin (StreamProcessIsWaiting, SignalCounter1, SignalCounter2).
         /// Это позволит более просто добавлять новые типы триггеров.

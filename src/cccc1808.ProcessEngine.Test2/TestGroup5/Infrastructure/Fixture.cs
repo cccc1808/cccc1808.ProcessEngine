@@ -208,11 +208,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     )
                     
                     .AddSchemaProcess(
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType, useSignalCode: false),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType, useSignalCode: false),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType, useSignalCode: false),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType, useSignalCode: false),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType, useSignalCode: false)
                         );
 
                 services

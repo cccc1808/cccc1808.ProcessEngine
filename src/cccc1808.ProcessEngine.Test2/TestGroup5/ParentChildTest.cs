@@ -56,8 +56,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                 var schemaProcessStateHandler = scope.ServiceProvider.GetRequiredService<SchemaProcessStateTypelessHandler<Guid>>();
 
-                validator.Validate(TestSchemaProcessHandler51.ProcessType, TestSchemaProcessHandler51.Schema);
-                validator.Validate(TestSchemaProcessHandler52.ProcessType, TestSchemaProcessHandler52.Schema);
+                validator.Validate(TestSchemaProcessHandler51.ProcessType, TestSchemaProcessHandler51.Schema, useSignal: true);
+                validator.Validate(TestSchemaProcessHandler52.ProcessType, TestSchemaProcessHandler52.Schema, useSignal: false);
 
                 dbContext.Set<SchemaDbEntity<Guid>>().Add(
                     new SchemaDbEntity<Guid>(

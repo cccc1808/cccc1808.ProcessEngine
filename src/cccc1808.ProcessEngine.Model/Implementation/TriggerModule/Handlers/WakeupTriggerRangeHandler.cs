@@ -76,13 +76,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                     ));
         }
 
-        public async ValueTask ExecuteAsync(
+        public async ValueTask<ISet<TId>> ExecuteAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
+            var processIds = triggers.Select(e => e.ProcessId).ToHashSet();
+
             await _triggerHandlerFacade.ToAsyncExecutingWakeupAsync(
-                triggers.Select(e => e.ProcessId).ToArray(),
+                processIds,
                 cancellationToken);
+
+            return processIds;
         }
     }
 }
