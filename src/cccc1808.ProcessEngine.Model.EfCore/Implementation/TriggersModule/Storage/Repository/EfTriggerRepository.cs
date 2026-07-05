@@ -16,6 +16,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
@@ -206,6 +207,22 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     && e.Status == ProcessStatusEnum.WaitEvent)
                 .Select(e => e.Id)
                 .ToHashSetAsync(cancellationToken);
+        }
+
+        public async Task<Dictionary<TId, BitFlagDto>> CheckProcessSignalFilterFlagAsync(
+            ICollection<TId> processIds,
+            CancellationToken cancellationToken)
+        {
+            var data = await _efDbContext.Set<ProcessDbEntity<TId>>()
+                .Where(e =>
+                    processIds.Contains(e.Id)
+                    && e.Status == ProcessStatusEnum.WaitEvent)
+                .Select(e => new {e.Id, e.SignalCodeFilter})
+                .ToArrayAsync(cancellationToken);
+
+            return data.ToDictionary(
+                e => e.Id,
+                e => new BitFlagDto(e.SignalCodeFilter));
         }
     }
 }

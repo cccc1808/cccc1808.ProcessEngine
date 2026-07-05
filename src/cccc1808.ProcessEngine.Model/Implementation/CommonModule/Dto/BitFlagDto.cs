@@ -206,5 +206,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
 
         public static BitFlagDto Empty 
             => new BitFlagDto(bits: 0);
+
+        public static BitFlagDto FromEnum<T>(T value)
+            where T : struct, Enum
+        {
+            return new BitFlagDto(
+                new BitFlagDto<T>(value).Bits);
+        }
     }
 }

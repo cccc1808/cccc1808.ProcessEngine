@@ -9,12 +9,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events
     /// <summary>
     /// Включене/Отключение игнорирования определенного типа сигнала на корневом триггере.
     /// </summary>
-    public interface IFilterSignalRootTriggerEvent 
+    public interface IIgnoreCodeRootTriggerEvent 
         : ITriggerEvent
     {
         /// <summary>
         /// Тип сигнала.
         /// </summary>
-        ulong SignalCodeFilter { get; }
+        ulong SignalCode { get; }
+
+        bool Ignore { get; }
     }
 }

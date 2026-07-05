@@ -36,9 +36,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public ulong SignalCode { get; set; }
 
         /// <summary>
-        /// Игнорируемые сигналы.
+        /// Фильтр сигналов: не игнорируемые сигналы.
         /// </summary>
-        public ulong IgnoreSignalCode { get; set; }
+        public ulong SignalCodeFilter { get; set; }
 
         #region Status
 

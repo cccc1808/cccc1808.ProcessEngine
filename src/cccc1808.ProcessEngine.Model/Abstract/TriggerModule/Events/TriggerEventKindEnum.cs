@@ -6,8 +6,8 @@
             SimpleStreamEvent,
             RecheckProcessStatusStreamTriggerEvent,           
             DeliveryResultEvent,
-            RecheckIgnoreRootTriggerEvent,
-            FilterSignalRootTriggerEvent,
+            RecheckSignalFilterRootTriggerEvent,
+            SignalFilterRootTriggerEvent,
 
             CounterEvent,
             TimerEvent,

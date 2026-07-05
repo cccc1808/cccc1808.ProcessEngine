@@ -63,13 +63,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
                 );
         }
 
-        public async ValueTask ExecuteAsync(
+        public async ValueTask<ISet<Guid>> ExecuteAsync(
             IEnumerable<ITriggerComponent<Guid>> triggers, 
             CancellationToken cancellationToken)
         {
+            var ids = triggers.Select(e => e.ProcessId).ToHashSet();
+
             await _triggerHandlerFacade.ToAsyncExecutingWakeupAsync(
-                triggers.Select(e => e.ProcessId).ToArray(), 
+                ids, 
                 cancellationToken);
+
+            return ids;
         }
     }
 }

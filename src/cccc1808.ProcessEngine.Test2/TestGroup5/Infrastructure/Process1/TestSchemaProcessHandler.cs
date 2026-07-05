@@ -50,5 +50,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
 
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(1, 1);
+
+        public static bool UseSignalCode => false;
     }
 }

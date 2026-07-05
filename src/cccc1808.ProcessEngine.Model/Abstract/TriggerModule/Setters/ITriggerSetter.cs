@@ -66,8 +66,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<TParameters, TResult> timerTriggerEventHandler,
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
-                Func<TParameters, TResult> ignoreCodeSimpleStreamTriggerEventHandler,
-                Func<TParameters, TResult> recheckIgnoreRootTriggerEventHandler,
+                Func<TParameters, TResult> signalFilterSimpleStreamTriggerEventHandler,
+                Func<TParameters, TResult> rechecksignalFilterRootTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
@@ -236,9 +236,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent<TId> trigger, 
                 in BitFlagDto value);
 
-            void SetIgnoreCode(
+            void SetSignalFilter(
                 ITriggerComponent<TId> trigger,
                 in BitFlagDto value);
+
+            bool CheckSignal(
+                ITriggerComponent<TId> trigger, 
+                out BitFlagDto filteredSignals);
 
             long DateToTimestamp(DateTimeOffset date);
 

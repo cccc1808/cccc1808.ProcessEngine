@@ -62,6 +62,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
         /// <summary>
         /// Игнорируемые сигналы.
         /// </summary>
-        BitFlagDto IgnoreSignals { get; set; }
+        BitFlagDto SignalCodeFilter { get; set; }
     }
 }

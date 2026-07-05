@@ -11,19 +11,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto
 {
     public record SchemaProcessRegistrationDto(
         ProcessTypeDto ProcessType,
-        bool UseSignalCode,
         Type ProcessHandlerType,
         Type ProcessStateHandlerType)
     {
         public static SchemaProcessRegistrationDto Create<TId, THandler, TStateHadnler>(
-            ProcessTypeDto processType,
-            bool useSignalCode)
+            ProcessTypeDto processType)
             where THandler : ISchemaProcessHandler<TId>
             where TStateHadnler : ISchemaProcessStateHandler<TId>
         {
             return new SchemaProcessRegistrationDto(
                 processType,
-                useSignalCode,
                 typeof(THandler),
                 typeof(TStateHadnler));
         }

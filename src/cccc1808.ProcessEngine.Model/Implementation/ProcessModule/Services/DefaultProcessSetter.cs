@@ -118,14 +118,21 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 _dateTimeProvider.UtcNow
                 );            
 
-            return result ;
+            return result;
         }
 
         public void SetSignalCode<TId>(
             IProcessContainer<TId> process, 
-            in BitFlagDto value)
+            in BitFlagDto value, 
+            in BitFlagDto filter)
         {
-            process.Process.SignalCode = value;
+            if (
+                process.Process.SignalCode.Bits != value.Bits 
+                || process.Process.SignalCodeFilter.Bits != filter.Bits)
+            {
+                process.Process.SignalCode = value;
+                process.Process.SignalCodeFilter = filter;
+            }
         }
     }
 }

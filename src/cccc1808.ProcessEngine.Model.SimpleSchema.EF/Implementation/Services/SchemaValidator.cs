@@ -26,7 +26,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
         public void Validate(
             ProcessTypeDto processType, 
             ProcessSchemaDto schema,
-            bool useSignal,
+            bool useSignalCode,
             bool needComplete = true)
         {
             static void ValidateTransition(
@@ -130,11 +130,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                     throw new Exception("TimerTokenAction не содержит не хенндлера ни перехода.");
                                 }
                                 
-                                if (useSignal && !timerTokenAction.Signal.HasValue)
+                                if (useSignalCode && !timerTokenAction.Signal.HasValue)
                                 {
                                     throw new Exception("TimerTokenAction не содержит код сигнала.");
                                 }
-                                else if (!useSignal && timerTokenAction.Signal.HasValue)
+                                else if (!useSignalCode && timerTokenAction.Signal.HasValue)
                                 {
                                     throw new Exception("TimerTokenAction содержит код сигнала.");
                                 }
@@ -179,11 +179,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services
                                     throw new Exception("ConditionTokenAction не содержит не хенндлера ни перехода.");
                                 }
 
-                                if (useSignal && !conditionTokenAction.Signal.HasValue)
+                                if (useSignalCode && !conditionTokenAction.Signal.HasValue)
                                 {
                                     throw new Exception("ConditionTokenAction не содержит код сигнала.");
                                 }
-                                else if (!useSignal && conditionTokenAction.Signal.HasValue)
+                                else if (!useSignalCode && conditionTokenAction.Signal.HasValue)
                                 {
                                     throw new Exception("ConditionTokenAction содержит код сигнала.");
                                 }

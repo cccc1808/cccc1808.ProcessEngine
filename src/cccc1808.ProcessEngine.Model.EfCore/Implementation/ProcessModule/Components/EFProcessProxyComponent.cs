@@ -66,7 +66,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
 
         public BitFlagDto SignalCode { get => new BitFlagDto(ProcessDbEntity.SignalCode); set => ProcessDbEntity.SignalCode = value.Bits; }
 
-        public BitFlagDto IgnoreSignals { get => new BitFlagDto(ProcessDbEntity.IgnoreSignalCode); set => ProcessDbEntity.IgnoreSignalCode = value.Bits; }
+        public BitFlagDto SignalCodeFilter { get => new BitFlagDto(ProcessDbEntity.SignalCodeFilter); set => ProcessDbEntity.SignalCodeFilter = value.Bits; }
 
         public EFProcessProxyComponent(
             ProcessDbEntity<TId> processDbEntity)

@@ -201,18 +201,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = TimeSpan.FromSeconds(60),
                         },
-                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1)
+                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1, TestSchemaProcessHandler.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1, TestSchemaProcessHandler2.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler4.ProcessType, 1, TestSchemaProcessHandler4.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1, TestSchemaProcessHandler51.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1, TestSchemaProcessHandler52.UseSignalCode)
                     )
                     
                     .AddSchemaProcess(
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType, useSignalCode: false),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType, useSignalCode: false),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType, useSignalCode: false),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType, useSignalCode: false),
-                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType, useSignalCode: false)
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler4, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler4.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler51, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler51.ProcessType),
+                        SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler52, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler52.ProcessType)
                         );
 
                 services

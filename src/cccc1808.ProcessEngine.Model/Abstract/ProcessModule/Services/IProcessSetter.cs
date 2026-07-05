@@ -42,6 +42,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services
 
         void SetSignalCode<TId>(
             IProcessContainer<TId> process, 
-            in BitFlagDto value);
+            in BitFlagDto value,
+            in BitFlagDto filter);
     }
 }

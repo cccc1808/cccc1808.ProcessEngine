@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
@@ -24,17 +25,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
     public class EFTriggerHandlerFacade<TId> : ITriggerHandlerFacade<TId>
     {
         private readonly IEFDbContext _dbContext;
+        private readonly IProcessRegistry _processRegistry;
         private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IWakeupService<TId> _wakeupService;       
+        private readonly IWakeupService<TId> _wakeupService;
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
+            IProcessRegistry processRegistry,
             ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore, 
             IWakeupService<TId> wakeupService)
         {
             _dbContext = dbContext;
+            _processRegistry = processRegistry;
             _triggerSetter = triggerSetter;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
@@ -182,67 +186,35 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             {
                 var process = processes[elem.ProcessId];
                 
-                // Если это корневой триггер, то сбрасываем сигналы.
-                if (elem.Kind is not ITriggerComponent.TriggerKind.SimpleStreamRoot)
+                if (
+                    elem.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot
+                    && _processRegistry.UseSignalCode(new ProcessTypeDto(process.ProcessTypeId, process.ProcessVersion)))
                 {
-                    // TODO: Schema process. Тут сразу можно проверять, есть ли обработчик на SignalCode,
-                    // и если нет ни одного, то не пробуждать процесс вообще (правда стоит учесть необязательность наличия SignalCode).
-                    process.Status = ProcessStatusEnum.AsyncExecute;
+                    // Процесс выступает источником перечня списка игноирования, перезаписываем.
+                    _triggerSetter.ChildTriggerSetter.SetSignalFilter(elem, new BitFlagDto(process.SignalCodeFilter));
 
-                    // Взводим сигнал.
-                    process.SignalCode = new BitFlagDto(process.SignalCode)
-                        .AddFlag(elem.SignalCode)
-                        .Bits;
-
-                    elem.SignalCode = BitFlagDto.Empty;
-                }
-                else 
-                {
-                    // Процесс выступает источником перечня списка игноирования.
-                    _triggerSetter.ChildTriggerSetter.SetIgnoreCode(elem, new BitFlagDto(process.IgnoreSignalCode));                  
-
-                    // Ничего не игнорируется.
-                    if (elem.IgnoreSignalCode.IsEmpty)
+                    if (_triggerSetter.ChildTriggerSetter.CheckSignal(elem, out var filteredSignals))
                     {
                         process.Status = ProcessStatusEnum.AsyncExecute;
 
-                        // Все сигналы доставлены.
+                        // Отфильтрованные сигналы доставлены.
                         process.SignalCode = new BitFlagDto(process.SignalCode)
-                            .AddFlag(elem.SignalCode)
+                            .AddFlag(filteredSignals)
                             .Bits;
                         _triggerSetter.ChildTriggerSetter.SetSignalCode(
-                            elem, 
-                            BitFlagDto.Empty);
+                            elem,
+                            elem.SignalCode.RemoveFlag(filteredSignals));
 
                         result.Add(process.Id);
                     }
-                    // Используется игнорирование (каждый триггер должен быть с кодом).
                     else 
                     {
-                        // Определяем какие сигналы готов принять процесс.
-                        var targetCodes = elem.SignalCode.RemoveFlag(elem.IgnoreSignalCode);
-
-                        // Все текущие сигналы игнорируются.
-                        if (targetCodes.IsEmpty)
-                        {
-                            // Процесс не пробуждается.
-                        }
-                        else 
-                        {
-                            process.Status = ProcessStatusEnum.AsyncExecute;
-
-                            // Передаем только не игнорируемые сигналы.
-                            process.SignalCode = new BitFlagDto(process.SignalCode)
-                               .AddFlag(targetCodes)
-                               .Bits;
-
-                            _triggerSetter.ChildTriggerSetter.SetSignalCode(
-                                elem, 
-                                elem.SignalCode.RemoveFlag(targetCodes));
-
-                            result.Add(process.Id);
-                        }                           
+                        // Процесс не пробуждается т.к. все имеющиеся сигналы отфильтрованы.
                     }
+                }
+                else 
+                {
+                    process.Status = ProcessStatusEnum.AsyncExecute;
                 }
             }
 

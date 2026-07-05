@@ -8,22 +8,22 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
 {
-    public class FilterSignalRootTriggerEvent
+    public class SignalFilterRootTriggerEvent
         : TriggerEvent,
         IFilterSignalRootTriggerEvent
     {
-        public ulong SignalCode { get; set; }
+        public ulong SignalCodeFilter { get; set; }
 
         [Obsolete]
-        public FilterSignalRootTriggerEvent()
+        public SignalFilterRootTriggerEvent()
         { }
 
-        public FilterSignalRootTriggerEvent(
+        public SignalFilterRootTriggerEvent(
             string triggerKey,
             ulong signalCode)
-            : base(triggerKey, TriggerEventKindEnum.FilterSignalRootTriggerEvent)
+            : base(triggerKey, TriggerEventKindEnum.SignalFilterRootTriggerEvent)
         {
-            SignalCode = signalCode;
+            SignalCodeFilter = signalCode;
         }
     }
 }

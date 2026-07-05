@@ -199,8 +199,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
                     TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
-                    TriggerEventKindEnum.FilterSignalRootTriggerEvent => ignoreCodeSimpleStreamTriggerEventHandler(parameters),
-                    TriggerEventKindEnum.RecheckIgnoreRootTriggerEvent => recheckIgnoreRootTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.SignalFilterRootTriggerEvent => ignoreCodeSimpleStreamTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent => recheckIgnoreRootTriggerEventHandler(parameters),
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler(parameters),
@@ -712,15 +712,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 trigger.NeedUpdate = true;
             }
 
-            public void SetIgnoreCode(ITriggerComponent<TId> trigger, in BitFlagDto value)
+            public void SetSignalFilter(ITriggerComponent<TId> trigger, in BitFlagDto value)
             {
-                if (trigger.IgnoreSignalCode.Bits == value.Bits)
+                if (trigger.SignalCodeFilter.Bits == value.Bits)
                 {
                     return;
                 }
 
-                trigger.IgnoreSignalCode = value;
+                trigger.SignalCodeFilter = value;
                 trigger.NeedUpdate = true;
+            }
+
+            public bool CheckSignal(ITriggerComponent<TId> trigger, out BitFlagDto filteredSignals)
+            {
+                // Сигналы, не попадающие в фильтр.
+                var notInFilterSignals = trigger.SignalCode.RemoveFlag(trigger.SignalCodeFilter);
+                // Сигналы, попадающие в фильтр.
+                filteredSignals = trigger.SignalCode.RemoveFlag(notInFilterSignals);
+
+                return !filteredSignals.IsEmpty;
             }
 
             public long DateToTimestamp(DateTimeOffset date)

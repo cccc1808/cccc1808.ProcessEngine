@@ -142,7 +142,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddParallelLimitProcessRunner()
 
                     .AddWakeupServices(
-                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
+                        [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1, false), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
                         []
                     )
 
@@ -198,11 +198,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = null,
                         },
-                        new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1)
+                        new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1, false),
+                        new ProcessRegistryDto(new ProcessTypeDto(2, 1), 1, false),
+                        new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1, false),
+                        new ProcessRegistryDto(new ProcessTypeDto(4, 1), 1, false),
+                        new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1, false)
                     );
 
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();

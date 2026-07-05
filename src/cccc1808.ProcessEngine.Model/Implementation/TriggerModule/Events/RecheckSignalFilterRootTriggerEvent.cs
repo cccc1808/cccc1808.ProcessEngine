@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
         public RecheckSignalFilterRootTriggerEvent() { }
 
         public RecheckSignalFilterRootTriggerEvent(string triggerKey)
-            :base(triggerKey, TriggerEventKindEnum.RecheckIgnoreRootTriggerEvent)
+            :base(triggerKey, TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent)
         { }
     }
 }

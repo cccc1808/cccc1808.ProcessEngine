@@ -13,5 +13,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto
     /// <param name="ProcessVersion">Версия типа процесса.</param>
     public readonly record struct ProcessTypeDto(
         long ProcessType, 
-        int ProcessVersion);
+        int ProcessVersion)
+    {
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(ProcessType, ProcessVersion);
+        }
+    }
 }

@@ -44,7 +44,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken
             );
 
-        Task<Dictionary<string, BitFlagDto>> CheckProcessIgnoreFlag(
+        Task<Dictionary<TId, BitFlagDto>> CheckProcessSignalFilterFlagAsync(
             ICollection<TId> processIds,
             CancellationToken cancellationToken);
 

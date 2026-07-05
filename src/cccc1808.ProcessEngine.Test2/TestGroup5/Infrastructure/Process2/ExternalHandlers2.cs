@@ -26,12 +26,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
             IProcessContainer<Guid> process,
             CancellationToken cancellationToken)
         {           
-            await _tokenExecutionService.ValidateTokenState(process, "1", "2", cancellationToken);
+            await _tokenExecutionService.ValidateTokenState(process, "1", "2", signalCode: null, cancellationToken);
 
             var state = TestSchemaProcessHandler2.GetOrCreateTokenState(process.GetComponent<ISchemaProcessComponent>());
             state.IsReceived = true;
 
-            await _tokenExecutionService.ExecuteActionAsync(process, actionId: "2", CancellationToken.None);
+            await _tokenExecutionService.ExecuteActionAsync(process, actionId: "2", null, CancellationToken.None);
         }
     }
 }

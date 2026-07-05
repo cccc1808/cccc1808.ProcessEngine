@@ -117,7 +117,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             break;
                                         }
 
-                                    case TriggerEventKindEnum.RecheckIgnoreRootTriggerEvent:
+                                    case TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent:
                                         {
                                             if (!p.recheckIgnoreSignalBuffer.Contains(triggerEvent.TriggerKey))
                                             {
@@ -253,8 +253,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             .ToArray();
 
                         // [MVCC Only]: подумать если иначе.
-                        // TODO: проверяе что процесс спит.
-                        recheckIgnoreSignalBuffer2 = await repository.CheckProcessIgnoreFlag(processIds, cancellationToken);
+                        var data = await repository.CheckProcessSignalFilterFlagAsync(processIds, cancellationToken);
+
+                        recheckIgnoreSignalBuffer2 = new Dictionary<string, BitFlagDto>(recheckIgnoreSignalBuffer.Count);
+                        foreach (var elem in recheckIgnoreSignalBuffer)
+                        {
+                            var trigger = triggers[elem];
+                            if (data.TryGetValue(trigger.ProcessId, out var flag))
+                            {
+                                recheckIgnoreSignalBuffer2.Add(elem, flag);
+                            }
+                        }
                     }
                     else 
                     {
@@ -440,7 +449,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     ));
 
                                                 // Проверяем игнорирование сигнала.
-                                                if (!p.trigger.IgnoreSignalCode.ContainsFlag(typedEvent.SignalCode.Value))
+                                                if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
                                                 {
                                                     p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                                 }
@@ -458,10 +467,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 return;
                                             }
 
-                                            p.triggerSetter.ChildTriggerSetter.SetIgnoreCode(p.trigger, new BitFlagDto(typedEvent.SignalCode));
-                                            var currentSignal = p.trigger.SignalCode.RemoveFlag(p.trigger.IgnoreSignalCode);
+                                            p.triggerSetter.ChildTriggerSetter.SetSignalFilter(p.trigger, new BitFlagDto(typedEvent.SignalCodeFilter));
 
-                                            if (!currentSignal.IsEmpty)
+                                            if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
                                             {
                                                 p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             }
@@ -481,21 +489,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 return;
                                             }
 
-                                            if (!p.recheckIgnoreSignalBuffer2.TryGetValue(p.trigger.Key, out var processIgnoreSignal))
+                                            if (!p.recheckIgnoreSignalBuffer2.TryGetValue(p.trigger.Key, out var processFilterSignal))
                                             {                                                    
                                                 return;
                                             }
 
-                                            if (p.trigger.IgnoreSignalCode.Bits == processIgnoreSignal.Bits)
+                                            if (p.trigger.SignalCodeFilter.Bits == processFilterSignal.Bits)
                                             {
                                                 return;
                                             }
 
-                                            // Обновляем Ignore значением из процесса.
-                                            p.triggerSetter.ChildTriggerSetter.SetIgnoreCode(p.trigger, processIgnoreSignal);
-                                            var currentSignal = p.trigger.SignalCode.RemoveFlag(p.trigger.IgnoreSignalCode);
+                                            // Обновляем fitler значением из процесса.
+                                            p.triggerSetter.ChildTriggerSetter.SetSignalFilter(p.trigger, processFilterSignal);
 
-                                            if (!currentSignal.IsEmpty)
+                                            if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
                                             {
                                                 p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             }
@@ -780,6 +787,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 cancellationToken);
                             foreach (var elem in triggers)
                             {
+                                // Определяем, что процесс не был пробужден (По причине фильтрации сигналов).
                                 if (!awakened.Contains(elem.ProcessId))
                                 {
                                     triggerSetter.OneOfTriggerSetter.OneOf(

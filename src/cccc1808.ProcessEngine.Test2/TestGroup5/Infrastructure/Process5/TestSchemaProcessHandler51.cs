@@ -67,6 +67,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(51, 1);
 
+        public static bool UseSignalCode => true;
+
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
