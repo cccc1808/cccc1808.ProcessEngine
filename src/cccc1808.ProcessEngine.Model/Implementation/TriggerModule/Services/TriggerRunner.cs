@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -429,11 +428,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         {
                                             if (p.state.IsRootTrigger && typedEvent.SendTriggerKey != null)
                                             {
-                                                if (typedEvent.SignalCode.HasValue)
+                                                if (p.trigger.SignalCode.HasValue)
                                                 {
-                                                    if (!p.trigger.SignalCode.HasValue)
+                                                    if (!typedEvent.SignalCode.HasValue)
                                                     {
-                                                        // TODO: log error
+                                                        // TODO: log error.
                                                         return;
                                                     }
 
@@ -442,7 +441,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                         p.trigger,
                                                         p.trigger.SignalCode.Value.AddFlag(typedEvent.SignalCode.Value));
 
-                                                    // Проверяем игнорирование сигнала.
+                                                    // Проверяем фильтрацию кода.
                                                     if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
                                                     {
                                                         p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
@@ -450,16 +449,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 }
                                                 else 
                                                 {
-                                                    if (p.trigger.SignalCode.HasValue)
+                                                    if (typedEvent.SignalCode.HasValue)
                                                     {
-                                                        // TODO: log error.
-                                                        return;
+                                                        // TODO: log warning.
                                                     }
 
                                                     p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                                 }
 
-                                                // Если это корневой триггер, то посылаем подтверждение о получении сигнала для дочернего триггера.
+                                                // Посылаем подтверждение о получении сигнала для дочернего триггера.
                                                 p.sendEventsBuffer.Add(
                                                     new ITriggerEventRaiser<TId>.RaiseContainer(
                                                     p.emergencyOptions.TriggerEventQueue,
@@ -492,16 +490,26 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 return;
                                             }
 
-                                            p.triggerSetter.ChildTriggerSetter.SetSignalFilter(p.trigger, new BitFlagDto(typedEvent.SignalCodeFilter));
+                                            if (!p.trigger.SignalCode.HasValue)
+                                            {
+                                                // TODO: log error.
+                                                return;
+                                            }
+
+                                            // Обновляем фильтр по событию.
+                                            p.triggerSetter.ChildTriggerSetter.SetSignalFilter(
+                                                p.trigger, 
+                                                new BitFlagDto(typedEvent.SignalCodeFilter));
 
                                             if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
                                             {
+                                                // Сигнал до этого фильтровался, а сейчас подходит - взводим триггер.
                                                 p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             }
                                             else 
                                             {
                                                 // TODO: setter.
-                                                // Все текущие сигналы игнорируются.
+                                                // Все сигналы фильтруются - сбрасываем триггер.
                                                 p.state.NewSignalCounter = 0;
                                             }
                                         },
@@ -511,6 +519,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             if (!p.state.IsRootTrigger)
                                             {
                                                 // TODO: mismath.
+                                                return;
+                                            }
+
+                                            if (!p.trigger.SignalCode.HasValue)
+                                            {
+                                                // TODO: log error.
                                                 return;
                                             }
 
@@ -893,7 +907,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         await using (var scope = serviceProvider.CreateAsyncScope())
                                         {
                                             await ExecuteRangeHandlerAsync(
-                                                serviceProvider,
+                                                scope.ServiceProvider,
                                                 group.Key,
                                                 batch,
                                                 cancellationToken);
