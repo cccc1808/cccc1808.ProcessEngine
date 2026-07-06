@@ -79,11 +79,15 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Queries;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Serializers;
 using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
@@ -402,14 +406,21 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         }
 
         public static IServiceCollection AddSchemaProcess(
-            this IServiceCollection services, 
+            this IServiceCollection services,
+            TokenExecutionService<Guid>.OptionsDto tokenExecutionOptions,
             params SchemaProcessRegistrationDto[] registrations)
         {
             services
                 .AddSingleton<ISchemaRegistry, SchemaRegistry>()
-                .AddScoped<ISchemaService<Guid>, EFSchemaService<Guid>>()
                 .AddScoped<ISchemaValidator, SchemaValidator<Guid>>()
-                .AddScoped<ITokenExecutionService<Guid>, EFTokenExecutionService<Guid>>()
+
+                .AddScoped<ISchemaService<Guid>, SchemaService<Guid>>()
+                .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
+                
+                .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
+                .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()
+                .AddSingleton(tokenExecutionOptions)
+
                 .AddScoped<ISchemaSerializer, SchemaSerializer>()
                 .AddScoped<IActionStateSerializer, ActionStateSerializer>()
                 .AddScoped<SchemaSingleProcessHandler<Guid>>()

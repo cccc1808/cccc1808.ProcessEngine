@@ -5,8 +5,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component.ActionComponent;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component.ActionComponent;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components
