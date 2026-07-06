@@ -203,7 +203,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                             .Bits;
                         _triggerSetter.ChildTriggerSetter.SetSignalCode(
                             elem,
-                            elem.SignalCode.RemoveFlag(filteredSignals));
+                            elem.SignalCode.Value.RemoveFlag(filteredSignals));
 
                         result.Add(process.Id);
                     }

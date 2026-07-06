@@ -180,7 +180,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                         triggerKey: rootTriggerKey,
                                         sendTriggerKey: elem.Trigger.Key,
                                         timeStamp: sendTimestamp,
-                                        signals: elem.Trigger.SignalCode.Bits
+                                        signals: elem.Trigger.SignalCode?.Bits
                                         )
                                     ));
 
@@ -250,7 +250,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             // Возможно событие об удаления кода из списка игнорирования было потеряно.
                             // (На триггере есть сигналы, но но триггер не активен, т.е. они не попадают в фильтр).
                             var needCheckProcess =
-                                !elem.Trigger.SignalCode.IsEmpty
+                                !elem.Trigger.SignalCode.Value.IsEmpty
                                 // && elem.Trigger.FilterSignalCode.IsEmpty
                                 && !elem.Trigger.IsActivated
                                 && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout

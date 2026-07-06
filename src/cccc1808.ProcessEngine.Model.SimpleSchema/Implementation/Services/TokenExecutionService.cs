@@ -70,21 +70,23 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             var processData = process.GetComponent<ISchemaProcessComponent>();
             var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
             var processStateHandler = _schemaService.GetProcessStateHandler(process.Process.Info.ProcessType);
-            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);            
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
 
+            // Снимок сигналов на момент начала обработки набора действий.
+            var signalsSnapshot = process.Process.SignalCode;
             // Отбираем только те действия, которые активированы на текущий момент.
             var forExecuting = token.Actions
                 .Where(
                     e => PrepareForExecuteAction(
                         process, 
-                        processData, 
+                        processData,
+                        signalsSnapshot,
                         e
                         )
                     )
                 .ToArray();
 
             var actionsResult = ActionResult.EmptyResult();
-
             foreach (var elem in forExecuting)
             {
                 var actionResult = await InnerExecuteActionAsync(
@@ -102,18 +104,30 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     // Предпологается, что про произошло событие, которые завершает текущий токен:
                     // * Завершение процесса.
                     // * Переход на другой токен.
+
+                    if (!actionsResult.IsAsyncExecuting)
+                    {
+                        // TODO: log warning.
+                    }
+
                     break;
                 }
 
                 // Предпологается ошибка (если нужно, то статус переключен на WaitEvent).
                 if (process.CurrentSession.CurrentSessionHaveError)
                 {
+                    // Предпологается триггер на Retry.
                     break;
                 }
 
                 // Ручная остановка асинхронной сессии.
                 if (process.CurrentSession.StopAsyncProcessingSession)
                 {
+                    if (!actionsResult.IsAsyncExecuting)
+                    { 
+                        // TODO: log warning.
+                    }
+
                     // Основной предпологаемый кейс - долгий ServiceTask, который еще не завершился, но произошел SoftTimeout.
                     break;
                 }
@@ -121,13 +135,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
             await SetActionResultAsync(
                 process,
-                token,
                 processData,
+                token,
                 actionsResult,
                 cancellationToken);
         }
 
-        public async ValueTask ExecuteActionAsync(
+        public async ValueTask<bool> ExecuteActionAsync(
             IProcessContainer<TId> process,
             string actionId,
             BitFlagDto? signal,
@@ -137,16 +151,39 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
             var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
 
+            var isAsyncExecutingStatus = process.Process.Status is ProcessStatusEnum.AsyncExecute;
             var action = token.GetAction(actionId);
+
+            if (isAsyncExecutingStatus)
+            {
+                // TODO: возможно log warning. Т.к. тут предпологается ProcessStatusEnum.WaitEvent.
+            }
 
             // Если указан сигнал, то выставляем его.
             if (signal.HasValue)
             {
                 _processSetter.SetSignalCode(
-                    process, 
+                    process,
                     process.Process.SignalCode.AddFlag(signal.Value), 
-                    process.Process.SignalCodeFilter);
-                PrepareForExecuteAction(process, processData, action);
+                    process.Process.SignalCodeFilter);                
+            }
+
+            var needExecute = PrepareForExecuteAction(
+                process,
+                processData,
+                process.Process.SignalCode,
+                action);
+            if (!needExecute)
+            {
+                await SetActionResultAsync(
+                    process,
+                    processData,
+                    token,
+                    isAsyncExecutingStatus
+                        ? ActionResult.AsyncExecutingResult() 
+                        : ActionResult.EmptyResult(), 
+                    cancellationToken);
+                return false;
             }
 
             var actionResult = await InnerExecuteActionAsync(
@@ -157,12 +194,25 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 action,
                 cancellationToken);
 
+            if (
+                isAsyncExecutingStatus 
+                && !actionResult.IsAsyncExecuting
+                && !actionResult.IsComplete)
+            {
+                // На начальный момент процес находился в статусе асинхронного выполнения.
+                // Мы выполнили только одно действие их всех. На основании одного действия мы не можем переводить процесс в ProcessStatusEnum.WaitEvent.
+                actionResult = actionResult.MergeFrom(
+                    ActionResult.AsyncExecutingResult());
+            }
+
             await SetActionResultAsync(
                 process,
-                token,
                 processData,
+                token,                
                 actionResult,
                 cancellationToken);
+
+            return true;
         }
 
         public async ValueTask ValidateTokenState(
@@ -308,7 +358,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             }
         }
 
-        private async ValueTask<ActionResult> InnerExecuteActionAsync(IProcessContainer<TId> process,
+        private async ValueTask<ActionResult> InnerExecuteActionAsync(
+            IProcessContainer<TId> process,
             ISchemaProcessComponent component,
             ISchemaProcessHandler<TId> processHandler,
             TokenDto token,
@@ -324,9 +375,16 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     return ActionResult.EmptyResult();
 
                 case TimerActionStateComponent.StatusEnum.CreatingTimer:
-                    {
-                        state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
-                        state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;
+                    {                        
+                        state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;                      
+                        if (timerTokenAction.Signal.HasValue)
+                        {
+                            state.Status = TimerActionStateComponent.StatusEnum.WaitSignal;
+                        }
+                        else 
+                        {
+                            state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
+                        }
 
                         state.TriggerKey = Guid.NewGuid().ToString();
                         await _triggerRepository.CreateTriggerAsync(
@@ -349,7 +407,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 state.TriggerKey, 
                                 new TriggerStateContainer.TriggerInfo(
                                     key: state.TriggerKey,
-                                    // TODO: Поправить зависимость.
                                     removeTriggerQueueName: _options.AutoRemoveTriggerQueueName,
                                     removeTokenId: component.CurrentTokenId,
                                     removeIfTokenMove: true,
@@ -378,16 +435,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             processStateWithTriggers.TriggerState.Triggers.Remove(state.TriggerKey);
                         }
 
-                        // Сигнал обработан.
-                        if (timerTokenAction.Signal.HasValue)
-                        {
-                            _processSetter.SetSignalCode(
-                                process,
-                                process.Process.SignalCode.RemoveFlag(timerTokenAction.Signal.Value),
-                                process.Process.SignalCodeFilter.RemoveFlag(timerTokenAction.Signal.Value)
-                                );
-                        }
-
                         var needAsyncExecuting = false;
                         if (timerTokenAction.HandlerKey is not null)
                         {
@@ -400,6 +447,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 cancellationToken);
 
                             needAsyncExecuting = ActivateActions(
+                                process,
                                 token,
                                 component,
                                 executeResult.ActivateActions);
@@ -424,7 +472,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             }
         }
 
-        private async ValueTask<ActionResult> InnerExecuteActionAsync(IProcessContainer<TId> process,
+        private async ValueTask<ActionResult> InnerExecuteActionAsync(
+            IProcessContainer<TId> process,
             ISchemaProcessComponent component,
             ISchemaProcessHandler<TId> processHandler,
             TokenDto token,
@@ -468,6 +517,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 cancellationToken);
 
                             needAsyncExecuting = ActivateActions(
+                                process,
                                 token,
                                 component,
                                 executeResult.ActivateActions);
@@ -492,7 +542,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             }
         }
 
-        private async ValueTask<ActionResult> InnerExecuteActionAsync(IProcessContainer<TId> process,
+        private async ValueTask<ActionResult> InnerExecuteActionAsync(
+            IProcessContainer<TId> process,
             ISchemaProcessComponent component,
             ISchemaProcessHandler<TId> processHandler,
             TokenDto token,
@@ -518,6 +569,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             cancellationToken);
 
                         var needAsyncExecuting = ActivateActions(
+                            process,
                             token,
                             component,
                             executeResult.ActivateActions);
@@ -552,29 +604,71 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
         private async ValueTask SetActionResultAsync(
            IProcessContainer<TId> process,
-           TokenDto token,
            ISchemaProcessComponent component,
+           TokenDto token,           
            ActionResult result,
            CancellationToken cancellationToken)
         {
             //static bool HaveAsyncExecutingActions(ISchemaProcessComponent component)
             //{
             //    return component.AllActionStates().Any(
-            //        e => e switch 
+            //        e => e switch
             //        {
             //            TimerActionStateComponent timerActionState => timerActionState.Status is TimerActionStateComponent.StatusEnum.CreatingTimer,
             //            ConditionActionStateComponent conditionActionState => false,
             //            ServiceTaskActionState serviceTaskActionState => serviceTaskActionState.Status is ServiceTaskActionState.StatusEnum.Executing,
 
-            //            _ => 
+            //            _ =>
             //            throw new NotImplementedException(e.GetType().FullName)
             //        }
             //        );
             //}
 
-            static BitFlagDto GetSignalFilter(
+            static async ValueTask RemoveTriggersAsync(
+                TokenExecutionService<TId> This,
+                IProcessContainer<TId> process,
+                ISchemaProcessComponent component,
                 TokenDto token,
-                ISchemaProcessComponent component) 
+                bool isMoveOrComplete,
+                CancellationToken cancellationToken)
+            {
+                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                {
+                    var forRemove = isMoveOrComplete 
+                        ? processStateWithTriggers.TriggerState.Triggers.Values
+                            .Where(e =>
+                                e.RemoveIfTokenMove
+                                && (e.RemoveTokenId is null || e.RemoveTokenId == component.CurrentTokenId))
+                            .ToArray()
+                        : processStateWithTriggers.TriggerState.Triggers.Values
+                            .Where(e => e.RemoveIfProcessComplete)
+                            .ToArray();
+
+                    if (!forRemove.Any())
+                    {
+                        return;
+                    }
+
+                    await This._triggerEventRaiser.RaiseAsync(
+                        forRemove
+                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                                e.RemoveTriggerQueueName,
+                                process.Id,
+                                new RemoveTriggerEvent(e.Key))
+                            )
+                            .ToArray(),
+                        cancellationToken);
+
+                    foreach (var elem in forRemove)
+                    {
+                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
+                    }
+                }
+            }
+
+            static BitFlagDto GetSignalFilter(
+                ISchemaProcessComponent component,
+                TokenDto token) 
             {
                 var result = BitFlagDto.Empty;
 
@@ -617,56 +711,64 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 return result;
             }
 
+            static async ValueTask UpdateSignalFilterAsync(
+                TokenExecutionService<TId> This,
+                IProcessContainer<TId> process,
+                ISchemaProcessComponent component,
+                TokenDto token,                
+                BitFlagDto signal,
+                BitFlagDto signalFilter,
+                CancellationToken cancellationToken)
+            {
+                var haveChanges = This._processSetter.SetSignalCode(process, value: signal, signalFilter);
+                if (!haveChanges)
+                {
+                    return;
+                }
+
+                await This._triggerEventRaiser.RaiseAsync(
+                    [new ITriggerEventRaiser<TId>.RaiseContainer(
+                        This._options.SignalFilterQueueName,
+                        process.Id,
+                        new SignalFilterRootTriggerEvent(
+                            component.RootTriggerKey,
+                            signalFilter.Bits)
+                        )],
+                    cancellationToken);
+            }
+
             var useSignalCode = _processRegistry.UseSignalCode(process.Process.Info.ProcessType);
 
+            // 1) Перемещение токена.
             if (result.MoveTokenId is not null)
             {
                 // Автоматическое удаление триггеров при изменении токена.
-                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
-                {
-                    var forRemove = processStateWithTriggers.TriggerState.Triggers.Values
-                        .Where(e => 
-                            e.RemoveIfTokenMove
-                            && (e.RemoveTokenId is null || e.RemoveTokenId == component.CurrentTokenId))
-                        .ToArray();
-
-                    await _triggerEventRaiser.RaiseAsync(
-                        forRemove
-                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                                e.RemoveTriggerQueueName, 
-                                process.Id,
-                                new RemoveTriggerEvent(e.Key))
-                            )
-                            .ToArray(),
-                        cancellationToken);
-
-                    foreach (var elem in forRemove)
-                    {
-                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
-                    }
-                }
-
-                // Меняем токен.
+                await RemoveTriggersAsync(
+                    this,
+                    process,
+                    component,
+                    token,
+                    isMoveOrComplete: true,
+                    cancellationToken);               
                 
+                // Меняем токен.
+                component.MoveToken(
+                    result.MoveTokenId);
+
+                // Не обязательно тут (т.к. асинхронное выполнение продолжается), но пусть будет сброс.
                 if (useSignalCode)
                 {
                     // Обновляем фильтр сигнала.
-                    var signalFilter = GetSignalFilter(token, component);
-                    _processSetter.SetSignalCode(process, value: BitFlagDto.Empty, filter: signalFilter);
-
-                    await _triggerEventRaiser.RaiseAsync(
-                        [new ITriggerEventRaiser<TId>.RaiseContainer(
-                            "TODO: ", 
-                            process.Id, 
-                            new SignalFilterRootTriggerEvent(
-                                component.RootTriggerKey, 
-                                signalFilter.Bits)
-                            )], 
+                    // Сигнал сбрасываем, фильтр вычислиться автоматически при первом выполнении нового токена.
+                    await UpdateSignalFilterAsync(
+                        this,
+                        process,
+                        component,
+                        token,
+                        BitFlagDto.Empty,
+                        BitFlagDto.Empty,
                         cancellationToken);
                 }
-                
-                component.MoveToken(
-                    result.MoveTokenId);
 
                 if (!process.InAsyncExecuting)
                 {
@@ -677,30 +779,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 return;
             }
 
+            // 2) Завершение процесса.
             if (result.IsComplete)
             {
                 // Автоматическое удаление триггеров при завершении процесса.
-                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
-                {
-                    var forRemove = processStateWithTriggers.TriggerState.Triggers.Values
-                        .Where(e => e.RemoveIfProcessComplete)
-                        .ToArray();
-
-                    await _triggerEventRaiser.RaiseAsync(
-                        forRemove
-                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                                e.RemoveTriggerQueueName,
-                                process.Id,
-                                new RemoveTriggerEvent(e.Key))
-                            )
-                            .ToArray(),
-                        cancellationToken);
-
-                    foreach (var elem in forRemove)
-                    {
-                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
-                    }
-                }
+                await RemoveTriggersAsync(
+                    this,
+                    process,
+                    component,
+                    token,
+                    isMoveOrComplete: false,
+                    cancellationToken);
 
                 // Завершение процесса.
                 component.MoveToken(
@@ -726,17 +815,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 if (useSignalCode)
                 {
                     // Обновляем фильтр сигнала.
-                    var signalFilter = GetSignalFilter(token, component);
-                    _processSetter.SetSignalCode(process, value: BitFlagDto.Empty, filter: signalFilter);
-
-                    await _triggerEventRaiser.RaiseAsync(
-                        [new ITriggerEventRaiser<TId>.RaiseContainer(
-                            "TODO: ",
-                            process.Id,
-                            new SignalFilterRootTriggerEvent(
-                                component.RootTriggerKey,
-                                signalFilter.Bits)
-                            )],
+                    await UpdateSignalFilterAsync(
+                        this,
+                        process,                        
+                        component,
+                        token,
+                        process.Process.SignalCode,
+                        GetSignalFilter(component, token),
                         cancellationToken);
                 }
 
@@ -789,25 +874,27 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     // Продожаем ожидать следюущий сигнал.
 
                     // Обновляем фильтр сигнала.
-                    var signalFilter = GetSignalFilter(token, component);
-                    _processSetter.SetSignalCode(process, value: BitFlagDto.Empty, filter: signalFilter);
-
-                    await _triggerEventRaiser.RaiseAsync(
-                        [new ITriggerEventRaiser<TId>.RaiseContainer(
-                            "TODO: ",
-                            process.Id,
-                            new SignalFilterRootTriggerEvent(
-                                component.RootTriggerKey,
-                                signalFilter.Bits)
-                            )],
+                    await UpdateSignalFilterAsync(
+                        this,
+                        process, 
+                        component, 
+                        token, 
+                        process.Process.SignalCode,
+                        GetSignalFilter(component, token), 
                         cancellationToken);
                 }
             }
         }
 
+        /// <summary>
+        /// Вызывается перед выполнением действия.
+        /// * Проверяет поступление кода сигнала на действие.
+        /// </summary>
+        /// <returns>Нужна ли действию обработка асинзронного выполнения.</returns>
         private bool PrepareForExecuteAction(
             IProcessContainer<TId> process,
             ISchemaProcessComponent processData,
+            BitFlagDto startSignals,
             ITokenAction tokenAction) 
         {
             switch (tokenAction)
@@ -824,11 +911,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     {
                         var state = GetOrCreateActionState(processData, timerTokenAction, isActivate: false);
 
+                        // Активируем проверку условия, если поступил сигнал с кодом.
                         if (timerTokenAction.Signal.HasValue && !state.IgnoreSignal)
                         {
                             if (state.Status is TimerActionStateComponent.StatusEnum.WaitSignal)
                             {
-                                if (process.Process.SignalCode.ContainsFlag(timerTokenAction.Signal.Value))
+                                if (startSignals.ContainsFlag(timerTokenAction.Signal.Value))
                                 {
                                     // Сигнал поступил на процесс.
                                     state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
@@ -854,11 +942,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     {
                         var state = GetOrCreateActionState(processData, conditionTokenAction, isActivate: false);
 
+                        // Активируем проверку условия, если поступил сигнал с кодом.
                         if (conditionTokenAction.Signal.HasValue && !state.IgnoreSignal)
                         {
                             if (state.Status is ConditionActionStateComponent.StatusEnum.WaitSignal)
                             {
-                                if (process.Process.SignalCode.ContainsFlag(conditionTokenAction.Signal.Value))
+                                if (startSignals.ContainsFlag(conditionTokenAction.Signal.Value))
                                 {
                                     // Сигнал поступил на процесс.
                                     state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
@@ -901,14 +990,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             var status = TimerActionStateComponent.StatusEnum.NoActivated;
             if (tokenAction.ActivatedOnStart || isActivate)
             {
-                if (!tokenAction.Signal.HasValue)
-                {
-                    status = TimerActionStateComponent.StatusEnum.WaitingTimer;
-                }
-                else
-                {
-                    status = TimerActionStateComponent.StatusEnum.WaitSignal;
-                }
+                status = TimerActionStateComponent.StatusEnum.CreatingTimer;
             }
 
             state = new TimerActionStateComponent(
@@ -989,6 +1071,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         }
 
         private static bool ActivateActions(
+            IProcessContainer<TId> process,
             TokenDto token,
             ISchemaProcessComponent component,
             ISchemaProcessHandler.ActivateActionDto[] activateActions)
@@ -1064,28 +1147,28 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 case ConditionActionStateComponent.StatusEnum.NoActivated:
                                 case ConditionActionStateComponent.StatusEnum.Complete:
                                     {
-                                        if (!elem.AsyncExecuteOrWaitSignal)
+                                        if (conditionTokenAction.Signal.HasValue)
                                         {
-                                            if (conditionTokenAction.Signal.HasValue)
+                                            // Ожидание конкреного сигнала.
+                                            var signalReceived = process.Process.SignalCode.ContainsFlag(conditionTokenAction.Signal.Value);
+
+                                            if (!signalReceived)
                                             {
-                                                // Ожидание конкреного сигнала.
                                                 state.Status = ConditionActionStateComponent.StatusEnum.WaitSignal;
                                                 state.IgnoreSignal = false;
-                                                needAsyncExecute = needAsyncExecute || false;
+                                                needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
                                             }
-                                            else 
+                                            else
                                             {
-                                                // Ожидание любого сигнала
                                                 state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
                                                 state.IgnoreSignal = false;
-                                                needAsyncExecute = needAsyncExecute || false;
+                                                needAsyncExecute = needAsyncExecute || true;
                                             }
                                         }
-                                        else 
+                                        else
                                         {
+                                            // Ожидание любого сигнала
                                             state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
-                                            state.IgnoreSignal = false;
-                                            // Нужна ли проверка сейчас - как указал параметр.
                                             needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
                                         }
 
@@ -1219,6 +1302,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             public required string TimerTriggerHandler { get; set; }
 
             public required string GoWaitTriggerQueueName { get; set; }
+
+            public required string SignalFilterQueueName { get; set; }
 
             public required string AutoRemoveTriggerQueueName { get; set; }
 

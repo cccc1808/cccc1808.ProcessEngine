@@ -98,7 +98,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: true),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(

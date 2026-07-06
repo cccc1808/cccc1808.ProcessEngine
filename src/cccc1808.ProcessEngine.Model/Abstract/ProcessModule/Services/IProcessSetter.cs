@@ -40,7 +40,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services
             Exception ex,
             bool allowRetry);
 
-        void SetSignalCode<TId>(
+        bool SetSignalCode<TId>(
             IProcessContainer<TId> process, 
             in BitFlagDto value,
             in BitFlagDto filter);

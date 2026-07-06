@@ -185,8 +185,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<TParameters, TResult> timerTriggerEventHandler,
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
-                Func<TParameters, TResult> ignoreCodeSimpleStreamTriggerEventHandler,
-                Func<TParameters, TResult> recheckIgnoreRootTriggerEventHandler,
+                Func<TParameters, TResult> filterSignalRootTriggerEventHandler,
+                Func<TParameters, TResult> recheckSignalFilterRootTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
@@ -199,8 +199,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler(parameters),
                     TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler(parameters),
-                    TriggerEventKindEnum.SignalFilterRootTriggerEvent => ignoreCodeSimpleStreamTriggerEventHandler(parameters),
-                    TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent => recheckIgnoreRootTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.SignalFilterRootTriggerEvent => filterSignalRootTriggerEventHandler(parameters),
+                    TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent => recheckSignalFilterRootTriggerEventHandler(parameters),
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler(parameters),
                     TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler(parameters),
@@ -218,8 +218,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
-                Func<IFilterSignalRootTriggerEvent, TParameters, TResult> ignoreCodeSimpleStreamTriggerEventHandler,
-                Func<IRecheckSignalFilterRootTriggerEvent, TParameters, TResult> recheckIgnoreRootTriggerEventHandler,
+                Func<IFilterSignalRootTriggerEvent, TParameters, TResult> filterSignalRootTriggerEventHandler,
+                Func<IRecheckSignalFilterRootTriggerEvent, TParameters, TResult> recheckSignalFilterRootTriggerEventHandler,
                 Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
@@ -232,6 +232,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     TriggerEventKindEnum.TimerEvent => timerTriggerEventHandler((ITimerTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.SimpleStreamEvent => signalSimpleStreamTriggerEventHandler((ISignalSimpleStreamTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.ProcessGoWaitStreamEvent => processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent)triggerEvent, parameters),
+                    TriggerEventKindEnum.SignalFilterRootTriggerEvent => filterSignalRootTriggerEventHandler((IFilterSignalRootTriggerEvent)triggerEvent, parameters),
+                    TriggerEventKindEnum.RecheckSignalFilterRootTriggerEvent => recheckSignalFilterRootTriggerEventHandler((IRecheckSignalFilterRootTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.ProcessedOffsetEvent => processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.SignalOffsetEvent => signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters),
                     TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent => recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters),
@@ -249,8 +251,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
                 Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler,
-                Action<IFilterSignalRootTriggerEvent, TParameters> ignoreCodeSimpleStreamTriggerEventHandler,
-                Action<IRecheckSignalFilterRootTriggerEvent, TParameters> recheckIgnoreRootTriggerEventHandler,
+                Action<IFilterSignalRootTriggerEvent, TParameters> filterSignalRootTriggerEventHandler,
+                Action<IRecheckSignalFilterRootTriggerEvent, TParameters> recheckSignalFilterRootTriggerEventHandler,
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler,
                 Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
                 Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler,
@@ -285,6 +287,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             processGoWaitStreamTriggerEventHandler((IProcessGoWaitStreamTriggerEvent)triggerEvent, parameters);
                             break;
                         }
+                    case TriggerEventKindEnum.SignalFilterRootTriggerEvent:
+                        {
+                            filterSignalRootTriggerEventHandler((IFilterSignalRootTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
+                    case TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent:
+                        {
+                            recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters);
+                            break;
+                        }
                     case TriggerEventKindEnum.ProcessedOffsetEvent:
                         {
                             processedOffsetTriggerEventHandler((IProcessedOffsetTriggerEvent)triggerEvent, parameters);
@@ -294,13 +306,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         {
                             signalOffsetTriggerEventHandler((ISignalOffsetTriggerEvent)triggerEvent, parameters);
                             break;
-                        }
-
-                    case TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent:
-                        {
-                            recheckProcessStatusStreamTriggerEventHandler((IRecheckProcessStatusStreamTriggerEvent)triggerEvent, parameters);
-                            break;
-                        }
+                        }                   
 
                     case TriggerEventKindEnum.DeliveryResultEvent:
                         {
@@ -703,7 +709,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public void SetSignalCode(ITriggerComponent<TId> trigger, in BitFlagDto value)
             {
-                if (trigger.SignalCode.Bits == value.Bits)
+                if (trigger.SignalCode.Value.Bits == value.Bits)
                 {
                     return;
                 }
@@ -726,9 +732,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public bool CheckSignal(ITriggerComponent<TId> trigger, out BitFlagDto filteredSignals)
             {
                 // Сигналы, не попадающие в фильтр.
-                var notInFilterSignals = trigger.SignalCode.RemoveFlag(trigger.SignalCodeFilter);
+                var notInFilterSignals = trigger.SignalCode.Value.RemoveFlag(trigger.SignalCodeFilter);
                 // Сигналы, попадающие в фильтр.
-                filteredSignals = trigger.SignalCode.RemoveFlag(notInFilterSignals);
+                filteredSignals = trigger.SignalCode.Value.RemoveFlag(notInFilterSignals);
 
                 return !filteredSignals.IsEmpty;
             }

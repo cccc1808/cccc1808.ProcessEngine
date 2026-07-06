@@ -60,7 +60,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
                                     $"[Bug] Ожидается запоненое значение {nameof(ITriggerComponent.IChildTriggerDto.WaitDeliveryTimestamp)}"
                                     )
                                 : throw new Exception("[Bug] Ожидается дочерний триггер."),
-                            signals: e.SignalCode.Bits
+                            signals: e.SignalCode?.Bits
                             );
 
                         result.Add(e.ProcessId);

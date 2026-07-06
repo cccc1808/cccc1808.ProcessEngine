@@ -121,7 +121,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             return result;
         }
 
-        public void SetSignalCode<TId>(
+        public bool SetSignalCode<TId>(
             IProcessContainer<TId> process, 
             in BitFlagDto value, 
             in BitFlagDto filter)
@@ -132,7 +132,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             {
                 process.Process.SignalCode = value;
                 process.Process.SignalCodeFilter = filter;
+
+                return true;
             }
+
+            return false;
         }
     }
 }

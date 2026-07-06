@@ -215,6 +215,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         { 
                             AutoDetectStreamTriggers = true,
                             GoWaitTriggerQueueName = TriggerEvents,
+                            SignalFilterQueueName = TriggerEvents,
                             AutoRemoveTriggerQueueName = TriggerEvents,
                             TimerTriggerHandler = EFTimerChildTriggerHandler<Guid>.Name,
                         },

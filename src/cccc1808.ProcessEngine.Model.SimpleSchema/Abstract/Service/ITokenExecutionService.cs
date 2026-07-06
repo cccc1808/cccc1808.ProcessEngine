@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
         /// (Из внешнего кода - процесс WaitEvent).
         /// </summary>
         /// <returns></returns>
-        ValueTask ExecuteActionAsync(
+        ValueTask<bool> ExecuteActionAsync(
             IProcessContainer<TId> process,
             string actionId,
             BitFlagDto? signal,

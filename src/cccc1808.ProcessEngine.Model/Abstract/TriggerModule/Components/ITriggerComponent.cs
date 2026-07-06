@@ -67,7 +67,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// </summary>
         TId? OffsetId { get; set; }
 
-        BitFlagDto SignalCode { get; set; }
+        BitFlagDto? SignalCode { get; set; }
 
         BitFlagDto SignalCodeFilter { get; set; }
 

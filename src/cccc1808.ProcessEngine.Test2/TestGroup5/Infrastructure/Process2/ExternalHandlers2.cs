@@ -10,6 +10,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 
+using Shouldly;
+
 namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
 {
     internal class ExternalHandlers2
@@ -31,7 +33,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
             var state = TestSchemaProcessHandler2.GetOrCreateTokenState(process.GetComponent<ISchemaProcessComponent>());
             state.IsReceived = true;
 
-            await _tokenExecutionService.ExecuteActionAsync(process, actionId: "2", null, CancellationToken.None);
+            (await _tokenExecutionService.ExecuteActionAsync(process, actionId: "2", null, CancellationToken.None)).ShouldBeTrue();
         }
     }
 }

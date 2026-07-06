@@ -93,7 +93,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0), 
+                        newSignalCounter: 0,
+                        useSignals: false), 
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
@@ -198,7 +199,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: false),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
@@ -309,7 +311,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: true,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: false),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(

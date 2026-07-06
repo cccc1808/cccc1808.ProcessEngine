@@ -328,9 +328,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        signalFilterSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
+                                        recheckSignalFilterRootTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
@@ -381,9 +381,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),                                        
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        signalFilterSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
+                                        recheckSignalFilterRootTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
@@ -431,10 +431,32 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 if (typedEvent.SignalCode.HasValue)
                                                 {
+                                                    if (!p.trigger.SignalCode.HasValue)
+                                                    {
+                                                        // TODO: log error
+                                                        return;
+                                                    }
+
                                                     // Дописываем коды к текущему.
                                                     p.triggerSetter.ChildTriggerSetter.SetSignalCode(
                                                         p.trigger,
-                                                        p.trigger.SignalCode.AddFlag(typedEvent.SignalCode.Value));
+                                                        p.trigger.SignalCode.Value.AddFlag(typedEvent.SignalCode.Value));
+
+                                                    // Проверяем игнорирование сигнала.
+                                                    if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
+                                                    {
+                                                        p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+                                                    }
+                                                }
+                                                else 
+                                                {
+                                                    if (p.trigger.SignalCode.HasValue)
+                                                    {
+                                                        // TODO: log error.
+                                                        return;
+                                                    }
+
+                                                    p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                                 }
 
                                                 // Если это корневой триггер, то посылаем подтверждение о получении сигнала для дочернего триггера.
@@ -446,20 +468,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                         triggerKey: typedEvent.SendTriggerKey, 
                                                         timestamp: typedEvent.SendTimeStamp.Value!
                                                         )
-                                                    ));
-
-                                                // Проверяем игнорирование сигнала.
-                                                if (p.triggerSetter.ChildTriggerSetter.CheckSignal(p.trigger, out _))
-                                                {
-                                                    p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
-                                                }
+                                                    ));                                                
                                             }
                                             else 
                                             {
+                                                if (typedEvent.SignalCode.HasValue)
+                                                {
+                                                    // TODO: log warning
+                                                }
+                                                if (typedEvent.SendTriggerKey is not null)
+                                                {
+                                                    // TODO: log warning
+                                                }
+
                                                 p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
                                             }
                                         },
-                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
+                                        signalFilterSimpleStreamTriggerEventHandler: static (typedEvent, p) => 
                                         {
                                             if (!p.state.IsRootTrigger)
                                             {
@@ -480,7 +505,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 p.state.NewSignalCounter = 0;
                                             }
                                         },
-                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) => 
+                                        recheckSignalFilterRootTriggerEventHandler: static (typedEvent, p) => 
                                         {
                                             // Emergency trigger сообщил, что рассинхронилизировался IgnoreSignal (потеря события).
                                             if (!p.state.IsRootTrigger)
@@ -570,9 +595,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),
-                                        ignoreCodeSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        signalFilterSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        recheckIgnoreRootTriggerEventHandler: static (typedEvent, p) =>
+                                        recheckSignalFilterRootTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                         {
