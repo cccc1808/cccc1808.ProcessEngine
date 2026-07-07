@@ -725,7 +725,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         await using (var scope = serviceProvider.CreateAsyncScope())
                                         {
                                             await ExecuteRangeHandlerAsync(
-                                                serviceProvider,
+                                                scope.ServiceProvider,
                                                 group.Key,
                                                 batch,
                                                 cancellationToken);
