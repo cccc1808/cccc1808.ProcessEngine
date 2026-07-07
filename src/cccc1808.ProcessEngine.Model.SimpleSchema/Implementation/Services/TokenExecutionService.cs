@@ -327,7 +327,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 state.TriggerKey, 
                                 new TriggerStateContainer.TriggerInfo(
                                     key: state.TriggerKey,
-                                    // TODO: Поправить зависимость.
+                                    isStreamTrigger: false,
                                     removeTriggerQueueName: _options.AutoRemoveTriggerQueueName,
                                     removeTokenId: component.CurrentTokenId,
                                     removeIfTokenMove: true,
@@ -637,17 +637,43 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     // Ожидание сигнала.
                     _processSetter.SetStatus(process, ProcessStatusEnum.WaitEvent);
 
-                    // TODO:
-                    if (_options.AutoDetectStreamTriggers)
+                    // Оповщение stream триггеров о том, что процесс перешел в состояние ожидания внешнего сигнала.
+                    var streamTriggerKeys = Array.Empty<string>();
+                    switch (_options.NotifyStreamTrigggersPolicy)
                     {
-                        var streamTriggerKeys = await _queries
-                            .GetStreamTriggerKeysByProcessRangeAsync(process.Id, cancellationToken);                        
+                        case NotifyStreamTrigggersPolicy.No:
+                            break;
 
-                        if (streamTriggerKeys.Any())
-                        {
-                            var streamTriggerComponent = new StreamTriggerComponent(_options.GoWaitTriggerQueueName, streamTriggerKeys);
-                            process.AddComponent<IStreamTriggerComponent>(streamTriggerComponent);
-                        }
+                        case NotifyStreamTrigggersPolicy.SelectFromDb:
+                            {
+                                // Считываем триггеры из БД.
+                                streamTriggerKeys = await _queries
+                                    .GetStreamTriggerKeysByProcessRangeAsync(process.Id, cancellationToken);
+
+                                break;
+                            }
+
+                        case NotifyStreamTrigggersPolicy.FromProcessStateWithTriggers:
+                            {
+                                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                                {
+                                    streamTriggerKeys = processStateWithTriggers.TriggerState.Triggers.Values
+                                        .Where(e => e.IsStreamTrigger)
+                                        .Select(e => e.Key)
+                                        .ToArray();
+                                }
+
+                                break;
+                            }
+
+                        default: throw new NotImplementedException(
+                            _options.NotifyStreamTrigggersPolicy.ToString());
+                    }
+
+                    if (streamTriggerKeys.Any())
+                    {
+                        var streamTriggerComponent = new StreamTriggerComponent(_options.GoWaitTriggerQueueName, streamTriggerKeys);
+                        process.AddComponent<IStreamTriggerComponent>(streamTriggerComponent);
                     }
                 }
                 //else
@@ -949,7 +975,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
             public required string AutoRemoveTriggerQueueName { get; set; }
 
-            public required bool AutoDetectStreamTriggers { get; set; }
+            public required NotifyStreamTrigggersPolicy NotifyStreamTrigggersPolicy { get; set; }
         }
 
         public interface IQueries
@@ -957,6 +983,22 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             Task<string[]> GetStreamTriggerKeysByProcessRangeAsync(
                 TId processId, 
                 CancellationToken cancellationToken);
+        }
+
+        public enum NotifyStreamTrigggersPolicy
+        {
+            No,
+
+            /// <summary>
+            /// Считать перечень ключей экземпляров stream триггеров из БД по ProcessId.
+            /// </summary>
+            SelectFromDb,
+
+            /// <summary>
+            /// Получить перечень ключей экземпляров stream триггеров на основании <see cref="IProcessStateWithTriggers"/>.
+            /// Для корректной работы метаданные всез триггеров должны быть записаны в process state.
+            /// </summary>
+            FromProcessStateWithTriggers
         }
 
         #endregion

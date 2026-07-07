@@ -138,6 +138,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
         {
             bool IsStreamTrigger(ITriggerComponent<TId> trigger);
 
+            bool IsStreamTrigger(ITriggerComponent.TriggerKind kind);
+
             bool GetStreamsProcessIsWaiting(ITriggerComponent<TId> trigger);
         }
 

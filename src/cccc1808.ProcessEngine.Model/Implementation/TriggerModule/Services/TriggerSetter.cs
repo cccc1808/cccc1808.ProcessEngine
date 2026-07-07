@@ -461,7 +461,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public bool IsStreamTrigger(ITriggerComponent<TId> trigger)
             {
-                return trigger.Kind
+                return IsStreamTrigger(trigger.Kind);
+            }
+
+            public bool IsStreamTrigger(ITriggerComponent.TriggerKind kind)
+            {
+                return kind
                     is ITriggerComponent.TriggerKind.SimpleStream
                     or ITriggerComponent.TriggerKind.OffsetStream
                     or ITriggerComponent.TriggerKind.SimpleStreamRoot;
