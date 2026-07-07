@@ -213,7 +213,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     .AddSchemaProcess(
                         tokenExecutionOptions: new TokenExecutionService<Guid>.OptionsDto() 
                         { 
-                            AutoDetectStreamTriggers = true,
+                            NotifyStreamTrigggersPolicy = TokenExecutionService<Guid>.NotifyStreamTrigggersPolicy.SelectFromDb,
                             GoWaitTriggerQueueName = TriggerEvents,
                             SignalFilterQueueName = TriggerEvents,
                             AutoRemoveTriggerQueueName = TriggerEvents,

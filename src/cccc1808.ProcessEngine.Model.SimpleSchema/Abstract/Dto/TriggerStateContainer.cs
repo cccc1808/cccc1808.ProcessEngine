@@ -18,6 +18,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
         {
             public string Key { get; init; }
 
+            /// <summary>
+            /// Это stream триггер.
+            /// (Его нужно оповестить о том, что процесс перешел в состояние ожидания).
+            /// </summary>
+            public bool IsStreamTrigger { get; init; }
+
             public string RemoveTriggerQueueName { get; init; }
 
             public string? RemoveTokenId { get; init; }
@@ -30,20 +36,22 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             /// <summary>
             /// Удалить триггер, если процесс завершен.
             /// </summary>
-            public bool RemoveIfProcessComplete { get; init; }
+            public bool RemoveIfProcessComplete { get; init; }            
 
             public TriggerInfo(
-                string key, 
+                string key,
+                bool isStreamTrigger,
                 string removeTriggerQueueName,
                 string? removeTokenId,
                 bool removeIfTokenMove,
                 bool removeIfProcessComplete)
             {
                 Key = key;
+                IsStreamTrigger = isStreamTrigger;
                 RemoveTriggerQueueName = removeTriggerQueueName;
                 RemoveTokenId = removeTokenId;
                 RemoveIfTokenMove = removeIfTokenMove;
-                RemoveIfProcessComplete = removeIfProcessComplete;
+                RemoveIfProcessComplete = removeIfProcessComplete;                
             }
         }
     }
