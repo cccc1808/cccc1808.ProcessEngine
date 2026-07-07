@@ -26,6 +26,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         public void Validate(
             ProcessTypeDto processType,
             ProcessSchemaDto schema,
+            bool useSignalCode,
             bool needComplete = true)
         {
             static void ValidateTransition(
@@ -129,6 +130,15 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                     throw new Exception("TimerTokenAction не содержит не хенндлера ни перехода.");
                                 }
                                 
+                                if (useSignalCode && !timerTokenAction.Signal.HasValue)
+                                {
+                                    throw new Exception("TimerTokenAction не содержит код сигнала.");
+                                }
+                                else if (!useSignalCode && timerTokenAction.Signal.HasValue)
+                                {
+                                    throw new Exception("TimerTokenAction содержит код сигнала.");
+                                }
+
                                 break;
                             }
 
@@ -169,6 +179,15 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                     throw new Exception("ConditionTokenAction не содержит не хенндлера ни перехода.");
                                 }
 
+                                if (useSignalCode && !conditionTokenAction.Signal.HasValue)
+                                {
+                                    throw new Exception("ConditionTokenAction не содержит код сигнала.");
+                                }
+                                else if (!useSignalCode && conditionTokenAction.Signal.HasValue)
+                                {
+                                    throw new Exception("ConditionTokenAction содержит код сигнала.");
+                                }
+                                
                                 break;
                             }
 

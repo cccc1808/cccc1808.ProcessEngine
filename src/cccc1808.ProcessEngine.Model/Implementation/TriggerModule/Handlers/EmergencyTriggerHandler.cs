@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
@@ -14,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +89,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
             var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
             var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
             var query = serviceProvider.GetRequiredService<IQueries>();
+            var processRegistry = serviceProvider.GetRequiredService<IProcessRegistry>();
             var triggerHandlerFactory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
             var triggerRepository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
             var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
@@ -176,7 +179,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                     new SignalSimpleStreamTriggerEvent(
                                         triggerKey: rootTriggerKey,
                                         sendTriggerKey: elem.Trigger.Key,
-                                        timeStamp: sendTimestamp
+                                        timeStamp: sendTimestamp,
+                                        signals: elem.Trigger.SignalCode?.Bits
                                         )
                                     ));
 
@@ -231,6 +235,42 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
 
                                 // TODO: log warning;
 
+                            }
+                        }
+                        else if (
+                            setter.StreamSetter.IsStreamTrigger(elem.Trigger) 
+                            && elem.Trigger.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot
+                            // TODO: && processRegistry.UseSignalCode(new ProcessTypeDto(elem.ProcessStatus)
+                            )
+                        {
+                            // 5) Проверяем что был потерян IgnoreSignalCode.
+
+                            var state = (ITriggerComponent.ISimpleStreamDto)elem.Trigger.State;
+
+                            // Возможно событие об удаления кода из списка игнорирования было потеряно.
+                            // (На триггере есть сигналы, но но триггер не активен, т.е. они не попадают в фильтр).
+                            var needCheckProcess =
+                                !elem.Trigger.SignalCode.Value.IsEmpty
+                                // && elem.Trigger.FilterSignalCode.IsEmpty
+                                && !elem.Trigger.IsActivated
+                                && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout
+                                && state.StreamsProcessIsWaiting;
+
+                            var processsignalFilter = await query
+                                .GetProcessSignalFilterAsync(elem.Trigger.ProcessId, cancellationToken);
+
+                            if (processsignalFilter.Bits != elem.Trigger.SignalCodeFilter.Bits)
+                            {
+                                // Скорее всего событие было утеряно, посылаем триггеру событие, чтобы он перепроверил.
+                                triggersEvents.Add(new ITriggerEventRaiser<TId>.RaiseContainer(
+                                    options.TriggerEventQueue,
+                                    elem.Trigger.ProcessId,
+                                    new RecheckSignalFilterRootTriggerEvent(elem.Trigger.Key)
+                                    ));
+
+                                notProcesseTriggers.Remove(elem.Trigger.Key);
+
+                                // TODO: log warning;
                             }
                         }
                     }
@@ -325,7 +365,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                                    sendTimestamp);
                             }                               
                         }
-                        await typedHandler.ExecuteAsync(forExecute, cancellationToken);
+
+                        {
+                            var awakened = await typedHandler.ExecuteAsync(forExecute, cancellationToken);
+                            foreach (var elem3 in forExecute)
+                            {
+                                // Определяем, что процесс не был пробужден (По причине фильтрации сигналов).
+                                if (!awakened.Contains(elem3.ProcessId))
+                                {
+                                    setter.OneOfTriggerSetter.OneOf(
+                                        elem3,
+                                        1,
+                                        counterHandler: static (_, _) => { },
+                                        timerHandler: static (_) => { },
+                                        simpleStreamHandler: static (s, _) => s.StreamsProcessIsWaiting = true,
+                                        offsetStreamHanler: static (s, _) => s.StreamsProcessIsWaiting = true
+                                        );
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -352,11 +410,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 CancellationToken cancellationToken
                 );
 
+            Task<BitFlagDto> GetProcessSignalFilterAsync(
+                TId processId, 
+                CancellationToken cancellationToken);
+
             public readonly record struct StatusInfo(
                 TId triggerId,
                 ITriggerComponent<TId> Trigger,
                 bool ProcessDeleted,
                 ProcessStatusEnum? ProcessStatus,
+
                 DateTimeOffset? ReservationTimeout
                 );
         }

@@ -203,10 +203,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = TimeSpan.FromSeconds(60),
                         },
-                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1)
+                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1, TestSchemaProcessHandler.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1, TestSchemaProcessHandler2.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler4.ProcessType, 1, TestSchemaProcessHandler4.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1, TestSchemaProcessHandler51.UseSignalCode),
+                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1, TestSchemaProcessHandler52.UseSignalCode)
                     )
                     
                     .AddSchemaProcess(
@@ -214,6 +215,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         { 
                             NotifyStreamTrigggersPolicy = TokenExecutionService<Guid>.NotifyStreamTrigggersPolicy.SelectFromDb,
                             GoWaitTriggerQueueName = TriggerEvents,
+                            SignalFilterQueueName = TriggerEvents,
                             AutoRemoveTriggerQueueName = TriggerEvents,
                             TimerTriggerHandler = EFTimerChildTriggerHandler<Guid>.Name,
                         },

@@ -325,7 +325,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         priority: 0,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: false),
                     ITriggerRepository<Guid>.CreateTriggerDto.SimpleStreamTrigger(
                         key: processData.ChildTriggerId.ToString(),
                         timerDate: DateTimeOffset.MinValue,

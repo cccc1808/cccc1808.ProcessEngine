@@ -19,6 +19,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(4, 1);
 
+        public static bool UseSignalCode => true;
+
         public static ProcessSchemaDto Schema { get; }
             = new ProcessSchemaDto(
                 "1",
@@ -30,24 +32,28 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
                             Name = "Пользовательский ввод 1",
                             ActionHandlerKey = "I1",
                             ActivatedOnStart = true,
+                            Signal = (int)UISignals.UIInput1,
                         },
                         new ConditionTokenAction("I2", "I2")
                         {
                             Name = "Пользовательский ввод 2",
                             ActionHandlerKey = "I2",
                             ActivatedOnStart = false,
+                            Signal = (int)UISignals.UIInput2,
                         },
                         new ConditionTokenAction("I3", "I3")
                         {
                             Name = "Пользовательский ввод 3 и рассчет результата",
                             ActionHandlerKey = "I3",
                             ActivatedOnStart = false,
+                            Signal = (int)UISignals.UIInput3,
                         },
                         new ConditionTokenAction("R", "R")
                         {
                             Name = "Чтобы процесс не завершился и валидация не падала",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
+                            Signal = 0,
                         }
                         )
                     {
@@ -165,6 +171,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
             public required int? UserInput3 { get; set; }
 
             public required int? CalculatedResult { get; set; }            
+        }
+
+        [Flags]
+        public enum UISignals
+        {
+            UIInput1 = 2,
+            UIInput2 = 4, 
+            UIInput3 = 8,
         }
 
         #endregion

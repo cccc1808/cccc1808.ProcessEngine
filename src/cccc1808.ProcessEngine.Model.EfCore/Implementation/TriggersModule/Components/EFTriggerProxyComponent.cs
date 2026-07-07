@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components
 {
@@ -42,6 +43,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
         public bool NeedRemove { get; set; }
 
         public ITriggerComponent.IChildTriggerDto? ChildTrigger { get; private set; }
+
+        public BitFlagDto? SignalCode { get => Entity.SignalCode.HasValue ? new BitFlagDto(Entity.SignalCode.Value) : null; set => Entity.SignalCode = value?.Bits; }
+
+        public BitFlagDto SignalCodeFilter { get => new BitFlagDto(Entity.SignalCodeFilter); set => Entity.SignalCodeFilter = value.Bits; }
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 
@@ -83,7 +88,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
             public bool RemoveAftrerDelivery { get => Entity.ChildTrigger_RemoveAftrerDelivery!.Value; set => Entity.ChildTrigger_RemoveAftrerDelivery = value; }
 
             public long? WaitDeliveryTimestamp { get => Entity.ChildTrigger_WaitDeliveryTimestamp; set => Entity.ChildTrigger_WaitDeliveryTimestamp = value; }
-
+            
             public EFChildTriggerProxyDto(
                 TriggerDbEntity<TId> entity)
             {

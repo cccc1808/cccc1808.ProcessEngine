@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
@@ -117,7 +118,25 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
                 _dateTimeProvider.UtcNow
                 );            
 
-            return result ;
-        }       
+            return result;
+        }
+
+        public bool SetSignalCode<TId>(
+            IProcessContainer<TId> process, 
+            in BitFlagDto value, 
+            in BitFlagDto filter)
+        {
+            if (
+                process.Process.SignalCode.Bits != value.Bits 
+                || process.Process.SignalCodeFilter.Bits != filter.Bits)
+            {
+                process.Process.SignalCode = value;
+                process.Process.SignalCodeFilter = filter;
+
+                return true;
+            }
+
+            return false;
+        }
     }
 }

@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers
             bool isEmergencyTrigger,
             CancellationToken cancellationToken);
 
-        public ValueTask ExecuteAsync(
+        public ValueTask<ISet<TId>> ExecuteAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken);
 

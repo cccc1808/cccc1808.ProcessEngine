@@ -18,6 +18,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.Token
 
         public TimeSpan Duration { get; set; }
 
+        /// <summary>
+        /// Битовые флаги (только степени 2).
+        /// Указывает сигнал, по которому должно активироваться условие.
+        /// </summary>
+        public ulong? Signal { get; set; }
+
         [Obsolete]
         public TimerTokenAction()
         {

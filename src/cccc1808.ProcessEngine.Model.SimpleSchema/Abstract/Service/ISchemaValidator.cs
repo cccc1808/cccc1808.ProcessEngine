@@ -14,6 +14,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
         void Validate(
             ProcessTypeDto processType,
             ProcessSchemaDto schema,
+            bool useSignalCode,
             bool needComplete = true);
     }
 }

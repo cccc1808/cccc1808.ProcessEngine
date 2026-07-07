@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
 {
@@ -24,9 +25,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
         /// (Из внешнего кода - процесс WaitEvent).
         /// </summary>
         /// <returns></returns>
-        ValueTask ExecuteActionAsync(
+        ValueTask<bool> ExecuteActionAsync(
             IProcessContainer<TId> process,
             string actionId,
+            BitFlagDto? signal,
             CancellationToken cancellationToken);
 
         /// <summary>
@@ -41,6 +43,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service
             IProcessContainer<TId> process,
             string tokenId,
             string? conditionActionId,
+            BitFlagDto? signalCode,
             CancellationToken cancellationToken);
     }
 }

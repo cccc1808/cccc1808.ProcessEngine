@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
 {
@@ -65,6 +66,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// (Пока что используется только страхующим триггером).
         /// </summary>
         TId? OffsetId { get; set; }
+
+        BitFlagDto? SignalCode { get; set; }
+
+        BitFlagDto SignalCodeFilter { get; set; }
 
         /// <summary>
         /// <see cref="ITriggerComponent.IChildTriggerDto"/>.

@@ -17,6 +17,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component
 
         public string? TriggerKey { get; set; }
 
+        public bool IgnoreSignal { get; set; }
+
         [Obsolete]
         public TimerActionStateComponent()
         {
@@ -29,13 +31,33 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component
         {
             Id = id;
             Status = status;
+            IgnoreSignal = false;
         }
 
         public enum StatusEnum
         {
+            /// <summary>
+            /// Не активирован.
+            /// </summary>
             NoActivated,
+            /// <summary>
+            /// Создает триггер.
+            /// </summary>
             CreatingTimer,
+
+            /// <summary>
+            /// Ожидает сигнала.
+            /// </summary>
+            WaitSignal,
+
+            /// <summary>
+            /// Ожидает наступления даты.
+            /// </summary>
             WaitingTimer,
+
+            /// <summary>
+            /// Завершен.
+            /// </summary>
             Complete
         }
     }

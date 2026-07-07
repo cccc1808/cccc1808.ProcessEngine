@@ -13,6 +13,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component
 
         public StatusEnum Status { get; set; }
 
+        public bool IgnoreSignal { get; set; }
 
         [Obsolete]
         public ConditionActionStateComponent()
@@ -26,11 +27,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component
         {
             Id = id;
             Status = status;
+            IgnoreSignal = false;
         }
 
         public enum StatusEnum
         {
             NoActivated,
+            WaitSignal,
             CheckCondition,
             Complete,
         }

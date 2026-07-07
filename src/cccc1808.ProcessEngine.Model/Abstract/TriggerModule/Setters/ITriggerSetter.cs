@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 {
@@ -65,6 +66,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<TParameters, TResult> timerTriggerEventHandler,
                 Func<TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+                Func<TParameters, TResult> signalFilterSimpleStreamTriggerEventHandler,
+                Func<TParameters, TResult> rechecksignalFilterRootTriggerEventHandler,
                 Func<TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
@@ -78,6 +81,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Func<ITimerTriggerEvent, TParameters, TResult> timerTriggerEventHandler,
                 Func<ISignalSimpleStreamTriggerEvent, TParameters, TResult> signalSimpleStreamTriggerEventHandler,
                 Func<IProcessGoWaitStreamTriggerEvent, TParameters, TResult> processGoWaitStreamTriggerEventHandler,
+                Func<IFilterSignalRootTriggerEvent, TParameters, TResult> signalFilterSimpleStreamTriggerEventHandler,
+                Func<IRecheckSignalFilterRootTriggerEvent, TParameters, TResult> rechecksignalFilterRootTriggerEventHandler,
                 Func<IProcessedOffsetTriggerEvent, TParameters, TResult> processedOffsetTriggerEventHandler,
                 Func<ISignalOffsetTriggerEvent, TParameters, TResult> signalOffsetTriggerEventHandler,
                 Func<IRecheckProcessStatusStreamTriggerEvent, TParameters, TResult> recheckProcessStatusStreamTriggerEventHandler,
@@ -91,6 +96,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 Action<ITimerTriggerEvent, TParameters> timerTriggerEventHandler,
                 Action<ISignalSimpleStreamTriggerEvent, TParameters> signalSimpleStreamTriggerEventHandler,
                 Action<IProcessGoWaitStreamTriggerEvent, TParameters> processGoWaitStreamTriggerEventHandler,
+                Action<IFilterSignalRootTriggerEvent, TParameters> signalFilterSimpleStreamTriggerEventHandler,
+                Action<IRecheckSignalFilterRootTriggerEvent, TParameters> recheckSignalFilterRootTriggerEventHandler,
                 Action<IProcessedOffsetTriggerEvent, TParameters> processedOffsetTriggerEventHandler,
                 Action<ISignalOffsetTriggerEvent, TParameters> signalOffsetTriggerEventHandler,
                 Action<IRecheckProcessStatusStreamTriggerEvent, TParameters> recheckProcessStatusStreamTriggerEventHandler,
@@ -226,6 +233,18 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
                 ITriggerComponent.IChildTriggerDto state,
                 long deliveryTimestamp
                 );
+
+            void SetSignalCode(
+                ITriggerComponent<TId> trigger, 
+                in BitFlagDto value);
+
+            void SetSignalFilter(
+                ITriggerComponent<TId> trigger,
+                in BitFlagDto value);
+
+            bool CheckSignal(
+                ITriggerComponent<TId> trigger, 
+                out BitFlagDto filteredSignals);
 
             long DateToTimestamp(DateTimeOffset date);
 

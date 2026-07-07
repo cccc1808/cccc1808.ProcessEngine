@@ -20,7 +20,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             where TStateHadnler : ISchemaProcessStateHandler<TId>
         {
             return new SchemaProcessRegistrationDto(
-                processType, 
+                processType,
                 typeof(THandler),
                 typeof(TStateHadnler));
         }

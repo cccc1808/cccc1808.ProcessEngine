@@ -40,12 +40,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
             bool isEmergencyTrigger,
             CancellationToken cancellationToken);
 
-        public async ValueTask ExecuteAsync(
+        public async ValueTask<ISet<TId>> ExecuteAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
             var info = await GetEventInfoAsync(triggers, cancellationToken);
 
+            var result = new HashSet<TId>(info.Count);
             var toRootTriggerEvents = triggers
                  .Select(
                     e => 
@@ -58,8 +59,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
                                 ? childState.WaitDeliveryTimestamp ?? throw new Exception(
                                     $"[Bug] Ожидается запоненое значение {nameof(ITriggerComponent.IChildTriggerDto.WaitDeliveryTimestamp)}"
                                     )
-                                : throw new Exception("[Bug] Ожидается дочерний триггер.")
-                                );
+                                : throw new Exception("[Bug] Ожидается дочерний триггер."),
+                            signals: e.SignalCode?.Bits
+                            );
+
+                        result.Add(e.ProcessId);
 
                         return new ITriggerEventRaiser<TId>.RaiseContainer(
                             info[e.Key].Queue,
@@ -72,7 +76,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Bas
 
             await _triggerEventRaiser.RaiseAsync(
                 toRootTriggerEvents,
-                cancellationToken);           
+                cancellationToken);
+
+            return result;
         }
 
         protected abstract Task<IDictionary<string, ITriggerHandlerFacade<TId>.RootEventInfoDto>> GetEventInfoAsync(

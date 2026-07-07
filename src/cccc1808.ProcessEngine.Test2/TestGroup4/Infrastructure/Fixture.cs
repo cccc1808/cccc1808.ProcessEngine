@@ -135,11 +135,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
 
                     .AddWakeupServices(
                         [
-                            new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), WakeupStateEnum.CheckWakeupWithoutLock, typeof(EFOutboxMessageWakeupHandler<Guid>))
+                            new WakeupRegistryDto(
+                                new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1, false), WakeupStateEnum.CheckWakeupWithoutLock, typeof(EFOutboxMessageWakeupHandler<Guid>))
                         ],
                         [
-                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1)),
-                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)),
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1, false)),
+                            new StreamRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1, false)),
                             ]
                     )
 
@@ -183,8 +184,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = null,
                         },
-                        new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1),
-                        new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1)
+                        new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1, false),
+                        new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1, false)
                     );
 
                 services.AddScoped<IProcessRunner>(
@@ -272,8 +273,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             MessageLimitFunc = (m) => m * 10,
                         },
-                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1), TriggerQueue),
-                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1), TriggerQueue)
+                        new InboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(10, 1), 1, false), TriggerQueue),
+                        new OutboxRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(11, 1), 1, false), TriggerQueue)
                     );
 
                 services
