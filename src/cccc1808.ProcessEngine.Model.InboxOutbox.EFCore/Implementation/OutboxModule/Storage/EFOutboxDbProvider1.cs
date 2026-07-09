@@ -35,7 +35,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Storage
 {
-    public class EFOutboxDbProvider<TId>
+    /// <summary>
+    /// Особенность: загружает процесс, данные, батчи сообщений (на основе ограничения).
+    /// </summary>
+    /// <typeparam name="TId"></typeparam>
+    public class EFOutboxDbProvider1<TId>
         : IProcessDbProvider<TId>
     {       
         private readonly IServiceProvider _serviceProvider;
@@ -52,7 +56,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
         private readonly IProcessLinkedConditions<TId, OutboxProcessDataDbEntity<TId>> _processLinkedConditions;
         private readonly IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>> _messageStreamConditions;
 
-        public EFOutboxDbProvider(
+        public EFOutboxDbProvider1(
             IServiceProvider serviceProvider,
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext, 
@@ -384,15 +388,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                     }
                 }
             }
-        }
-
-        public Task LoadRangeAsync(
-            IDictionary<TId, IProcessContainer<TId>> processes, 
-            IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex, 
-            bool withLock,
-            CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
         }
 
         public Task UpdateAsync(

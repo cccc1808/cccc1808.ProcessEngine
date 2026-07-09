@@ -123,9 +123,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         {
                             if (e.Value.TryGetComponent<ISoftTimeoutComponent>(out var softTimeoutComponent))
                             {
-                                softTimeoutDate = DateTimeOffsetHelper.Min(
-                                    softTimeoutDate,
-                                    softTimeoutComponent.StopDate ?? DateTimeOffset.MaxValue);
+                                softTimeoutDate = SoftTimeoutHelper.Min(softTimeoutDate, softTimeoutComponent);
                             }
 
                             return !StopCheck(this, e.Value);

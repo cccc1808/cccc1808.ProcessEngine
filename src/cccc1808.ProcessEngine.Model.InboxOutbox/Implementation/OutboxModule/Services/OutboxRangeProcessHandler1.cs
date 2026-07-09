@@ -25,9 +25,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
 {
     /// <summary>
     /// Outbox process -> queue.
+    /// Сообщение предзагружается в DbProvider.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public class OutboxRangeProcessHandler<TId>
+    public class OutboxRangeProcessHandler1<TId>
         : BaseRangeProcessHandler<TId>
     {
         private readonly IQueueProviderFactory _queueProviderFactory;
@@ -35,7 +36,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
         private readonly IOutboxSetter _outboxSetter;
         private readonly IHeaderJsonSerializer _headerJsonSerializer;
 
-        public OutboxRangeProcessHandler(
+        public OutboxRangeProcessHandler1(
             IProcessRepository<TId> repository,
             ITriggerRepository<TId> triggerRepository,
             IProcessSetter setter,
@@ -66,11 +67,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             var context = group.Group
                 .Select(e => 
                     {
-                        softTimeoutDate = DateTimeOffsetHelper.Min(
-                            softTimeoutDate,
-                            e.Value.TryGetComponent<ISoftTimeoutComponent>(out var component) 
-                                ? component.StopDate ?? DateTimeOffset.MaxValue
-                                : DateTimeOffset.MaxValue);
+                        if (e.Value.TryGetComponent<ISoftTimeoutComponent>(out var component))
+                        {
+                            softTimeoutDate = SoftTimeoutHelper.Min(softTimeoutDate, component);
+                        }
 
                         return (
                             Process: e.Value,

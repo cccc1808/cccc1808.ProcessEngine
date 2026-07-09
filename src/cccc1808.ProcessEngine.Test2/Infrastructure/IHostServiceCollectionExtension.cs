@@ -341,7 +341,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             InboxRunner<Guid>.OptionsDto inboxRunnerOptions,
             EFInboxConsumerService<Guid>.Options inboxConsumerOptions,
             EFInboxDbProvider<Guid>.Options inboxDbProviderOptions,
-            EFOutboxDbProvider<Guid>.Options outboxDbProviderOptions,
+            EFOutboxDbProvider1<Guid>.Options outboxDbProviderOptions,
             InboxRegistryDto inboxRegistry,
             OutboxRegistryDto outboxRegistry) 
         {
@@ -352,9 +352,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EFInboxDbProvider<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)
                 .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider<Guid>>())
-                .AddScoped<EFOutboxDbProvider<Guid>>()
+                .AddScoped<EFOutboxDbProvider1<Guid>>()
                 .AddSingleton(outboxDbProviderOptions)
-                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider<Guid>>())
+                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider1<Guid>>())
 
                 .AddScoped<IHeaderJsonSerializer, HeaderJsonSerializer>()
 
@@ -370,7 +370,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IClassifierRepository<Guid>, EFClassifierRepository<Guid>>()
                 .AddSingleton<EFClassifierRepository<Guid>.CachState>()
 
-                .AddScoped(s => new OutboxRangeProcessHandler<Guid>(
+                .AddScoped(s => new OutboxRangeProcessHandler1<Guid>(
                     s.GetRequiredService<IProcessRepository<Guid>>(),
                     s.GetRequiredService<ITriggerRepository<Guid>>(),
                     s.GetRequiredService<IProcessSetter>(),

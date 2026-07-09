@@ -225,7 +225,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                         s.GetRequiredService<IIsolationService>(),
                                         s.GetRequiredService<IProcessSetter>(),
                                         s.GetRequiredService<IWakeupService<Guid>>(),
-                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler<Guid>>()),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler1<Guid>>()),
                                         s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                         );
                                 }
@@ -268,7 +268,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         { 
                             MessageLimitFunc = (m) => m * 10,
                         },
-                        new EFOutboxDbProvider<Guid>.Options() 
+                        new EFOutboxDbProvider1<Guid>.Options() 
                         {
                             MessageLimitFunc = (m) => m * 10,
                         },

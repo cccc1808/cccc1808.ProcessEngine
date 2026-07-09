@@ -5,11 +5,21 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers
 {
     public static class SoftTimeoutHelper
     {
+        public static DateTimeOffset Min(
+            in DateTimeOffset? current,
+            ISoftTimeoutComponent component)
+        {
+            return DateTimeOffsetHelper.Min(
+                current ?? DateTimeOffset.MaxValue,
+                component.StopDate ?? DateTimeOffset.MaxValue);
+        }
+
         public static async ValueTask<bool> ExecuteWithSoftTimeoutAsync<TParameters>(
             TParameters parameters,
             IDateTimeProvider dateTimeProvider,
