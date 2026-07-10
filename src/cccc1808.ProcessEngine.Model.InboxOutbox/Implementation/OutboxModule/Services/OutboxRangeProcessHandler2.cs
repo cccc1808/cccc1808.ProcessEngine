@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
@@ -28,6 +29,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly IProcessSetter _processSetter;
         private readonly OptionsDto _options;
 
         public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options { get; }
@@ -66,34 +68,45 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                         softTimeout, 
                         e.GetComponent<ISoftTimeoutComponent>());
 
-                    return (e, Outbox: e.GetComponent<IOutboxComponent<TId>>());
+                    return new ContextEntry(e, e.GetComponent<IOutboxComponent<TId>>(), false);
                 })
-                .ToDictionary(e => e.e.Id, e => e);
+                .ToDictionary(e => e.Process.Id, e => e);
 
+            var isExecuting = LinkContainer.Create(true);
             var currentCycle = LinkContainer.Create(0);
             var cycleLimit = LinkContainer.Create(_options.CycleLimit ?? int.MaxValue);
 
             await SoftTimeoutHelper.ExecuteWithSoftTimeoutAsync(
-                (_serviceProvider, context, currentCycle, cycleLimit),
+                (_serviceProvider, context, isExecuting, currentCycle, cycleLimit),
                 _dateTimeProvider,
                 softTimeout,
                 static (p) => 
-                    p.context.Any() 
+                    p.isExecuting.Data 
                     || p.currentCycle.Data >= p.cycleLimit.Data,
                 static async (p, t) => 
                 {
                     // Отдельный scope для малой транзакции.
                     await using var scope = p._serviceProvider.CreateAsyncScope();
-                    await CycleAsync(scope.ServiceProvider, p.context, t);
+                    await CycleAsync(scope.ServiceProvider, p.context, p.isExecuting, t);
 
                     p.currentCycle.Data++;
                 },
-                cancellationToken);            
+                cancellationToken);
+            
+            foreach (var elem in context.Values)
+            {
+                // Если на момент проверки сообщений не было, то в ожидание.
+                if (elem.NotHaveMessages)
+                {
+                    _processSetter.SetStatus(elem.Process, ProcessStatusEnum.WaitEvent);
+                }
+            }
         }
 
         private static async Task CycleAsync(
             IServiceProvider serviceProvider,
-            Dictionary<TId, (IProcessContainer<TId> Process, IOutboxComponent<TId> Outbox)> context,
+            Dictionary<TId, ContextEntry> context,
+            LinkContainer<bool> isExecuting,
             CancellationToken cancellationToken)
         {
             var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -107,6 +120,12 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             
             await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
             {
+                if (!context.Any())
+                {
+                    isExecuting.Data = false;
+                    return;
+                }
+
                 var messages = await query.LoadMessagesForProcessingAsync(
                     context.Keys,
                     options.TransactionBatchSize,
@@ -114,62 +133,73 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
 
                 if (!messages.Any())
                 {
-                    // Все присутсвующие сообщения обработаны.
-                    foreach (var elem in context.Values)
+                    // Необработанных сообщений нет.
+                    foreach (var elem in context)
                     {
-                        setter.SetStatus(elem.Process, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent);
+                        elem.Value.NotHaveMessages = true;
                     }
-                    context.Clear();
 
+                    isExecuting.Data = false;
                     return;
-                }
+                }                
 
                 var processMessageGroups = messages
                     .GroupBy(e => e.ProcessId)
                     .ToDictionary(e => e.Key, e => e);
-
-                var isLessLimit = false;
-                if (messages.Length < options.TransactionBatchSize)
+                
+                var isLessLimit = messages.Length < options.TransactionBatchSize;
+                if (isLessLimit)
                 {
                     // Часть процессов возможно не содержат сообщений.
-
-                    foreach (var elem in context.Select(e => e.Value))
+                    foreach (var elem in context.Values)
                     {
                         if (!processMessageGroups.ContainsKey(elem.Process.Id))
                         {
-                            setter.SetStatus(elem.Process, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent);
-                            context.Remove(elem.Process.Id);
+                            elem.NotHaveMessages = true;
+                        }
+                        else 
+                        {
+                            elem.NotHaveMessages = false;
                         }
                     }
 
-                    isLessLimit = true;
+                    isExecuting.Data = false;
+                }
+                else 
+                {
+                    // Лимит заполнен, мы не можем сказать, что у кого-то нет сообщений.
+                    foreach (var elem in context.Values)
+                    {
+                        elem.NotHaveMessages = false;
+                    }
                 }
 
                 {
-                    var groupByQueue = context.Values
-                        .GroupBy(e => e.Outbox.Queue)
+                    var haveMessageGroupByQueue = context.Values
+                        .Where(e => processMessageGroups.ContainsKey(e.Process.Id))
+                        .GroupBy(e => e.OutboxComponent.Queue)
                         .ToArray();
 
                     var retryBuffer = new List<ITriggerRepository<TId>.CreateTriggerDto>(context.Count);
-                    foreach (var elem in groupByQueue)
+                    foreach (var elem in haveMessageGroupByQueue)
                     {
                         var queueBatch = elem
                             .SelectMany(
                                 e => processMessageGroups[e.Process.Id]
-                                    .Select(e2 => (e.Process, e.Outbox, Message: e2))
+                                    .Select(e2 => (e.Process, e.OutboxComponent, Message: e2))
                                 )
                             .OrderByDescending(e => e.Message.Priority)
                             .ThenBy(e => e.Message.OrderId)
                                 .Select(e => (
                                     Message: e,
-                                    producerMessage: BuildMessage(headerJsonSerializer, e.Process, e.Outbox, e.Message)
+                                    producerMessage: BuildMessage(headerJsonSerializer, e.Process, e.OutboxComponent, e.Message)
                                     ))
                             .ToArray();
 
-                        var producer = await queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
-                        
                         try
                         {
+                            var producer = await queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
+
                             await producer.ProduceBatchAsync(
                                 queueBatch.Select(e => e.producerMessage).ToArray(),
                                 cancellationToken);
@@ -180,7 +210,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                                 elem2.Message.Message.SendDate = dateTimeProvider.UtcNow;
                             }
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
                             {
@@ -208,7 +238,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
 
                                 context.Remove(elem2.Process.Id);
                             }
-                        }                        
+                        }
                     }
 
                     if (retryBuffer.Any())
@@ -218,37 +248,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                             cancellationToken);
                     }
                 }
-                
-                if (isLessLimit)
-                {
-                    // Сообщений меньше лимита ().
-                    if (options.BreakIfLessLimit)
-                    {
-                        // Считаем что все обработано.
-                        foreach (var elem in context.Values)
-                        {
-                            setter.SetStatus(elem.Process, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent);
-                        }
-                        context.Clear();
-                    }
-                    else 
-                    {
-                        // Дополнительно перепровеем наличие необработанных сообщений.
-                        var messagesExists = await query.NotProcessedMessagesExsistsAsync(context.Keys, cancellationToken);
 
-                        foreach (var elem in context.Values)
-                        {
-                            if (!messagesExists.Contains(elem.Process.Id))
-                            {
-                                setter.SetStatus(elem.Process, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent);
-                                context.Remove(elem.Process.Id);
-                            }
-                        }
-                    }
-                }
-                
                 await query.UpdateMessagesAsync(messages, cancellationToken);
-
                 await transaction.CommitAsync(cancellationToken);
             }
         }
@@ -270,15 +271,31 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
 
         #region
 
+        private class ContextEntry 
+        {
+            public IProcessContainer<TId> Process { get; }
+
+            public IOutboxComponent<TId> OutboxComponent { get; }
+
+            public bool NotHaveMessages { get; set; }
+
+            public ContextEntry(
+                IProcessContainer<TId> process, 
+                IOutboxComponent<TId> outboxComponent, 
+                bool haveNotProcessedMessages)
+            {
+                Process = process;
+                OutboxComponent = outboxComponent;
+                NotHaveMessages = haveNotProcessedMessages;
+            }
+        }
+
         public class OptionsDto 
         {
             public int TransactionBatchSize { get; set; }
                 = 100;
 
             public int? CycleLimit { get; set; }
-
-            public bool BreakIfLessLimit { get; set; } 
-                = true;
         }
 
         public interface IQueries
