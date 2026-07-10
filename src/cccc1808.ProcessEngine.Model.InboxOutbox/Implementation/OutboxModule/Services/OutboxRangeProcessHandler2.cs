@@ -29,7 +29,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
-        private readonly IProcessSetter _processSetter;
         private readonly OptionsDto _options;
 
         public override ExecuteStepByStepGroupMiddleware<TId>.OptionsDto Options { get; }
