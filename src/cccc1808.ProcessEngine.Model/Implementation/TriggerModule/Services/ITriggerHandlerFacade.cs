@@ -51,6 +51,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         /// <summary>
         /// Выполнить пробуждения процесса через wakeup state.
         /// </summary>
+        [Obsolete("Рекомендуется использовать каскад триггеров.")]
         Task ToAsyncExecutingWakeupAsync(
             ICollection<TId> processIds,
             CancellationToken cancellationToken);

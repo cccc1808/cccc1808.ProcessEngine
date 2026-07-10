@@ -74,6 +74,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
 
             {
                 // TODO: Тут можно читать отдельно по индексам, но пока так.
+                // TODO: MVCC concurrency (no wait).
                 var ids = await _dbContext.Set<ProcessDbEntity<TId>>()
                     .Where(e => notFoundIds.Contains(e.Id))
                     .Select(e => new { e.Id, e.Status })
