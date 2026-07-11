@@ -14,13 +14,12 @@
 		<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
 	</PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
-    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.SimpleSchema\cccc1808.ProcessEngine.Model.SimpleSchema.csproj" />
+	<ItemGroup>
+    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.100.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Implementation\Components\" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
   </ItemGroup>
 
 </Project>
