@@ -42,6 +42,7 @@
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj" />
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.SimpleSchema.EF\cccc1808.ProcessEngine.Model.SimpleSchema.EF.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.StaticInstance.EF\cccc1808.ProcessEngine.Model.StaticInstance.EF.csproj" />
   </ItemGroup>
 
   <ItemGroup>

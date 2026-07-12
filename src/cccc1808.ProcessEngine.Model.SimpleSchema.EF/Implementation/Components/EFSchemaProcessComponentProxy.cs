@@ -22,9 +22,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components
 
         public string CurrentTokenId { get => Entity.CurrentTokenId; private set => Entity.CurrentTokenId = value; }
 
-        public bool AutoDetectStreamTriggers => true;
-
-        public object CurrentTokenState { get; set; }
+        public object? CurrentTokenState { get; set; }
 
         public object ProcessState { get; }
 
