@@ -8,14 +8,14 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Entities
 {
-    public class StaticInstanceDeployDbEntity<TId> : IId<TId>
+    public class StaticInstanceDeployDbEntity : IId<short>
     {
-        public TId Id { get; set; }
+        public short Id { get; set; }
 
         public short Version { get; set; }
 
         public StaticInstanceDeployDbEntity(
-            TId id, 
+            short id, 
             short version)
         {
             Id = id;

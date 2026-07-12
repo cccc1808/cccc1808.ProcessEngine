@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Handlers;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Services;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Handlers;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Services;
+using cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Storage.Queries;
+using cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,16 +18,17 @@ namespace cccc1808.ProcessEngine.Model.StaticInstance.EF
     {
         public static IServiceCollection RegistryEFStaticInstance<TId, THandler>(
             this IServiceCollection services,
-            EFStaticInstanceRunner.OptionsDto runnerOptions,
+            StaticInstanceRunner.OptionsDto runnerOptions,
             StaticInstanceDeployRegistrationDto deployRegistration,
             params StaticInstanceProcessRegistrationDto[] processRegistrations
             )
             where THandler : class, IStaticInstanceHandler<TId>
         {
             services
-                .AddScoped<IStaticInstanceDeployService, EFStaticInstanceDeployService<TId>>()
+                .AddScoped<IStaticInstanceDeployService, StaticInstanceDeployService<TId>>()
+                .AddScoped<StaticInstanceDeployService<TId>.IQueries, EFStaticInstanceDeployServiceQueries<TId>>()
                 .AddSingleton<IStaticInstanceRegistry, StaticInstanceRegistry>()
-                .AddTransient<EFStaticInstanceRunner>()
+                .AddTransient<StaticInstanceRunner>()
                 .AddSingleton(runnerOptions)
                 .AddScoped<IStaticInstanceHandler<TId>, THandler>()
                 ;

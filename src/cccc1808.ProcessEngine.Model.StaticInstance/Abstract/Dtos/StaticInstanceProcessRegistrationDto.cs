@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos
+namespace cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos
 {
     /// <summary>
     /// Регистрация статичного процесса.

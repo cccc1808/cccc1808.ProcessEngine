@@ -11,14 +11,14 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Storage.Configuration
 {
-    public class StaticInstanceDeployDbEntityConfiguration<TId>
-        : IEntityTypeConfiguration<StaticInstanceDeployDbEntity<TId>>
+    public class StaticInstanceDeployDbEntityConfiguration
+        : IEntityTypeConfiguration<StaticInstanceDeployDbEntity>
     {
         public string Name { get; set; }
             = "static_instance_deploy";
 
         public void Configure(
-            EntityTypeBuilder<StaticInstanceDeployDbEntity<TId>> builder)
+            EntityTypeBuilder<StaticInstanceDeployDbEntity> builder)
         {
             builder.ToTable(Name);
         }

@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Handlers;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Handlers;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
 {

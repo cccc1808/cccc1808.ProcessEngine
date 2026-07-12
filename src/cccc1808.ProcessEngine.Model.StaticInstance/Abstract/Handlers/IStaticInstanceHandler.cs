@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
 
-namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Handlers
+namespace cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Handlers
 {
     /// <summary>
     /// Пользовательский хендлер.

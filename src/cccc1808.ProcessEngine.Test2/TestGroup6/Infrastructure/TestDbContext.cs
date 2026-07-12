@@ -115,10 +115,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
 
                 // ----------
 
-                modelBuilder.Entity<StaticInstanceDeployDbEntity<Guid>>(
+                modelBuilder.Entity<StaticInstanceDeployDbEntity>(
                     b =>
                     {
-                        new StaticInstanceDeployDbEntityConfiguration<Guid>().Configure(b);
+                        new StaticInstanceDeployDbEntityConfiguration().Configure(b);
                         b.Property(e => e.Id).ValueGeneratedNever();
                     });
 

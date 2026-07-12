@@ -43,6 +43,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "StaticInstance", "StaticIns
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.StaticInstance.EF", "cccc1808.ProcessEngine.Model.StaticInstance.EF\cccc1808.ProcessEngine.Model.StaticInstance.EF.csproj", "{21A5F96A-9F47-42F6-BBEF-C2105A143724}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.StaticInstance", "cccc1808.ProcessEngine.Model.StaticInstance\cccc1808.ProcessEngine.Model.StaticInstance.csproj", "{A603443E-5DFA-4586-BF9D-9E34FC7DC542}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -93,6 +95,10 @@ Global
 		{21A5F96A-9F47-42F6-BBEF-C2105A143724}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{21A5F96A-9F47-42F6-BBEF-C2105A143724}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{21A5F96A-9F47-42F6-BBEF-C2105A143724}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A603443E-5DFA-4586-BF9D-9E34FC7DC542}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A603443E-5DFA-4586-BF9D-9E34FC7DC542}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A603443E-5DFA-4586-BF9D-9E34FC7DC542}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A603443E-5DFA-4586-BF9D-9E34FC7DC542}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -115,6 +121,7 @@ Global
 		{B5DB373E-2F8E-49E7-99A4-5F95F8FDA2DE} = {5C060333-9EB5-4B72-9836-920C41D7ACB0}
 		{B9ACAB50-8A6A-44E3-B7F0-05524BC10A2B} = {C3E60606-347A-4562-8DF0-09C86EAF41C9}
 		{21A5F96A-9F47-42F6-BBEF-C2105A143724} = {B9ACAB50-8A6A-44E3-B7F0-05524BC10A2B}
+		{A603443E-5DFA-4586-BF9D-9E34FC7DC542} = {B9ACAB50-8A6A-44E3-B7F0-05524BC10A2B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4E97EAC5-32FC-450A-92A8-B80C6A5EF637}

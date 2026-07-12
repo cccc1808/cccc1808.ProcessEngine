@@ -23,9 +23,9 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
 using cccc1808.ProcessEngine.Model.StaticInstance.EF;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 
 using Confluent.Kafka;
@@ -188,7 +188,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
 
                 StaticInstanceServiceCollectionExtension.RegistryEFStaticInstance<Guid, StaticInstanceTestHandler>(
                     services,
-                    new EFStaticInstanceRunner.OptionsDto(),
+                    new StaticInstanceRunner.OptionsDto(),
                     new StaticInstanceDeployRegistrationDto(1),
                     new StaticInstanceProcessRegistrationDto(1, string.Empty));
 

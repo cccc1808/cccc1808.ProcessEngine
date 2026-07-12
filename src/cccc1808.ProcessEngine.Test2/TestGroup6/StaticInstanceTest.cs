@@ -5,9 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Services;
 using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Entities;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Services;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure;
 
@@ -39,21 +40,59 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6
         }
 
         [Fact(Timeout = FixtureCollection.TestTimeout)]
-        public async Task Test1()
+        public async Task CreateTest()
         {
-            var processId = Guid.NewGuid();
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var staticInstanceDeployService = scope.ServiceProvider.GetRequiredService<IStaticInstanceDeployService>();
-                staticInstanceDeployService.Validate();
-
-                var runner = scope.ServiceProvider.GetRequiredService<EFStaticInstanceRunner>();
+                var runner = scope.ServiceProvider.GetRequiredService<StaticInstanceRunner>();
                 await runner.RunAsync(CancellationToken.None);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var deploy = await _testService.LoadAsync<StaticInstanceDeployDbEntity<Guid>>(scope.ServiceProvider);
+                var deploy = await _testService.LoadAsync<StaticInstanceDeployDbEntity>(scope.ServiceProvider);
+                deploy.ShouldHaveSingleItem()
+                    .ShouldSatisfyAllConditions(
+                        e => e.Version.ShouldBe((short)1));
+
+                var registration = await _testService.LoadAsync<StaticInstanceRegistrationDbEntity<Guid>>(scope.ServiceProvider);
+                registration.ShouldHaveSingleItem()
+                    .ShouldSatisfyAllConditions(
+                        e => e.ProcessType.ShouldBe(1),
+                        e => e.InstanceKey.ShouldBe(string.Empty));
+
+                var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
+                processes.ShouldHaveSingleItem()
+                    .ShouldSatisfyAllConditions(
+                        e => e.Id.ShouldBe(registration.First().ProcessId),
+                        e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute));
+            }
+        }
+
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        public async Task UpdateEmptyTest()
+        {
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                db.Set<StaticInstanceDeployDbEntity>().Add(
+                    new StaticInstanceDeployDbEntity(
+                        0, 
+                        0
+                        )
+                    );
+                await db.SaveChangesAsync(CancellationToken.None);
+            }
+
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var runner = scope.ServiceProvider.GetRequiredService<StaticInstanceRunner>();
+                await runner.RunAsync(CancellationToken.None);
+            }
+
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var deploy = await _testService.LoadAsync<StaticInstanceDeployDbEntity>(scope.ServiceProvider);
                 deploy.ShouldHaveSingleItem()
                     .ShouldSatisfyAllConditions(
                         e => e.Version.ShouldBe((short)1));

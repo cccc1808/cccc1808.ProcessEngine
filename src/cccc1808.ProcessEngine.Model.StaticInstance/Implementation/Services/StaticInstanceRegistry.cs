@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Services;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Services;
 
-namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Implementation.Services
+namespace cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services
 {
-    internal class StaticInstanceRegistry : IStaticInstanceRegistry
+    public class StaticInstanceRegistry : IStaticInstanceRegistry
     {
         private readonly StaticInstanceDeployRegistrationDto DeployRegistration;
         private readonly IReadOnlySet<StaticInstanceProcessRegistrationDto> ProcessRegistrations;

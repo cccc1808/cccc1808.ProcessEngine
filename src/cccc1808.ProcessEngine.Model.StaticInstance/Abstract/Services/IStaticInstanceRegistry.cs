@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Dtos;
+using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
 
-namespace cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Services
+namespace cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Services
 {
     public interface IStaticInstanceRegistry
     {
