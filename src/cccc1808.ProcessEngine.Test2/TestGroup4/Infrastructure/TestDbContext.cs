@@ -105,6 +105,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         b.Property(e => e.Id).ValueGeneratedNever();
                     });
 
+                modelBuilder.Entity<TriggerEventOffsetInboxDbEntity<Guid>>(
+                    b =>
+                    {
+                        new TriggerEventOffsetInboxDbEntityConfiguration<Guid>().Configure(b);
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                    });
+
                 modelBuilder.Entity<TriggerEventOutboxDbEntity<Guid>>(
                     b =>
                     {

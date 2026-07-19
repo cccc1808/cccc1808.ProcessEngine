@@ -58,7 +58,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                         [
                             (
                                 new AggregateDto("0", "0"),
-                                new MessageDto(
+                                MessageDto.ForSend(
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
@@ -67,7 +67,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                 ),                                
                             (
                                 new AggregateDto("0", "0"),
-                                new MessageDto(
+                                MessageDto.ForSend(
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
@@ -76,7 +76,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                 ),                                
                             (
                                 new AggregateDto("0", "1"),
-                                new MessageDto(
+                                MessageDto.ForSend(
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],

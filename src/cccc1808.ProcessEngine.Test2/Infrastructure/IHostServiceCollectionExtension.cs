@@ -319,6 +319,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             services
                 .AddScoped<TriggerEventRaiser<Guid>>()
+                .AddScoped<ITriggerEventInboxService, EFTriggerEventOffsetInboxService<Guid>>()
                 .AddScoped<ITriggerEventRaiser<Guid>>(s => s.GetRequiredService<TriggerEventRaiser<Guid>>())
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserExceptionDbDecorator<Guid>>()
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()

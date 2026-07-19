@@ -12,7 +12,39 @@ namespace cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto
         string Queue,
         HeaderDto[] Headers, 
         JsonElement Body,
-        int Partition)
+        int Partition,
+        long Offset)
     {
+
+        public static MessageDto ForSend(
+            string Key,
+            string Queue,
+            HeaderDto[] Headers,
+            JsonElement Body,
+            int Partition)
+            => new MessageDto(
+                Key, 
+                Queue, 
+                Headers,
+                Body, 
+                Partition, 
+                -1);
+
+        public static MessageDto FromConsume(
+            string Key,
+            string Queue,
+            HeaderDto[] Headers,
+            JsonElement Body,
+            int Partition,
+            long Offset) 
+            => new MessageDto(
+                Key,
+                Queue,
+                Headers,
+                Body,
+                Partition,
+                Offset);
+
+
     }
 }

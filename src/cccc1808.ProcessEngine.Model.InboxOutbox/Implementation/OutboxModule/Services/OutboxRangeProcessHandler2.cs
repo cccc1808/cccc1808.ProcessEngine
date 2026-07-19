@@ -259,7 +259,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
             IOutboxComponent<TId> outbox,
             IOutboxMessageComponent<TId> messageComponent)
         {
-            return new MessageDto(
+            return MessageDto.ForSend(
                 messageComponent.Key,
                 outbox.Queue,
                 headerJsonSerializer.Deserialize(messageComponent.Headers),

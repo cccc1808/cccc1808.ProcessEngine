@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 
 using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query
 {
@@ -27,17 +28,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
     {
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEFDbContext _dbContext;
         private readonly IEventJsonSerializer _eventJsonSerializer;
 
         public EFTriggerEventRaiserExceptionDbDecoratorQuery(
             IIdGenerator<TId> idGenerator,
             IDateTimeProvider dateTimeProvider,
+            ILockQueryHintStore lockQueryHintStore,
             IEFDbContext dbContext,
             IEventJsonSerializer eventJsonSerializer)
         {
             _idGenerator = idGenerator;
             _dateTimeProvider = dateTimeProvider;
+            _lockQueryHintStore = lockQueryHintStore;
             _dbContext = dbContext;
             _eventJsonSerializer = eventJsonSerializer;
         }
@@ -66,18 +70,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             int batchSize, 
             CancellationToken cancellationToken)
         {
-            // TODO: lock
-            var eventsEntities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
-                .AsNoTracking()
-                .OrderBy(e => e.Timestamp)
-                .Take(batchSize)
-                .ToArrayAsync(cancellationToken);
+            TriggerEventOutboxDbEntity<TId>[] entities;
+            using (_ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+            {
+                entities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+                    .OrderBy(e => e.Timestamp)
+                    .Take(batchSize)
+                    .ToArrayAsync(cancellationToken);
+            }
 
-            await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
-                .Where(e => eventsEntities.Select(e => e.Id).Contains(e.Id))
-                .ExecuteDeleteAsync(cancellationToken);
+            _dbContext.Set<TriggerEventOutboxDbEntity<TId>>().RemoveRange(entities);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return eventsEntities
+            return entities
                 .Select(
                     e => Map(
                         e.Data.Deserialize<TriggerEventOutboxDbEntity<TId>.EventDto>()

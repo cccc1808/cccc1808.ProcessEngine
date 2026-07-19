@@ -42,7 +42,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
 
                 await producer.ProduceBatchAsync(
                     elem
-                        .Select(e => new MessageDto(
+                        .Select(e => MessageDto.ForSend(
                             Key: Guid.NewGuid().ToString(),
                             Queue: e.EventQueue,
                             Headers: [],

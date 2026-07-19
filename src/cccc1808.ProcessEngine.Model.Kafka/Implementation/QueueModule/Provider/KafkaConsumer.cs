@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                     if (consumeResult != null)
                     {
                         consumeBuffer.Add(
-                            new MessageDto(
+                            MessageDto.FromConsume(
                                 consumeResult.Message.Key,
                                 _topic,
                                 consumeResult.Message.Headers
@@ -66,7 +66,8 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                                         )
                                     .ToArray(),
                                 consumeResult.Message.Value,
-                                consumeResult.Partition.Value
+                                consumeResult.Partition.Value,
+                                consumeResult.Offset.Value
                                 ));
                         _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
                     }
@@ -102,7 +103,7 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                     {
                         _lastMessagesByPartition[consumeResult.Partition.Value] = consumeResult.Offset.Value;
 
-                        var message = new MessageDto(
+                        var message = MessageDto.FromConsume(
                             consumeResult.Message.Key,
                             _topic,
                             consumeResult.Message.Headers
@@ -111,7 +112,8 @@ namespace cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider
                                     )
                                 .ToArray(),
                             consumeResult.Message.Value,
-                            consumeResult.Partition.Value
+                            consumeResult.Partition.Value,
+                            consumeResult.Offset.Value
                             );
 
                         if (!onReceivedHandler(parameter, message))

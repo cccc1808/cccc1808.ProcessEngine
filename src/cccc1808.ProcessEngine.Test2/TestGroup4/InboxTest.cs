@@ -79,7 +79,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
 
                 await producer.ProduceBatchAsync(
                     new Message1Dto[] { m1, m2, m3 }
-                        .Select(e => new MessageDto(
+                        .Select(e => MessageDto.ForSend(
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],
@@ -170,7 +170,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
 
                 await producer.ProduceBatchAsync(
                     new Message1Dto[] { m1, m2, m3 }
-                        .Select(e => new MessageDto(
+                        .Select(e => MessageDto.ForSend(
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],

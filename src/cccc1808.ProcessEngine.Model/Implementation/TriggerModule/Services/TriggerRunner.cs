@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
@@ -63,7 +64,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var serializer = serviceProvider.GetRequiredService<IEventJsonSerializer>();
 
                 var receivedMessages = new LinkContainer<int>(0);
-                var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
+                var groupByTrigger = new Dictionary<string, List<(MessageDto, ITriggerEvent)>>();
+                var offsetData = new Dictionary<ITriggerEventInboxService.PartitionKey, ITriggerEventInboxService.PartitionOffset>(2);
                 var recheckProcessStatusBuffer = new Dictionary<string, bool>();
 
                 var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
@@ -81,10 +83,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     {
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
+                        offsetData.Clear();
                         recheckProcessStatusBuffer.Clear();
 
                         await consumer.ConsumeBatchAsync(
-                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger, recheckProcessStatusBuffer),
+                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger, offsetData, recheckProcessStatusBuffer),
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
@@ -94,11 +97,30 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 if (!p.groupByTrigger.TryGetValue(triggerEvent.TriggerKey, out var triggerEvents))
                                 {
                                     // Если нужно, то тут можно сделать пулинг коллекций.
-                                    triggerEvents = new List<ITriggerEvent>(p.consumerQueueOptions.QueueConsumeMessagesLimit / 2);
+                                    triggerEvents = new List<(MessageDto, ITriggerEvent)>(p.consumerQueueOptions.QueueConsumeMessagesLimit / 2);
                                     p.groupByTrigger.Add(triggerEvent.TriggerKey, triggerEvents);
                                 }
-                                triggerEvents.Add(triggerEvent);
+                                triggerEvents.Add((e, triggerEvent));
                                 p.receivedMessages.Data++;
+
+                                // Метаданные смещения kafka для inbox.
+                                var partitionKey = new ITriggerEventInboxService.PartitionKey(e.Queue, e.Partition);
+                                if (!p.offsetData.TryGetValue(partitionKey, out var offset))
+                                {
+                                    p.offsetData.Add(
+                                        partitionKey,
+                                        new ITriggerEventInboxService.PartitionOffset(partitionKey, e.Offset, e.Offset)
+                                        );
+                                }
+                                else 
+                                {
+                                    offset = offset with 
+                                    {
+                                        MinValue = Math.Min(offset.MinValue, e.Offset),
+                                        MaxValue = Math.Max(offset.MaxValue, e.Offset),
+                                    };
+                                    p.offsetData[partitionKey] = offset;
+                                }
 
                                 if (triggerEvent.Kind == TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent)
                                 {
@@ -126,6 +148,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     scope2.ServiceProvider,
                                     eventTypeMismathErrorHandler,
                                     groupByTrigger,
+                                    offsetData,
                                     recheckProcessStatusBuffer,
                                     cancellationToken);
                             }
@@ -183,12 +206,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             static async Task ProcessEventsHandlerAsync(
                 IServiceProvider serviceProvider,
                 Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
-                Dictionary<string, List<ITriggerEvent>> groupByTrigger,
+                Dictionary<string, List<(MessageDto Message, ITriggerEvent TriggerEvent)>> groupByTrigger,
+                Dictionary<ITriggerEventInboxService.PartitionKey, ITriggerEventInboxService.PartitionOffset> offsetData,
                 Dictionary<string, bool> recheckProcessStatusBuffer,
                 CancellationToken cancellationToken)
             {
                 var emergencyOptions = serviceProvider.GetRequiredService<EmergencyTriggerHandler<TId>.OptionsDto>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
+                var eventInbox = serviceProvider.GetRequiredService<ITriggerEventInboxService>();
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
@@ -196,6 +221,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
+                    // Inbox
+                    await eventInbox.FilterMessagesAsync(
+                        groupByTrigger, 
+                        offsetData,
+                        cancellationToken);
+
                     // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке (не содержат долгих операций), иначе тут будет подвисать consumer.
                     var triggers = await repository.LoadTriggerForQueueConsumerAsync(
                         groupByTrigger.Keys,
@@ -255,7 +286,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
-                                        elem,
+                                        elem.TriggerEvent,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
@@ -308,7 +339,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
-                                        elem,
+                                        elem.TriggerEvent,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
@@ -352,7 +383,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 foreach (var elem in p.messages)
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
-                                        elem,
+                                        elem.TriggerEvent,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.emergencyOptions, state, p.now, p.recheckProcessStatusBuffer, p.sendEventsBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
@@ -429,7 +460,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 foreach (var elem2 in elem.Value)
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
-                                        elem2,
+                                        elem2.TriggerEvent,
                                         (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now, p.recheckProcessStatusBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
