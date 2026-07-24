@@ -82,6 +82,7 @@ using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Queries;
@@ -424,6 +425,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ISchemaSerializer, SchemaSerializer>()
                 .AddScoped<IActionStateSerializer, ActionStateSerializer>()
                 .AddScoped<SchemaSingleProcessHandler<Guid>>()
+
+                .AddScoped<ISchemaProcessActionSetter, SchemaProcessActionSetter>()
+                .AddScoped<ISchemaProcessActionSetter.ICommonSetter, SchemaProcessActionSetter.CommonSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IServiceTaskSetter, SchemaProcessActionSetter.ServiceTaskSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IConditionSetter, SchemaProcessActionSetter.ConditionSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.ITimerSetter, SchemaProcessActionSetter.TimerSetterImpl>()
                 ;
 
             foreach (var elem in registrations)

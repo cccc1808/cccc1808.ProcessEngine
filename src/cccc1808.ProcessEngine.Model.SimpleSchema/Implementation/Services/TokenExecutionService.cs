@@ -13,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
@@ -21,6 +22,7 @@ using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 {
@@ -28,6 +30,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         : ITokenExecutionService<TId>
     {
         private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly ISchemaProcessActionSetter _schemaProcessActionSetter;
         private readonly IProcessSetter _processSetter;
         private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
         private readonly IQueries _queries;
@@ -38,6 +41,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
         public TokenExecutionService(
             IDateTimeProvider dateTimeProvider,
+            ISchemaProcessActionSetter schemaProcessActionSetter,
             IProcessSetter processSetter,
             ITriggerEventRaiser<TId> triggerEventRaiser,
             IQueries queries,
@@ -47,6 +51,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             OptionsDto options)
         {
             _dateTimeProvider = dateTimeProvider;
+            _schemaProcessActionSetter = schemaProcessActionSetter;
             _processSetter = processSetter;
             _triggerEventRaiser = triggerEventRaiser;
             _queries = queries;
@@ -202,7 +207,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             static string BuildError(
                 string tokenId,
                 string? actionId,
-                string detail) => $"Ожидается активный токен и дейтсвие. {tokenId}. {actionId}. {detail}";
+                string detail) => $"Ожидается активный токен и действие. {tokenId}. {actionId}. {detail}";
 
             var processData = process.GetComponent<ISchemaProcessComponent>();
             var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
@@ -218,48 +223,68 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             {
                 var action = token.GetAction(conditionActionId);
 
-                switch (action)
-                {
-                    case TimerTokenAction:
-                    case ServiceTaskTokenAction:
+                _schemaProcessActionSetter.CommonSetter.OneOfWithState(
+                    (This: this, BuildError: (Func<string, string, string, string>)BuildError, tokenId, conditionActionId, action),
+                    processData,
+                    action,
+                    activateIfCreate: false,
+                    serviceTaskHandler: static (p, action, state) =>
                         throw new Exception(
-                            BuildError(tokenId, conditionActionId, $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {conditionActionId}"));
-
-                    case ConditionTokenAction conditionTokenAction:
-                        {
-                            if (!processData.TryGetActionState<ConditionActionStateComponent>(conditionActionId, out var state))
-                            {
-                                if (action.ActivatedOnStart)
-                                {
-                                    break;
-                                }
-
+                            p.BuildError(
+                                p.tokenId,
+                                p.conditionActionId,
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}"
+                                )
+                            ),
+                    serviceTaskNotExsistStateHandler: static (p, action) =>
+                        throw new Exception(
+                            p.BuildError(
+                                p.tokenId,
+                                p.conditionActionId,
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}"
+                                )
+                            ),
+                    conditionHandler: static (p, action, state) => 
+                    {
+                        p.This._schemaProcessActionSetter.ConditionSetter.OneOfStatus(
+                            p,
+                            state.Status,
+                            noActivatedHandler: static (p) => 
                                 throw new Exception(
-                                    BuildError(tokenId, conditionActionId, "Действие не запущено."));
-                            }
+                                    p.BuildError(p.tokenId, p.conditionActionId, "Действие не активировано.")),
+                            checkConditionHandler: static (p) => 1,
+                            completeHandler: static (p) =>
+                                throw new Exception(
+                                    BuildError(p.tokenId, p.conditionActionId, "Действие завершено."))
+                                );
 
-                            switch (state.Status)
-                            {
-                                case ConditionActionStateComponent.StatusEnum.NoActivated:
-                                    throw new Exception(
-                                        BuildError(tokenId, conditionActionId, "Действие не активировано."));
-
-                                case ConditionActionStateComponent.StatusEnum.Complete:
-                                    throw new Exception(
-                                        BuildError(tokenId, conditionActionId, "Действие завершено."));
-
-                                case ConditionActionStateComponent.StatusEnum.CheckCondition:
-                                    break;
-
-                                default:
-                                    throw new NotImplementedException(state.Status.ToString());
-                            }
-
-                            break;
+                        return 1;
+                    },
+                    conditionNotExsistStateHandler: static (p, action) => 
+                    {
+                        if (!action.ActivatedOnStart)
+                        {
+                            throw new Exception(
+                                p.BuildError(p.tokenId, p.conditionActionId, "Действие не запущено."));
                         }
-
-                    default: throw new NotImplementedException(action.GetType().FullName);
-                }
+                    },
+                    timerHandler: static (p, action, state) => 
+                    {
+                        throw new Exception(
+                            p.BuildError(
+                                p.tokenId,
+                                p.conditionActionId,
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}")
+                            );
+                    },
+                    timerTaskNotExsistStateHandler: static  (p, action) =>
+                        throw new Exception(
+                            p.BuildError(
+                                p.tokenId,
+                                p.conditionActionId,
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}")
+                            )
+                    );
             }
         }
 
@@ -275,215 +300,36 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             ITokenAction tokenAction,
             CancellationToken cancellationToken)
         {
-            switch (tokenAction)
-            {
-                case TimerTokenAction timerTokenAction:
-                    return await InnerExecuteActionAsync(
-                        process,
-                        component,
-                        processHandler,
-                        token,
-                        timerTokenAction,
-                        cancellationToken);
-
-                case ConditionTokenAction conditionTokenAction:
-                    return await InnerExecuteActionAsync(
-                        process,
-                        component,
-                        processHandler,
-                        token,
-                        conditionTokenAction,
-                        cancellationToken);
-
-                case ServiceTaskTokenAction serviceTaskTokenAction:
-                    return await InnerExecuteActionAsync(
-                        process,
-                        component,
-                        processHandler,
-                        token,
-                        serviceTaskTokenAction,
-                        cancellationToken);
-
-                default:
-                    throw new NotImplementedException(tokenAction.GetType().FullName);
-            }
-        }
-
-        private async ValueTask<ActionResult> InnerExecuteActionAsync(
-            IProcessContainer<TId> process,
-            ISchemaProcessComponent component,
-            ISchemaProcessHandler<TId> processHandler,
-            TokenDto token,
-            TimerTokenAction timerTokenAction,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: false);
-
-            switch (state.Status)
-            {
-                case TimerActionStateComponent.StatusEnum.NoActivated:
-                case TimerActionStateComponent.StatusEnum.Complete:
-                    return ActionResult.EmptyResult();
-
-                case TimerActionStateComponent.StatusEnum.CreatingTimer:
-                    {
-                        state.Date = _dateTimeProvider.UtcNow + timerTokenAction.Duration;
-                        state.Status = TimerActionStateComponent.StatusEnum.WaitingTimer;
-
-                        state.TriggerKey = Guid.NewGuid().ToString();
-                        await _triggerRepository.CreateTriggerAsync(
-                            ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
-                                state.TriggerKey,
-                                state.Date.Value,
-                                process.Id,
-                                isRangeTrigger: true,
-                                handlerKey: _options.TimerTriggerHandler,
-                                priority:
-                                process.Process.Info.Priority,
-                                isActivated: true,
-                                isChildTrigger: true),
-                            cancellationToken);
-
-                        if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
-                        {
-                            processStateWithTriggers.TriggerState.Triggers.Add(
-                                state.TriggerKey,
-                                new TriggerStateContainer.TriggerInfo(
-                                    key: state.TriggerKey,
-                                    isStreamTrigger: false,
-                                    removeTriggerQueueName: _options.AutoRemoveTriggerQueueName,
-                                    removeTokenId: component.CurrentTokenId,
-                                    removeIfTokenMove: true,
-                                    removeIfProcessComplete: true));
-                        }
-
-                        return ActionResult.EmptyResult();
-                    }
-
-                case TimerActionStateComponent.StatusEnum.WaitingTimer:
-                    {
-                        _ = state.Date ?? throw new Exception("[Bug] Дата таймера не может быть пустой у взведенного таймера.");
-
-                        // Условие выполнения действия.
-                        var condition = _dateTimeProvider.UtcNow >= state.Date.Value;
-
-                        if (!condition)
-                        {
-                            return ActionResult.EmptyResult();
-                        }
-
-                        state.Status = TimerActionStateComponent.StatusEnum.Complete;
-                        if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers
-                            && state.TriggerKey is not null)
-                        {
-                            processStateWithTriggers.TriggerState.Triggers.Remove(state.TriggerKey);
-                        }
-
-                        var needAsyncExecuting = false;
-                        if (timerTokenAction.HandlerKey is not null)
-                        {
-                            var executeResult = await processHandler.ExecuteTimerAsync(
-                                new ISchemaProcessHandler<TId>.ExecuteParametersDto(
-                                    timerTokenAction.HandlerKey,
-                                    timerTokenAction.Id,
-                                    process,
-                                    component),
-                                cancellationToken);
-
-                            needAsyncExecuting = ActivateActions(
-                                process,
-                                token,
-                                component,
-                                executeResult.ActivateActions);
-                        }
-
-                        if (timerTokenAction.Transition.HasValue)
-                        {
-                            return TransitionResult(timerTokenAction.Transition.Value);
-                        }
-
-                        // Если была активация, то значит есть что выполнять.
-                        if (needAsyncExecuting)
-                        {
-                            return ActionResult.AsyncExecutingResult();
-                        }
-
-                        return ActionResult.EmptyResult();
-                    }
-
-                default:
-                    throw new NotImplementedException(state.Status.ToString());
-            }
-        }
-
-        private async ValueTask<ActionResult> InnerExecuteActionAsync(
-            IProcessContainer<TId> process,
-            ISchemaProcessComponent component,
-            ISchemaProcessHandler<TId> processHandler,
-            TokenDto token,
-            ConditionTokenAction conditionTokenAction,
-            CancellationToken cancellationToken)
-        {
-            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: false);
-
-            switch (state.Status)
-            {
-                case ConditionActionStateComponent.StatusEnum.NoActivated:
-                case ConditionActionStateComponent.StatusEnum.Complete:
-                    return ActionResult.EmptyResult();
-
-                case ConditionActionStateComponent.StatusEnum.CheckCondition:
-                    {
-                        var result = await processHandler.CheckConditionAsync(
-                            new ISchemaProcessHandler<TId>.ExecuteParametersDto(
-                                conditionTokenAction.CheckHandlerKey,
-                                conditionTokenAction.Id,
-                                process,
-                                component),
-                            cancellationToken);
-
-                        if (!result)
-                        {
-                            return ActionResult.EmptyResult();
-                        }
-
-                        state.Status = ConditionActionStateComponent.StatusEnum.Complete;
-
-                        var needAsyncExecuting = false;
-                        if (conditionTokenAction.ActionHandlerKey is not null)
-                        {
-                            var executeResult = await processHandler.ExecuteConditionHandlerAsync(
-                                new ISchemaProcessHandler<TId>.ExecuteParametersDto(
-                                    conditionTokenAction.ActionHandlerKey,
-                                    conditionTokenAction.Id,
-                                    process,
-                                    component),
-                                cancellationToken);
-
-                            needAsyncExecuting = ActivateActions(
-                                process,
-                                token,
-                                component,
-                                executeResult.ActivateActions);
-                        }
-
-                        if (conditionTokenAction.Transition.HasValue)
-                        {
-                            return TransitionResult(conditionTokenAction.Transition.Value);
-                        }
-
-                        // Если была активация, то значит есть что выполнять.
-                        if (needAsyncExecuting)
-                        {
-                            return ActionResult.AsyncExecutingResult();
-                        }
-
-                        return ActionResult.EmptyResult();
-                    }
-
-                default:
-                    throw new NotImplementedException(state.Status.ToString());
-            }
+            return await _schemaProcessActionSetter.CommonSetter.OneOfWithStateAsync(
+                (This: this, processHandler, process, component, token),
+                component,
+                tokenAction,
+                activateIfCreate: false,
+                serviceTaskHandler: static async (p, action, actionState, t) => await p.This.InnerExecuteActionAsync(
+                    p.process, 
+                    p.component,
+                    p.processHandler,
+                    p.token,
+                    action,
+                    actionState,
+                    t),
+                conditionHandler: static async (p, action, actionState, t) => await p.This.InnerExecuteActionAsync(
+                    p.process,
+                    p.component,
+                    p.processHandler,
+                    p.token,
+                    action,
+                    actionState,
+                    t),
+                timerHandler: static async (p, action, actionState, t) => await p.This.InnerExecuteActionAsync(
+                    p.process,
+                    p.component,
+                    p.processHandler,
+                    p.token,
+                    action,
+                    actionState,
+                    t),
+                cancellationToken);
         }
 
         private async ValueTask<ActionResult> InnerExecuteActionAsync(
@@ -492,57 +338,241 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             ISchemaProcessHandler<TId> processHandler,
             TokenDto token,
             ServiceTaskTokenAction serviceTaskTokenAction,
+            ServiceTaskActionState state,
             CancellationToken cancellationToken)
         {
-            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: false);
+            return await _schemaProcessActionSetter.ServiceTaskSetter.OneOfStatusAsync(
+                (This: this, processHandler, process, component, token, serviceTaskTokenAction, state),
+                state.Status,
+                noActivatedHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                executingHandler: static async (p, t) => 
+                {
+                    var executeResult = await p.processHandler.ExecuteServiceTask(
+                        new ISchemaProcessHandler<TId>.ExecuteParametersDto(
+                            p.serviceTaskTokenAction.HandlerKey,
+                            p.serviceTaskTokenAction.Id,
+                            p.process,
+                            p.component),
+                        t);
 
-            switch (state.Status)
-            {
-                case ServiceTaskActionState.StatusEnum.NoActivated:
-                case ServiceTaskActionState.StatusEnum.Complete:
-                    return ActionResult.EmptyResult();
-
-                case ServiceTaskActionState.StatusEnum.Executing:
+                    var needAsyncExecuting = p.This.ActivateActions(
+                        p.process,
+                        p.token,
+                        p.component,
+                        executeResult.ActivateActions);
+                    
+                    if (!executeResult.IsComplete)
                     {
-                        var executeResult = await processHandler.ExecuteServiceTask(
-                            new ISchemaProcessHandler<TId>.ExecuteParametersDto(
-                                serviceTaskTokenAction.HandlerKey,
-                                serviceTaskTokenAction.Id,
-                                process,
-                                component),
-                            cancellationToken);
+                        // Действие не завершено - асинхронное выполнение продолжается.
+                        return ActionResult.AsyncExecutingResult();
+                    }
 
-                        var needAsyncExecuting = ActivateActions(
-                            process,
-                            token,
-                            component,
-                            executeResult.ActivateActions);
+                    p.This._schemaProcessActionSetter.ServiceTaskSetter.SetStatus(
+                        p.state, 
+                        ServiceTaskActionState.StatusEnum.Complete);
 
-                        if (!executeResult.IsComplete)
-                        {
-                            return ActionResult.AsyncExecutingResult();
-                        }
+                    if (p.serviceTaskTokenAction.Transition.HasValue)
+                    {
+                        return TokenExecutionService<TId>.TransitionResult(p.serviceTaskTokenAction.Transition.Value);
+                    }
 
-                        state.Status = ServiceTaskActionState.StatusEnum.Complete;
+                    // Если была активация, то значит есть что выполнять.
+                    if (needAsyncExecuting)
+                    {
+                        return ActionResult.AsyncExecutingResult();
+                    }
 
-                        if (serviceTaskTokenAction.Transition.HasValue)
-                        {
-                            return TransitionResult(serviceTaskTokenAction.Transition.Value);
-                        }
+                    return ActionResult.EmptyResult();
+                },
+                completeHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                cancellationToken
+                );
+        }
 
-                        // Если была активация, то значит есть что выполнять.
-                        if (needAsyncExecuting)
-                        {
-                            return ActionResult.AsyncExecutingResult();
-                        }
+        private async ValueTask<ActionResult> InnerExecuteActionAsync(
+            IProcessContainer<TId> process,
+            ISchemaProcessComponent component,
+            ISchemaProcessHandler<TId> processHandler,
+            TokenDto token,
+            ConditionTokenAction conditionTokenAction,
+            ConditionActionStateComponent state,
+            CancellationToken cancellationToken)
+        {
+            return await _schemaProcessActionSetter.ConditionSetter.OneOfStatusAsync(
+                (This: this, processHandler, process, component, conditionTokenAction, token, state),
+                state.Status,
+                noActivatedHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                checkConditionHandler: static async (p, t) => 
+                {
+                    var result = await p.processHandler.CheckConditionAsync(
+                        new ISchemaProcessHandler<TId>.ExecuteParametersDto(
+                            p.conditionTokenAction.CheckHandlerKey,
+                            p.conditionTokenAction.Id,
+                            p.process,
+                            p.component),
+                        t);
 
+                    if (!result)
+                    {
                         return ActionResult.EmptyResult();
                     }
 
-                default:
-                    throw new NotImplementedException(state.Status.ToString());
-            }
+                    p.This._schemaProcessActionSetter.ConditionSetter.SetStatus(
+                        p.state,
+                        ConditionActionStateComponent.StatusEnum.Complete);
+
+                    var needAsyncExecuting = false;
+                    if (p.conditionTokenAction.ActionHandlerKey is not null)
+                    {
+                        var executeResult = await p.processHandler.ExecuteConditionHandlerAsync(
+                            new ISchemaProcessHandler<TId>.ExecuteParametersDto(
+                                p.conditionTokenAction.ActionHandlerKey,
+                                p.conditionTokenAction.Id,
+                                p.process,
+                                p.component),
+                            t);
+
+                        needAsyncExecuting = p.This.ActivateActions(
+                            p.process,
+                            p.token,
+                            p.component,
+                            executeResult.ActivateActions);
+                    }
+
+                    if (p.conditionTokenAction.Transition.HasValue)
+                    {
+                        return TransitionResult(p.conditionTokenAction.Transition.Value);
+                    }
+
+                    // Если была активация, то значит есть что выполнять.
+                    if (needAsyncExecuting)
+                    {
+                        return ActionResult.AsyncExecutingResult();
+                    }
+
+                    return ActionResult.EmptyResult();
+                },
+                completeHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                cancellationToken
+                );
         }
+
+        private async ValueTask<ActionResult> InnerExecuteActionAsync(
+            IProcessContainer<TId> process,
+            ISchemaProcessComponent component,
+            ISchemaProcessHandler<TId> processHandler,
+            TokenDto token,
+            TimerTokenAction timerTokenAction,
+            TimerActionStateComponent state,
+            CancellationToken cancellationToken)
+        {
+            return await _schemaProcessActionSetter.TimerSetter.OneOfStatusAsync(
+                (This: this, processHandler, process, component, token, timerTokenAction, state),
+                state.Status,
+                noActivatedHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                creatingTimerHandler: static async (p, t) => 
+                {
+                    var key = Guid.NewGuid().ToString();
+                    var date = p.This._dateTimeProvider.UtcNow + p.timerTokenAction.Duration;
+
+                    p.state.TriggerKey = key;
+                    p.This._schemaProcessActionSetter.TimerSetter.SetTimerDate(
+                        p.state,
+                        date);
+
+                    p.This._schemaProcessActionSetter.TimerSetter.SetStatus(
+                        p.state,
+                        TimerActionStateComponent.StatusEnum.WaitingTimer);
+                    
+                    await p.This._triggerRepository.CreateTriggerAsync(
+                        ITriggerRepository<TId>.CreateTriggerDto.TimerTrigger(
+                            key,
+                            date,
+                            p.process.Id,
+                            isRangeTrigger: true,
+                            handlerKey: p.This._options.TimerTriggerHandler,
+                            priority:
+                            p.process.Process.Info.Priority,
+                            isActivated: true,
+                            isChildTrigger: true),
+                        t);
+
+                    if (p.component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
+                    {
+                        processStateWithTriggers.TriggerState.Triggers.Add(
+                            p.state.TriggerKey,
+                            new TriggerStateContainer.TriggerInfo(
+                                key: p.state.TriggerKey,
+                                isStreamTrigger: false,
+                                removeTriggerQueueName: p.This._options.AutoRemoveTriggerQueueName,
+                                removeTokenId: p.component.CurrentTokenId,
+                                removeIfTokenMove: true,
+                                removeIfProcessComplete: true));
+                    }
+
+                    return ActionResult.EmptyResult();
+                },
+                waitingTimerHandler: static async (p, t) => 
+                {
+                    _ = p.state.Date 
+                        ?? throw new Exception("[Bug] Дата таймера не может быть пустой у взведенного таймера.");
+
+                    // 1) Условие выполнения действия.
+                    var condition = 
+                        p.This._dateTimeProvider.UtcNow >= p.state.Date.Value;
+
+                    if (!condition)
+                    {
+                        return ActionResult.EmptyResult();
+                    }
+
+                    p.This._schemaProcessActionSetter.TimerSetter.SetStatus(
+                        p.state,
+                        TimerActionStateComponent.StatusEnum.Complete);
+
+                    if (p.component.ProcessState is IProcessStateWithTriggers processStateWithTriggers
+                        && p.state.TriggerKey is not null)
+                    {
+                        processStateWithTriggers.TriggerState.Triggers.Remove(p.state.TriggerKey);
+                        p.state.TriggerKey = null;
+                    }
+
+                    // 2) Хендлер.
+                    var needAsyncExecuting = false;
+                    if (p.timerTokenAction.HandlerKey is not null)
+                    {
+                        var executeResult = await p.processHandler.ExecuteTimerAsync(
+                            new ISchemaProcessHandler<TId>.ExecuteParametersDto(
+                                p.timerTokenAction.HandlerKey,
+                                p.timerTokenAction.Id,
+                                p.process,
+                                p.component),
+                            t);
+
+                        needAsyncExecuting = p.This.ActivateActions(
+                            p.process,
+                            p.token,
+                            p.component,
+                            executeResult.ActivateActions);
+                    }
+
+                    if (p.timerTokenAction.Transition.HasValue)
+                    {
+                        return TransitionResult(p.timerTokenAction.Transition.Value);
+                    }
+
+                    // 3) Если была активация, то значит есть что выполнять.
+                    if (needAsyncExecuting)
+                    {
+                        return ActionResult.AsyncExecutingResult();
+                    }
+
+                    return ActionResult.EmptyResult();
+                },
+                completeHandler: static (p, t) => ValueTask.FromResult(ActionResult.EmptyResult()),
+                cancellationToken
+                );
+        }        
 
         #endregion
 
@@ -763,113 +793,23 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             ISchemaProcessComponent processData,
             ITokenAction tokenAction)
         {
-            switch (tokenAction)
-            {
-                case ServiceTaskTokenAction serviceTaskTokenAction:
-                    {
-                        var state = GetOrCreateActionState(processData, serviceTaskTokenAction, isActivate: false);
-
-                        return state.Status
-                            is ServiceTaskActionState.StatusEnum.Executing;
-                    }
-
-                case TimerTokenAction timerTokenAction:
-                    {
-                        var state = GetOrCreateActionState(processData, timerTokenAction, isActivate: false);
-
-                        return state.Status
-                            is TimerActionStateComponent.StatusEnum.CreatingTimer
-                            or TimerActionStateComponent.StatusEnum.WaitingTimer;
-                    }
-
-                case ConditionTokenAction conditionTokenAction:
-                    {
-                        var state = GetOrCreateActionState(processData, conditionTokenAction, isActivate: false);
-
-                        return state.Status
-                            is ConditionActionStateComponent.StatusEnum.CheckCondition;
-                    }
-
-                default:
-                    throw new NotImplementedException(tokenAction.GetType().FullName);
-            }
-        }
-
-        #region GetOrCreateActionState
-
-        private static TimerActionStateComponent GetOrCreateActionState(
-            ISchemaProcessComponent processData,
-            TimerTokenAction tokenAction,
-            bool isActivate)
-        {
-            // Существующий.
-            if (processData.TryGetActionState<TimerActionStateComponent>(tokenAction.Id, out var state))
-            {
-                return state;
-            }
-
-            // Новый.
-            var status = TimerActionStateComponent.StatusEnum.NoActivated;
-            if (tokenAction.ActivatedOnStart || isActivate)
-            {
-                status = TimerActionStateComponent.StatusEnum.CreatingTimer;
-            }
-
-            state = new TimerActionStateComponent(
-                tokenAction.Id,
-                status);
-            processData.AddActionState(state);
-
-            return state;
-        }
-
-        private static ServiceTaskActionState GetOrCreateActionState(
-            ISchemaProcessComponent processData,
-            ServiceTaskTokenAction tokenAction,
-            bool isActivate)
-        {
-            if (processData.TryGetActionState<ServiceTaskActionState>(tokenAction.Id, out var state))
-            {
-                return state;
-            }
-
-            state = new ServiceTaskActionState(
-                tokenAction.Id,
-                tokenAction.ActivatedOnStart || isActivate
-                    ? ServiceTaskActionState.StatusEnum.Executing
-                    : ServiceTaskActionState.StatusEnum.NoActivated);
-            processData.AddActionState(state);
-
-            return state;
-        }
-
-        private static ConditionActionStateComponent GetOrCreateActionState(
-            ISchemaProcessComponent processData,
-            ConditionTokenAction tokenAction,
-            bool isActivate)
-        {
-            // Существующий.
-            if (processData.TryGetActionState<ConditionActionStateComponent>(tokenAction.Id, out var state))
-            {
-                return state;
-            }
-
-            // Новый.
-            var status = ConditionActionStateComponent.StatusEnum.NoActivated;
-            if (tokenAction.ActivatedOnStart || isActivate)
-            {
-                status = ConditionActionStateComponent.StatusEnum.CheckCondition;
-            }
-
-            state = new ConditionActionStateComponent(
-                tokenAction.Id,
-                status);
-            processData.AddActionState(state);
-
-            return state;
-        }
-
-        #endregion
+            return _schemaProcessActionSetter.CommonSetter.OneOfWithState(
+                1,
+                processData,
+                tokenAction,
+                activateIfCreate: false,
+                serviceTaskHandler: static (p, action, actionState) => 
+                    actionState.Status 
+                    is ServiceTaskActionState.StatusEnum.Executing,
+                conditionHandler: static (p, action, actionState) => 
+                    actionState.Status 
+                    is ConditionActionStateComponent.StatusEnum.CheckCondition,
+                timerHandler: static (p, action, actionState) => 
+                    actionState.Status 
+                    is TimerActionStateComponent.StatusEnum.CreatingTimer 
+                    or TimerActionStateComponent.StatusEnum.WaitingTimer
+                    );
+        }        
 
         private static ActionResult TransitionResult(
             in ITokenAction.TransitionDto transition)
@@ -885,13 +825,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             }
         }
 
-        private static bool ActivateActions(
+        /// <summary>
+        /// Активировать указанные действия (если они не активированы).
+        /// </summary>
+        /// <returns></returns>
+        private bool ActivateActions(
             IProcessContainer<TId> process,
             TokenDto token,
             ISchemaProcessComponent component,
             ISchemaProcessHandler.ActivateActionDto[] activateActions)
         {
-            var needAsyncExecute = false;
+            var needAsyncExecute = LinkContainer.Create(false);
 
             foreach (var elem in activateActions)
             {
@@ -902,113 +846,117 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 //}
 
                 var activateAction = token.GetAction(elem.ActionId);
-                switch (activateAction)
-                {
-                    case TimerTokenAction timerTokenAction:
-                        {
-                            var state = GetOrCreateActionState(component, timerTokenAction, isActivate: true);
 
-                            switch (state.Status)
+                _schemaProcessActionSetter.CommonSetter.OneOfWithState(
+                    (_schemaProcessActionSetter, elem, needAsyncExecute),
+                    component,
+                    activateAction,
+                    activateIfCreate: true, // Активируем состояние, если создаем новое.
+                    serviceTaskHandler: static (p, action, actionState) => 
+                    {
+                        p._schemaProcessActionSetter.ServiceTaskSetter.OneOfStatus(
+                            (p._schemaProcessActionSetter.ServiceTaskSetter, p.needAsyncExecute, actionState),
+                            actionState.Status,
+                            noActivatedHandler: static (p) => 
                             {
-                                case TimerActionStateComponent.StatusEnum.NoActivated:
-                                case TimerActionStateComponent.StatusEnum.Complete:
-                                    {
-                                        // Создаем таймер - асинхронное выполнение.
-                                        state.Status = TimerActionStateComponent.StatusEnum.CreatingTimer;
-                                        needAsyncExecute = needAsyncExecute || true;
+                                // В1. Действие запущено - выполняемся.
+                                p.ServiceTaskSetter.SetStatus(p.actionState, ServiceTaskActionState.StatusEnum.Executing);
+                                p.needAsyncExecute.Data = true;
 
-                                        break;
-                                    }
-
-                                case TimerActionStateComponent.StatusEnum.CreatingTimer:
-                                    {
-                                        // Создаем таймер - асинхронное выполнение.
-                                        needAsyncExecute = needAsyncExecute || true;
-
-                                        break;
-                                    }
-
-                                case TimerActionStateComponent.StatusEnum.WaitingTimer:
-                                    {
-                                        // Если таймер уже создан, пусть ждет сигнал.
-                                        needAsyncExecute = needAsyncExecute || false;
-
-                                        break;
-                                    }
-
-                                default:
-                                    throw new NotImplementedException(state.Status.ToString());
-                            }
-
-
-                            break;
-                        }
-
-                    case ConditionTokenAction conditionTokenAction:
-                        {
-                            var state = GetOrCreateActionState(component, conditionTokenAction, isActivate: true);
-
-                            switch (state.Status)
+                                return 1;
+                            },
+                            executingHandler: static (p) => 
                             {
-                                case ConditionActionStateComponent.StatusEnum.NoActivated:
-                                case ConditionActionStateComponent.StatusEnum.Complete:
-                                    {
-                                        state.Status = ConditionActionStateComponent.StatusEnum.CheckCondition;
-                                        // Нужна ли проверка сейчас - как указал параметр.
-                                        needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
+                                // Действие запущено - выполняемся.
+                                p.needAsyncExecute.Data = true;
 
-                                        break;
-                                    }
-
-                                case ConditionActionStateComponent.StatusEnum.CheckCondition:
-                                    {
-                                        // Уже активировано, нужна ли проверка сейчас - как указал параметр.
-                                        needAsyncExecute = needAsyncExecute || elem.AsyncExecuteOrWaitSignal;
-
-                                        break;
-                                    }
-
-                                default:
-                                    throw new NotImplementedException(state.Status.ToString());
-                            }
-
-                            break;
-                        }
-
-                    case ServiceTaskTokenAction serviceTaskTokenAction:
-                        {
-                            var state = GetOrCreateActionState(component, serviceTaskTokenAction, isActivate: true);
-
-                            switch (state.Status)
+                                return 1;
+                            },
+                            completeHandler: static (p) => 
                             {
-                                case ServiceTaskActionState.StatusEnum.NoActivated:
-                                case ServiceTaskActionState.StatusEnum.Complete:
-                                    {
-                                        // Действие запущено - выполняемся.
-                                        state.Status = ServiceTaskActionState.StatusEnum.Executing;
-                                        needAsyncExecute = needAsyncExecute || true;
+                                // В1. Действие запущено - выполняемся.
+                                p.ServiceTaskSetter.SetStatus(p.actionState, ServiceTaskActionState.StatusEnum.Executing);
+                                p.needAsyncExecute.Data = true;
 
-                                        break;
-                                    }
-
-                                case ServiceTaskActionState.StatusEnum.Executing:
-                                    {
-                                        // Действие запущено - выполняемся.
-                                        needAsyncExecute = needAsyncExecute || true;
-
-                                        break;
-                                    }
-
-                                default:
-                                    throw new NotImplementedException(state.Status.ToString());
+                                return 1;
                             }
+                            );
 
-                            break;
-                        }
-                }
+                        return 1;
+                    },
+                    conditionHandler: static (p, action, actionState) => 
+                    {
+                        p._schemaProcessActionSetter.ConditionSetter.OneOfStatus(
+                            (p._schemaProcessActionSetter.ConditionSetter, p.needAsyncExecute, actionState, p.elem),
+                            actionState.Status,
+                            noActivatedHandler: static (p) => 
+                            {
+                                p.ConditionSetter.SetStatus(p.actionState, ConditionActionStateComponent.StatusEnum.CheckCondition);
+                                // В1. Нужна ли проверка сейчас - как указал параметр.
+                                p.needAsyncExecute.Data = p.needAsyncExecute.Data || p.elem.AsyncExecuteOrWaitSignal;
+
+                                return 1;
+                            },
+                            checkConditionHandler: static (p) => 
+                            {
+                                // В2. Уже активировано, нужна ли проверка сейчас - как указал параметр.
+                                p.needAsyncExecute.Data = p.needAsyncExecute.Data || p.elem.AsyncExecuteOrWaitSignal;
+
+                                return 1;
+                            },
+                            completeHandler: static (p) => 
+                            {
+                                p.ConditionSetter.SetStatus(p.actionState, ConditionActionStateComponent.StatusEnum.CheckCondition);
+                                // В1. Нужна ли проверка сейчас - как указал параметр.
+                                p.needAsyncExecute.Data = p.needAsyncExecute.Data || p.elem.AsyncExecuteOrWaitSignal;
+
+                                return 1;
+                            });
+
+                        return 1;
+                    },
+                    timerHandler: static (p, action, actionState) => 
+                    {
+                        p._schemaProcessActionSetter.TimerSetter.OneOfStatus(
+                            (p._schemaProcessActionSetter.TimerSetter, p.needAsyncExecute, actionState),
+                            actionState.Status,
+                            noActivatedHandler: static (p) => 
+                            {
+                                // В1. Создаем таймер - асинхронное выполнение.
+                                p.TimerSetter.SetStatus(p.actionState, TimerActionStateComponent.StatusEnum.CreatingTimer);
+                                p.needAsyncExecute.Data = true;
+
+                                return 1;
+                            },
+                            creatingTimerHandler: static (p) => 
+                            {
+                                // В2. Таймер создается - асинхронное выполнение.
+                                p.needAsyncExecute.Data = true;
+
+                                return 1;
+                            },
+                            waitingTimerHandler: static (p) => 
+                            {
+                                // В3. Таймер уже создан, пусть ждет сигнал.
+                                p.needAsyncExecute.Data = p.needAsyncExecute.Data || false;
+
+                                return 1;
+                            },
+                            completeHandler: static (p) => 
+                            {
+                                // В1. Создаем таймер - асинхронное выполнение.
+                                p.TimerSetter.SetStatus(p.actionState, TimerActionStateComponent.StatusEnum.CreatingTimer);
+                                p.needAsyncExecute.Data = true;
+
+                                return 1;
+                            });
+
+                        return 1;
+                    }
+                    );
             }
 
-            return needAsyncExecute;
+            return needAsyncExecute.Data;
         }
 
         #region types

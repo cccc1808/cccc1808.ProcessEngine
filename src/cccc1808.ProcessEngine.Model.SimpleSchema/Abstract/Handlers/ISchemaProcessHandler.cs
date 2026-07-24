@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers
         /// <param name="ActionId">Идентефикатор действия.</param>
         /// <param name="AsyncExecuteOrWaitSignal">
         /// True - асинхронное выполнение нужно сейчас,
-        /// False - асинхронное выполнение не нужно, ожидается внешний сигнал или воздействие.
+        /// False - асинхронное выполнение не нужно, ожидается внешний сигнал или воздействие (Можно переводить процесс в Wait).
         /// </param>
         public readonly record struct ActivateActionDto(
             string ActionId,
