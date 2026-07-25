@@ -66,7 +66,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers
         public object DeserializeProcessState(JsonElement jsonState)
         {
             var typeContainer = jsonState.Deserialize<TypeContainerDto>();
-            var type = Type.GetType(typeContainer.AssemblyQualifiedName, throwOnError: false);
+            var type = Type.GetType(typeContainer.AssemblyQualifiedName, throwOnError: true);
 
             return jsonState.Deserialize(returnType: type)!;
         }
@@ -74,7 +74,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers
         public object DeserializeTokenState(string currentTokenId, JsonElement jsonState)
         {
             var typeContainer = jsonState.Deserialize<TypeContainerDto>();
-            var type = Type.GetType(typeContainer.AssemblyQualifiedName, throwOnError: false);
+            var type = Type.GetType(typeContainer.AssemblyQualifiedName, throwOnError: true);
 
             return jsonState.Deserialize(returnType: type)!;
         }

@@ -20,7 +20,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers
             return document.RootElement.Clone();
         }
 
-        public static JsonElement Empty { get; }
+        public static JsonElement EmptyObject { get; }
             = ToJsonElement(new { });
+
+        public static JsonElement EmptyArray { get; }
+            = ToJsonElement(Array.Empty<int>());
     }
 }

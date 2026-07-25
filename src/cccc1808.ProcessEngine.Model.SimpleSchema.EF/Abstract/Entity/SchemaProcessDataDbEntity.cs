@@ -48,7 +48,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity
             ProcessId = processId;
             RootTriggerKey = rootTriggerKey;
             CurrentTokenId = currentTokenId;
-            CurrentTokenActionState = JsonHelper.ToJsonElement(Array.Empty<int>());
+            CurrentTokenActionState = JsonHelper.EmptyArray;
             CurrentTokenState = null;
             ProcessState = null;
         }

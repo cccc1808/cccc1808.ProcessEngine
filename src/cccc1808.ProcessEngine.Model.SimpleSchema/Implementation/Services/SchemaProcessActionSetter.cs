@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component.ActionComponent;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Dto.TokenActions;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
@@ -39,6 +40,47 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         public class CommonSetterImpl 
             : ISchemaProcessActionSetter.ICommonSetter
         {
+            public TokenActionKindEnum GetKind(ITokenAction tokenAction)
+            {
+                return tokenAction switch 
+                {
+                    ServiceTaskTokenAction => TokenActionKindEnum.ServiceTask,
+                    ConditionTokenAction => TokenActionKindEnum.Condition,
+                    TimerTokenAction => TokenActionKindEnum.Timer,
+
+                    _ => throw new NotImplementedException(tokenAction.GetType().FullName)
+                };
+            }
+
+            public TokenActionKindEnum GetKind(ITokenActionStateComponent tokenActionState)
+            {
+                return tokenActionState switch
+                {
+                    ServiceTaskActionState => TokenActionKindEnum.ServiceTask,
+                    ConditionActionStateComponent => TokenActionKindEnum.Condition,
+                    TimerActionStateComponent => TokenActionKindEnum.Timer,
+
+                    _ => throw new NotImplementedException(tokenActionState.GetType().FullName)
+                };
+            }
+
+            public TResult OneOfKind<TParameter, TResult>(
+                TParameter paramter, 
+                TokenActionKindEnum kind,
+                Func<TParameter, TResult> serviceTaskHandler,
+                Func<TParameter, TResult> conditionHandler,
+                Func<TParameter, TResult> timerHandler)
+            {
+                return kind switch 
+                {
+                    TokenActionKindEnum.ServiceTask => serviceTaskHandler(paramter),
+                    TokenActionKindEnum.Condition => conditionHandler(paramter),
+                    TokenActionKindEnum.Timer => timerHandler(paramter),
+
+                    _ => throw new NotImplementedException(kind.ToString())
+                };
+            }
+
             public TResult OneOf<TParameter, TResult>(
                 TParameter parameter,
                 ITokenAction tokenAction, 
@@ -54,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
                     _ => throw new NotImplementedException(tokenAction.GetType().FullName)
                 };
-            }
+            }            
 
             public TResult OneOfWithState<TParameter, TResult>(
                 TParameter parameter, 

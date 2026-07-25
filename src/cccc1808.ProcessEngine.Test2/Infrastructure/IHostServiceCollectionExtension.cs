@@ -438,10 +438,10 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddSingleton(elem);
 
                 services.AddScoped(elem.ProcessHandlerType);
-                services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+                //// services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
 
                 services.TryAddScoped(elem.ProcessStateHandlerType);
-                services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
+                ////  services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
             }
 
             return services;

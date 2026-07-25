@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component.ActionComponent;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Dto.TokenActions;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service
 {
@@ -25,12 +26,25 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service
 
         public interface ICommonSetter
         {
+            TokenActionKindEnum GetKind(
+                ITokenAction tokenAction);
+
+            TokenActionKindEnum GetKind(
+                ITokenActionStateComponent tokenActionState);
+
+            TResult OneOfKind<TParameter, TResult>(
+                TParameter paramter,
+                TokenActionKindEnum kind,
+                Func<TParameter, TResult> serviceTaskHandler,
+                Func<TParameter, TResult> conditionHandler,
+                Func<TParameter, TResult> timerHandler);
+
             TResult OneOf<TParameter, TResult>(
                 TParameter parameter,
                 ITokenAction tokenAction,
                 Func<TParameter, ServiceTaskTokenAction, TResult> serviceTaskHandler,
                 Func<TParameter, ConditionTokenAction, TResult> conditionHandler,
-                Func<TParameter, TimerTokenAction, TResult> timerHandler);
+                Func<TParameter, TimerTokenAction, TResult> timerHandler);            
 
             TResult OneOfWithState<TParameter, TResult>(
                 TParameter parameter,

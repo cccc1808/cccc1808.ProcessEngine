@@ -233,7 +233,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.BuildError(
                                 p.tokenId,
                                 p.conditionActionId,
-                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}"
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указано действие {action.GetType().Name}. {p.conditionActionId}"
                                 )
                             ),
                     serviceTaskNotExsistStateHandler: static (p, action) =>
@@ -241,7 +241,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.BuildError(
                                 p.tokenId,
                                 p.conditionActionId,
-                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}"
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указано действие {action.GetType().Name}. {p.conditionActionId}"
                                 )
                             ),
                     conditionHandler: static (p, action, state) => 
@@ -274,7 +274,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.BuildError(
                                 p.tokenId,
                                 p.conditionActionId,
-                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}")
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указано действие {action.GetType().Name}. {p.conditionActionId}")
                             );
                     },
                     timerTaskNotExsistStateHandler: static  (p, action) =>
@@ -282,7 +282,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.BuildError(
                                 p.tokenId,
                                 p.conditionActionId,
-                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указанно действие {action.GetType().Name}. {p.conditionActionId}")
+                                $"Валидировать можно только {nameof(ConditionTokenAction)}. Указано действие {action.GetType().Name}. {p.conditionActionId}")
                             )
                     );
             }
@@ -500,9 +500,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                     if (p.component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
                     {
                         processStateWithTriggers.TriggerState.Triggers.Add(
-                            p.state.TriggerKey,
+                            key,
                             new TriggerStateContainer.TriggerInfo(
-                                key: p.state.TriggerKey,
+                                key: key,
                                 isStreamTrigger: false,
                                 removeTriggerQueueName: p.This._options.AutoRemoveTriggerQueueName,
                                 removeTokenId: p.component.CurrentTokenId,
