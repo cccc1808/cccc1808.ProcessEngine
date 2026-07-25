@@ -77,6 +77,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers
                 bool asyncExecuteOrWaitSignal)
                 => new ActivateActionDto(actionId, asyncExecuteOrWaitSignal);
         }
+
+        //public readonly record struct CompleteActionDto(
+        //    string ActionId);
     }
 
     public interface ISchemaProcessHandler<TId> : ISchemaProcessHandler

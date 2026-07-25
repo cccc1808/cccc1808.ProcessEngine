@@ -11,11 +11,9 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component.ActionComponent;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
@@ -32,10 +30,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ISchemaProcessActionSetter _schemaProcessActionSetter;
         private readonly IProcessSetter _processSetter;
-        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
         private readonly IQueries _queries;
         private readonly ITriggerRepository<TId> _triggerRepository;
         private readonly ISchemaService<TId> _schemaService;
+        private readonly ITriggerStateService<TId> _triggerStateService;
 
         private readonly OptionsDto _options;
 
@@ -43,20 +41,20 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             IDateTimeProvider dateTimeProvider,
             ISchemaProcessActionSetter schemaProcessActionSetter,
             IProcessSetter processSetter,
-            ITriggerEventRaiser<TId> triggerEventRaiser,
             IQueries queries,
             ITriggerRepository<TId> triggerRepository,
             ISchemaService<TId> schemaService,
+            ITriggerStateService<TId> triggerStateService,
 
             OptionsDto options)
         {
             _dateTimeProvider = dateTimeProvider;
             _schemaProcessActionSetter = schemaProcessActionSetter;
             _processSetter = processSetter;
-            _triggerEventRaiser = triggerEventRaiser;
             _queries = queries;
             _triggerRepository = triggerRepository;
             _schemaService = schemaService;
+            _triggerStateService = triggerStateService;
 
             _options = options;
         }
@@ -371,6 +369,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                         p.state, 
                         ServiceTaskActionState.StatusEnum.Complete);
 
+                    await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(
+                        p.process,
+                        p.serviceTaskTokenAction.Id,
+                        t);
+
                     if (p.serviceTaskTokenAction.Transition.HasValue)
                     {
                         return TokenExecutionService<TId>.TransitionResult(p.serviceTaskTokenAction.Transition.Value);
@@ -419,7 +422,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
                     p.This._schemaProcessActionSetter.ConditionSetter.SetStatus(
                         p.state,
-                        ConditionActionStateComponent.StatusEnum.Complete);
+                        ConditionActionStateComponent.StatusEnum.Complete);                    
 
                     var needAsyncExecuting = false;
                     if (p.conditionTokenAction.ActionHandlerKey is not null)
@@ -438,6 +441,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.component,
                             executeResult.ActivateActions);
                     }
+
+                    await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(
+                        p.process,
+                        p.conditionTokenAction.Id,
+                        t);
 
                     if (p.conditionTokenAction.Transition.HasValue)
                     {
@@ -505,6 +513,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 key: key,
                                 isStreamTrigger: false,
                                 removeTriggerQueueName: p.This._options.AutoRemoveTriggerQueueName,
+                                removeIfActionComplete: true,
+                                removeActionIds: [p.timerTokenAction.Id],
                                 removeTokenId: p.component.CurrentTokenId,
                                 removeIfTokenMove: true,
                                 removeIfProcessComplete: true));
@@ -528,15 +538,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
                     p.This._schemaProcessActionSetter.TimerSetter.SetStatus(
                         p.state,
-                        TimerActionStateComponent.StatusEnum.Complete);
+                        TimerActionStateComponent.StatusEnum.Complete);                    
 
                     if (p.component.ProcessState is IProcessStateWithTriggers processStateWithTriggers
                         && p.state.TriggerKey is not null)
                     {
                         processStateWithTriggers.TriggerState.Triggers.Remove(p.state.TriggerKey);
                         p.state.TriggerKey = null;
-                    }
 
+                        // await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(p.process, p.timerTokenAction.Id, t);
+                    }
+                    
                     // 2) Хендлер.
                     var needAsyncExecuting = false;
                     if (p.timerTokenAction.HandlerKey is not null)
@@ -598,48 +610,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             //        );
             //}
 
-            static async ValueTask RemoveTriggersAsync(
-                TokenExecutionService<TId> This,
-                IProcessContainer<TId> process,
-                ISchemaProcessComponent component,
-                TokenDto token,
-                bool isMoveOrComplete,
-                CancellationToken cancellationToken)
-            {
-                if (component.ProcessState is IProcessStateWithTriggers processStateWithTriggers)
-                {
-                    var forRemove = isMoveOrComplete
-                        ? processStateWithTriggers.TriggerState.Triggers.Values
-                            .Where(e =>
-                                e.RemoveIfTokenMove
-                                && (e.RemoveTokenId is null || e.RemoveTokenId == component.CurrentTokenId))
-                            .ToArray()
-                        : processStateWithTriggers.TriggerState.Triggers.Values
-                            .Where(e => e.RemoveIfProcessComplete)
-                            .ToArray();
-
-                    if (!forRemove.Any())
-                    {
-                        return;
-                    }
-
-                    await This._triggerEventRaiser.RaiseAsync(
-                        forRemove
-                            .Select(e => new ITriggerEventRaiser<TId>.RaiseContainer(
-                                e.RemoveTriggerQueueName,
-                                process.Id,
-                                new RemoveTriggerEvent(e.Key))
-                            )
-                            .ToArray(),
-                        cancellationToken);
-
-                    foreach (var elem in forRemove)
-                    {
-                        processStateWithTriggers.TriggerState.Triggers.Remove(elem.Key);
-                    }
-                }
-            }
-
             static async ValueTask NotifySteamTriggersAsync(
                 TokenExecutionService<TId> This,
                 IProcessContainer<TId> process,
@@ -690,12 +660,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             if (result.MoveTokenId is not null)
             {
                 // Автоматическое удаление триггеров при изменении токена.
-                await RemoveTriggersAsync(
-                    this,
+                await _triggerStateService.RemoveTriggersMoveToken(
                     process,
-                    component,
-                    token,
-                    isMoveOrComplete: true,
+                    component.CurrentTokenId,
                     cancellationToken);
 
                 // Меняем токен.
@@ -715,13 +682,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             if (result.IsComplete)
             {
                 // Автоматическое удаление триггеров при завершении процесса.
-                await RemoveTriggersAsync(
-                    this,
-                    process,
-                    component,
-                    token,
-                    isMoveOrComplete: false,
-                    cancellationToken);
+                await _triggerStateService.RemoveTriggersProcessCompleteAsync(process, cancellationToken);
 
                 // Завершение процесса.
                 component.MoveToken(
@@ -958,6 +919,69 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
             return needAsyncExecute.Data;
         }
+
+        //private async ValueTask CompleteActionsAsync(
+        //    IProcessContainer<TId> process,
+        //    TokenDto token,
+        //    ISchemaProcessComponent component,
+        //    ISchemaProcessHandler.CompleteActionDto[] completeActions,
+        //    CancellationToken cancellationToken)
+        //{
+        //    var events = new List<ITriggerEventRaiser<TId>.RaiseContainer>(5);
+
+        //    foreach (var elem in completeActions)
+        //    {
+        //        var action = token.GetAction(elem.ActionId);
+        //        _schemaProcessActionSetter.CommonSetter.OneOfWithStateAsync(
+        //            (1, This: this, events, process, component, elem),
+        //            component,
+        //            action,
+        //            activateIfCreate: false,
+        //            serviceTaskHandler: static (p, action, state, t) => 
+        //            {
+        //                p.This._schemaProcessActionSetter.ServiceTaskSetter.OneOfStatus(state.Status);
+        //                return ValueTask.FromResult(1);
+        //            },
+        //            conditionHandler: static (p, action, state, t) =>
+        //            {
+        //                p.This._schemaProcessActionSetter.ConditionSetter.OneOfStatusAsync(
+        //                    (This: p.This, p.events, state, p.elem),
+        //                    state.Status,
+        //                    noActivatedHandler: (p) => ValueTask.FromResult(1),
+        //                    checkConditionHandler: (p) => ValueTask.FromResult());
+        //            },
+        //            timerHandler: static async (p, action, state, t) => 
+        //            {
+        //                await p.This._schemaProcessActionSetter.TimerSetter.OneOfStatusAsync(
+        //                    (This: p.This, p.process, p.component, state, p.elem), 
+        //                    state.Status,
+        //                    noActivatedHandler: static (p, t) => ValueTask.FromResult(1),
+        //                    creatingTimerHandler: (p, t) => 
+        //                    {
+        //                        p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
+        //                        return ValueTask.FromResult(1);
+        //                    },
+        //                    waitingTimerHandler: static async (p, t) => 
+        //                    {
+        //                        p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
+        //                        await p.This.RemoveActionTriggersAsync(p.process, p.component, p.elem.ActionId);
+
+        //                        return 1;
+        //                    },
+        //                    completeHandler: static (p, t) => ValueTask.FromResult(1),
+        //                    t);
+
+        //                return 1;
+        //            },
+        //            cancellationToken                   
+        //            );
+        //    }
+
+        //    if (events.Any())
+        //    {
+        //        await _triggerEventRaiser.RaiseAsync(events, cancellationToken);
+        //    }
+        //}
 
         #region types
 

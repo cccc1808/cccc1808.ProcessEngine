@@ -417,6 +417,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<ISchemaService<Guid>, SchemaService<Guid>>()
                 .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
+
+                .AddScoped<ITriggerStateService<Guid>, TriggerStateService<Guid>>()
                 
                 .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
                 .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()
