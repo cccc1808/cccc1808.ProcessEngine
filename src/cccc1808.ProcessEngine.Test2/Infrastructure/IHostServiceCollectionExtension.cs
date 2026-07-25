@@ -409,6 +409,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddSchemaProcess(
             this IServiceCollection services,
             TokenExecutionService<Guid>.OptionsDto tokenExecutionOptions,
+            TriggerStateService<Guid>.OptionsDto triggerStateOptions,
             params SchemaProcessRegistrationDto[] registrations)
         {
             services
@@ -419,6 +420,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
 
                 .AddScoped<ITriggerStateService<Guid>, TriggerStateService<Guid>>()
+                .AddSingleton(triggerStateOptions)
                 
                 .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
                 .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()

@@ -353,10 +353,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.component),
                         t);
 
+                    await p.This.CompleteActionsAsync(
+                        p.process,
+                        p.component,
+                        p.token,
+                        executeResult.CompleteActions,
+                        t);
+
                     var needAsyncExecuting = p.This.ActivateActions(
                         p.process,
-                        p.token,
                         p.component,
+                        p.token,
                         executeResult.ActivateActions);
                     
                     if (!executeResult.IsComplete)
@@ -435,10 +442,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 p.component),
                             t);
 
+                        await p.This.CompleteActionsAsync(
+                            p.process,
+                            p.component,
+                            p.token,
+                            executeResult.CompleteActions,
+                            t);
+
                         needAsyncExecuting = p.This.ActivateActions(
                             p.process,
-                            p.token,
                             p.component,
+                            p.token,
                             executeResult.ActivateActions);
                     }
 
@@ -512,7 +526,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             new TriggerStateContainer.TriggerInfo(
                                 key: key,
                                 isStreamTrigger: false,
-                                removeTriggerQueueName: p.This._options.AutoRemoveTriggerQueueName,
                                 removeIfActionComplete: true,
                                 removeActionIds: [p.timerTokenAction.Id],
                                 removeTokenId: p.component.CurrentTokenId,
@@ -540,13 +553,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                         p.state,
                         TimerActionStateComponent.StatusEnum.Complete);                    
 
-                    if (p.component.ProcessState is IProcessStateWithTriggers processStateWithTriggers
-                        && p.state.TriggerKey is not null)
+                    if (p.state.TriggerKey is not null)
                     {
-                        processStateWithTriggers.TriggerState.Triggers.Remove(p.state.TriggerKey);
+                        await p.This._triggerStateService.RemoveTriggerAsync(
+                            p.process, 
+                            p.state.TriggerKey, 
+                            removeEvent: false, // Если мы попали сюда, то значит таймер сработал - событие не нужно.
+                            t);
                         p.state.TriggerKey = null;
-
-                        // await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(p.process, p.timerTokenAction.Id, t);
                     }
                     
                     // 2) Хендлер.
@@ -561,10 +575,17 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                                 p.component),
                             t);
 
+                        await p.This.CompleteActionsAsync(
+                            p.process, 
+                            p.component, 
+                            p.token, 
+                            executeResult.CompleteActions,
+                            t);
+
                         needAsyncExecuting = p.This.ActivateActions(
                             p.process,
-                            p.token,
                             p.component,
+                            p.token,                            
                             executeResult.ActivateActions);
                     }
 
@@ -792,8 +813,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         /// <returns></returns>
         private bool ActivateActions(
             IProcessContainer<TId> process,
-            TokenDto token,
             ISchemaProcessComponent component,
+            TokenDto token,            
             ISchemaProcessHandler.ActivateActionDto[] activateActions)
         {
             var needAsyncExecute = LinkContainer.Create(false);
@@ -920,68 +941,94 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             return needAsyncExecute.Data;
         }
 
-        //private async ValueTask CompleteActionsAsync(
-        //    IProcessContainer<TId> process,
-        //    TokenDto token,
-        //    ISchemaProcessComponent component,
-        //    ISchemaProcessHandler.CompleteActionDto[] completeActions,
-        //    CancellationToken cancellationToken)
-        //{
-        //    var events = new List<ITriggerEventRaiser<TId>.RaiseContainer>(5);
+        /// <summary>
+        /// Завершить указанные действия (если они выполняются).
+        /// Хендлер действия не вызывается.
+        /// </summary>
+        private async ValueTask CompleteActionsAsync(
+            IProcessContainer<TId> process,
+            ISchemaProcessComponent component,
+            TokenDto token,            
+            ISchemaProcessHandler.CompleteActionDto[] completeActions,
+            CancellationToken cancellationToken)
+        {
+            // TODO: валидация возможности завершения.
 
-        //    foreach (var elem in completeActions)
-        //    {
-        //        var action = token.GetAction(elem.ActionId);
-        //        _schemaProcessActionSetter.CommonSetter.OneOfWithStateAsync(
-        //            (1, This: this, events, process, component, elem),
-        //            component,
-        //            action,
-        //            activateIfCreate: false,
-        //            serviceTaskHandler: static (p, action, state, t) => 
-        //            {
-        //                p.This._schemaProcessActionSetter.ServiceTaskSetter.OneOfStatus(state.Status);
-        //                return ValueTask.FromResult(1);
-        //            },
-        //            conditionHandler: static (p, action, state, t) =>
-        //            {
-        //                p.This._schemaProcessActionSetter.ConditionSetter.OneOfStatusAsync(
-        //                    (This: p.This, p.events, state, p.elem),
-        //                    state.Status,
-        //                    noActivatedHandler: (p) => ValueTask.FromResult(1),
-        //                    checkConditionHandler: (p) => ValueTask.FromResult());
-        //            },
-        //            timerHandler: static async (p, action, state, t) => 
-        //            {
-        //                await p.This._schemaProcessActionSetter.TimerSetter.OneOfStatusAsync(
-        //                    (This: p.This, p.process, p.component, state, p.elem), 
-        //                    state.Status,
-        //                    noActivatedHandler: static (p, t) => ValueTask.FromResult(1),
-        //                    creatingTimerHandler: (p, t) => 
-        //                    {
-        //                        p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
-        //                        return ValueTask.FromResult(1);
-        //                    },
-        //                    waitingTimerHandler: static async (p, t) => 
-        //                    {
-        //                        p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
-        //                        await p.This.RemoveActionTriggersAsync(p.process, p.component, p.elem.ActionId);
+            foreach (var elem in completeActions)
+            {
+                var action = token.GetAction(elem.ActionId);
+                await _schemaProcessActionSetter.CommonSetter.OneOfWithStateAsync(
+                    (This: this, process, component, elem),
+                    component,
+                    action,
+                    activateIfCreate: false,
+                    serviceTaskHandler: static async (p, action, state, t) =>
+                    {
+                        await p.This._schemaProcessActionSetter.ServiceTaskSetter.OneOfStatusAsync(
+                            (This: p.This, p.process, p.component, p.elem, state), 
+                            state.Status,
+                            noActivatedHandler: static (p, t) => ValueTask.FromResult(1),
+                            executingHandler: static async (p, t) => 
+                            {
+                                p.This._schemaProcessActionSetter.ServiceTaskSetter.SetStatus(p.state, ServiceTaskActionState.StatusEnum.Complete);
+                                await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(p.process, p.state.Id, t);
 
-        //                        return 1;
-        //                    },
-        //                    completeHandler: static (p, t) => ValueTask.FromResult(1),
-        //                    t);
+                                return 1;
+                            },
+                            completeHandler: static (p, t) => ValueTask.FromResult(1),
+                            t);
+                        return 1;
+                    },
+                    conditionHandler: static async (p, action, state, t) =>
+                    {
+                        await p.This._schemaProcessActionSetter.ConditionSetter.OneOfStatusAsync(
+                            (This: p.This, p.process, p.component, p.elem, state),
+                            state.Status,
+                            noActivatedHandler: static (p, t) => ValueTask.FromResult(1),
+                            checkConditionHandler: static async (p, t) => 
+                            {
+                                p.This._schemaProcessActionSetter.ConditionSetter.SetStatus(p.state, ConditionActionStateComponent.StatusEnum.Complete);
+                                await p.This._triggerStateService.RemoveTriggerActionCompleteAsync(p.process, p.state.Id, t);
 
-        //                return 1;
-        //            },
-        //            cancellationToken                   
-        //            );
-        //    }
+                                return 1;
+                            },
+                            completeHandler: static  (p, t) => ValueTask.FromResult(1),
+                            t);
 
-        //    if (events.Any())
-        //    {
-        //        await _triggerEventRaiser.RaiseAsync(events, cancellationToken);
-        //    }
-        //}
+                        return 1;
+                    },
+                    timerHandler: static async (p, action, state, t) =>
+                    {
+                        await p.This._schemaProcessActionSetter.TimerSetter.OneOfStatusAsync(
+                            (This: p.This, p.process, p.component, state, p.elem),
+                            state.Status,
+                            noActivatedHandler: static (p, t) => ValueTask.FromResult(1),
+                            creatingTimerHandler: (p, t) =>
+                            {
+                                p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
+                                return ValueTask.FromResult(1);
+                            },
+                            waitingTimerHandler: static async (p, t) =>
+                            {
+                                p.This._schemaProcessActionSetter.TimerSetter.SetStatus(p.state, TimerActionStateComponent.StatusEnum.Complete);
+
+                                if (p.state.TriggerKey != null)
+                                {
+                                    await p.This._triggerStateService.RemoveTriggerAsync(p.process, p.state.TriggerKey, removeEvent: true, t);
+                                    p.state.TriggerKey = null;
+                                }
+
+                                return 1;
+                            },
+                            completeHandler: static (p, t) => ValueTask.FromResult(1),
+                            t);
+
+                        return 1;
+                    },
+                    cancellationToken
+                    );
+            }
+        }
 
         #region types
 
@@ -1050,9 +1097,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         {
             public required string TimerTriggerHandler { get; set; }
 
-            public required string GoWaitTriggerQueueName { get; set; }
-
-            public required string AutoRemoveTriggerQueueName { get; set; }
+            public required string GoWaitTriggerQueueName { get; set; }            
 
             public required NotifyStreamTrigggersPolicy NotifyStreamTrigggersPolicy { get; set; }
         }

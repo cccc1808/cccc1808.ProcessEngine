@@ -24,8 +24,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             /// </summary>
             public bool IsStreamTrigger { get; init; }
 
-            public string RemoveTriggerQueueName { get; init; }
-
             /// <summary>
             /// Удалить триггер при завершении любого из указанных действий.
             /// </summary>
@@ -48,7 +46,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             public TriggerInfo(
                 string key,
                 bool isStreamTrigger,
-                string removeTriggerQueueName,
 
                 bool removeIfTokenMove,
                 string? removeTokenId,
@@ -60,7 +57,6 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             {
                 Key = key;
                 IsStreamTrigger = isStreamTrigger;
-                RemoveTriggerQueueName = removeTriggerQueueName;
 
                 RemoveIfTokenMove = removeIfTokenMove;
                 RemoveTokenId = removeTokenId;

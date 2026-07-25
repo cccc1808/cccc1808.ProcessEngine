@@ -14,33 +14,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
 {
     internal class TestSchemaProcessHandler : BaseSchemaProcessHandler<Guid>
     {
-        public TestSchemaProcessHandler() : 
-            base()
-        {
-            RegistryServiceTask("1", TestActionAsync);
-        }
-
-        private ISchemaProcessHandler.ExecuteServiceTaskResult TestActionAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
-        {
-            return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
-                isComplete: true);
-        }
-
         public static ProcessSchemaDto Schema { get; }
             = new ProcessSchemaDto(
                 "1",
                 [
                     new TokenDto(
-                        "1", 
+                        "1",
                         new ServiceTaskTokenAction("1", handlerKey: "1")
                         {
                             Transition = ITokenAction.TransitionDto.Target("2"),
                         }
                         ),
                     new TokenDto(
-                        "2", 
+                        "2",
                         new TimerTokenAction("1", TimeSpan.Zero)
                         {
                             Transition = ITokenAction.TransitionDto.Complete(),
@@ -50,5 +36,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1
 
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(1, 1);
+
+        public TestSchemaProcessHandler() : 
+            base()
+        {
+            RegistryServiceTask("1", TestAction);
+        }
+
+        private ISchemaProcessHandler.ExecuteServiceTaskResult TestAction(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
+        {
+            return ISchemaProcessHandler.ExecuteServiceTaskResult.Result(
+                isComplete: true);
+        }        
     }
 }

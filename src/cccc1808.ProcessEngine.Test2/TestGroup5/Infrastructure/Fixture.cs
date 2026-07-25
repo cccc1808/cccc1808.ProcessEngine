@@ -213,9 +213,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         tokenExecutionOptions: new TokenExecutionService<Guid>.OptionsDto() 
                         { 
                             NotifyStreamTrigggersPolicy = TokenExecutionService<Guid>.NotifyStreamTrigggersPolicy.SelectFromDb,
-                            GoWaitTriggerQueueName = TriggerEvents,
-                            AutoRemoveTriggerQueueName = TriggerEvents,
+                            GoWaitTriggerQueueName = TriggerEvents,                            
                             TimerTriggerHandler = EFTimerChildTriggerHandler<Guid>.Name,
+                        },
+                        triggerStateOptions: new TriggerStateService<Guid>.OptionsDto() 
+                        {
+                            AutoRemoveTriggerQueueName = TriggerEvents,
                         },
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler.ProcessType),
                         SchemaProcessRegistrationDto.Create<Guid, TestSchemaProcessHandler2, SchemaProcessStateTypelessHandler<Guid>>(TestSchemaProcessHandler2.ProcessType),

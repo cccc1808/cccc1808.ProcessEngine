@@ -19,10 +19,41 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
         : ITriggerStateService<TId>
     {
         private readonly ITriggerEventRaiser<TId> _eventRaiser;
+        private readonly OptionsDto _options;
 
-        public TriggerStateService(ITriggerEventRaiser<TId> eventRaiser)
+        public TriggerStateService(
+            ITriggerEventRaiser<TId> eventRaiser, 
+            OptionsDto options)
         {
             _eventRaiser = eventRaiser;
+            _options = options;
+        }
+
+        public async ValueTask RemoveTriggerAsync(
+            IProcessContainer<TId> process, 
+            string triggerKey, 
+            bool removeEvent, 
+            CancellationToken cancellationToken)
+        {
+            if (removeEvent)
+            {
+                await _eventRaiser.RaiseAsync(
+                    [
+                        new ITriggerEventRaiser<TId>.RaiseContainer(
+                        _options.AutoRemoveTriggerQueueName,
+                        process.Id,
+                        new RemoveTriggerEvent(triggerKey)
+                        )
+                    ],
+                    cancellationToken);
+            }
+
+            if (!process.TryGetComponent<IProcessStateWithTriggers>(out var triggerState))
+            {
+                return;
+            }
+
+            triggerState.TriggerState.Triggers.Remove(triggerKey);
         }
 
         public async ValueTask RemoveTriggerActionCompleteAsync(
@@ -45,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             }
 
             await ProcessAsync(process.Id, triggerState, forRemove, cancellationToken);
-        }
+        }        
 
         public async ValueTask RemoveTriggersMoveToken(
             IProcessContainer<TId> process,
@@ -99,11 +130,10 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             {
                 events.Add(
                     new ITriggerEventRaiser<TId>.RaiseContainer(
-                        elem.RemoveTriggerQueueName,
+                        _options.AutoRemoveTriggerQueueName,
                         processId,
                         new RemoveTriggerEvent(elem.Key)
-                        )
-                    );
+                        ));
 
                 component.TriggerState.Triggers.Remove(elem.Key);
             }
@@ -111,6 +141,11 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             await _eventRaiser.RaiseAsync(
                 events,
                 cancellationToken);
+        }
+
+        public class OptionsDto 
+        {
+            public required string AutoRemoveTriggerQueueName { get; set; }
         }
     }
 }

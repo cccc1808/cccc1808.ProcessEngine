@@ -36,11 +36,21 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers
 
         protected void RegistryServiceTask(
             string key, 
-            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ISchemaProcessHandler.ExecuteServiceTaskResult> handler)
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, ISchemaProcessHandler.ExecuteServiceTaskResult> handler)
         {
             _serviceTaskHandlers.Add(
                 key, 
-                (p, t) => ValueTask.FromResult(handler(p, t)));
+                (p, t) =>
+                {
+                    try 
+                    {
+                        return ValueTask.FromResult(handler(p));
+                    }
+                    catch(Exception ex)
+                    {
+                        return ValueTask.FromException<ISchemaProcessHandler.ExecuteServiceTaskResult>(ex);
+                    }
+                });
         }
 
         protected void RegistryConditionTaskCheck(
@@ -52,11 +62,21 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers
 
         protected void RegistryConditionTaskCheck(
             string key,
-            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, bool> handler)
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, bool> handler)
         {
             _checkConditionHandlers.Add(
-                key, 
-                (p,t) => ValueTask.FromResult(handler(p, t)));
+                key,
+                (p, t) =>
+                {
+                    try
+                    {
+                        return ValueTask.FromResult(handler(p));
+                    }
+                    catch (Exception ex)
+                    {
+                        return ValueTask.FromException<bool>(ex);
+                    }
+                });
         }
 
         protected void RegistryConditionTaskExecute(
@@ -68,11 +88,21 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers
 
         protected void RegistryConditionTaskExecute(
             string key,
-            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, CancellationToken, ISchemaProcessHandler.ExecuteConditionResult> handler)
+            Func<ISchemaProcessHandler<TId>.ExecuteParametersDto, ISchemaProcessHandler.ExecuteConditionResult> handler)
         {
             _executeConditionHandlers.Add(
                 key,
-                (p, t) => ValueTask.FromResult(handler(p, t)));
+                (p, t) => 
+                {
+                    try
+                    {
+                        return ValueTask.FromResult(handler(p));
+                    }
+                    catch (Exception ex)
+                    {
+                        return ValueTask.FromException<ISchemaProcessHandler.ExecuteConditionResult>(ex);
+                    }
+                });
         }
 
         protected void RegistryTimerTask(

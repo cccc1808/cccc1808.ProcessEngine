@@ -74,16 +74,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         #region handlers
 
         private bool UserInput1ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);            
             return state.UserInput1.HasValue;
         }
 
         private ISchemaProcessHandler.ExecuteConditionResult UserInput1ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
             return ISchemaProcessHandler.ExecuteConditionResult.Result(
@@ -91,16 +89,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         }
 
         private bool UserInput2ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
             return state.UserInput2.HasValue;
         }
 
         private ISchemaProcessHandler.ExecuteConditionResult UserInput2ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
             return ISchemaProcessHandler.ExecuteConditionResult.Result(
@@ -108,28 +104,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4
         }
 
         private bool UserInput3ExecutedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
             return state.UserInput3.HasValue;
         }
 
         private ISchemaProcessHandler.ExecuteConditionResult UserInput3ExecuteAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateUserInputTokenState(parameters.schemaComponent);
 
             state.CalculatedResult = state.UserInput1.Value + state.UserInput2.Value + state.UserInput3.Value;
 
-            return new ISchemaProcessHandler.ExecuteConditionResult(
+            return ISchemaProcessHandler.ExecuteConditionResult.Result(
                 [new ISchemaProcessHandler.ActivateActionDto("R", AsyncExecuteOrWaitSignal: false)]);
         }
 
         private bool RAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             return false;
         }

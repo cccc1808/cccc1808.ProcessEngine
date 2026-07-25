@@ -10,6 +10,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service
 {
     public interface ITriggerStateService<TId>
     {
+        ValueTask RemoveTriggerAsync(
+            IProcessContainer<TId> process,
+            string triggerKey,
+            bool removeEvent,
+            CancellationToken cancellationToken
+            );
+
         /// <summary>
         /// Удаление триггеры по признаку движения токена.
         /// </summary>
