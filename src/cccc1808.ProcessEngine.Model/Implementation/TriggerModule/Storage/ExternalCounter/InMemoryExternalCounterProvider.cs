@@ -48,7 +48,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.Exte
                 );
         }
 
-        public Task<bool> CheckDecrementedAsync(string triggerKey, string processId)
+        public Task<bool> CompensateCounterAsync(string triggerKey, string processId)
         {
             if (!_members.TryGetValue(triggerKey, out var triggerMembers))
             {
@@ -90,7 +90,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.Exte
             return Task.FromResult(counterValue);
         }
 
-        public Task DecrementCompleteAsync(string triggerKey, string processId)
+        public Task CommitCounterAsync(string triggerKey, string processId)
         {
             if (!_members.TryGetValue(triggerKey, out var triggerMembers))
             {

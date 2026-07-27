@@ -16,13 +16,17 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         IAsyncDisposable
     {
         private readonly LockContainer<RedisExternalCounterProvider> _connectionContainer;
+
         private readonly OptionsDto _options;
+        private readonly RedisExternalCounterProvider.OptionsDto _providerOptions;
 
         public RedisExternalCounterProviderFactory(
-            OptionsDto options)
+            OptionsDto options,
+            RedisExternalCounterProvider.OptionsDto providerOptions)
         {
             _options = options;
             _connectionContainer = new LockContainer<RedisExternalCounterProvider>();
+            _providerOptions = providerOptions;
         }
 
         public async ValueTask<IExternalCounterProvider> GetProviderAsync(
@@ -32,7 +36,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                 _options,
                 (p, e) => e is not null,
                 async (p, e) => new RedisExternalCounterProvider(
-                    await ConnectionMultiplexer.ConnectAsync(p.ConnectinoString)),
+                    await ConnectionMultiplexer.ConnectAsync(p.ConnectinoString),
+                    _providerOptions),
                 cancellationToken);
 
             return connection;

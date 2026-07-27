@@ -8,7 +8,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCo
 {
     /// <summary>
     /// Провайдер внешнего счетчика для триггеров.
-    /// Предпологается возможность нетранакционной реализации.
+    /// Предпологается возможность нетранзакционной реализации (InMemory store).
     /// </summary>
     public interface IExternalCounterProvider
     {
@@ -20,10 +20,13 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCo
             int value,
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Удалить счетчик.
+        /// </summary>
         Task RemoveCounterAsync(string triggerKey, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Проверить наличие счетчика.
+        /// Проверить наличие счетчика по триггеру.
         /// </summary>
         /// <param name="triggerKey"></param>
         /// <param name="cancellationToken"></param>
@@ -32,22 +35,41 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCo
             string triggerKey,
             CancellationToken cancellationToken);
 
-        Task<bool> CheckDecrementedAsync(string triggerKey, string processId);
+        /// <summary>
+        /// Если процес уменьшение счетчика процессом уже было, то выполняет компенсацию.
+        /// Удаляет из MemberSet и увеличивает счетчик.
+        /// </summary>
+        /// <returns>Была ли выполнена компенсация.</returns>
+        Task<bool> CompensateCounterAsync(string triggerKey, string processId);
 
-        Task DecrementCompleteAsync(string triggerKey, string processId);
-
+        /// <summary>
+        /// Уменьшает значение счетчика по триггеру (до коммита транзакции БД).
+        /// Проверяя уникальность процесса по ProcessId (MemberSet).
+        /// </summary>
+        /// <returns>Значение счетчика.</returns>
         Task<int> TryDecrementCounterAsync(string triggerKey, string processId);
 
         /// <summary>
-        /// Получить данные о счетчике по триггеру.
+        /// Подтвердает уменьшение счетчика (после завершения транзакции БД).
+        /// Удаляет из memberSet.
         /// </summary>
-        /// <param name="triggersKeys"></param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="triggerKey"></param>
+        /// <param name="processId"></param>
         /// <returns></returns>
+        Task CommitCounterAsync(string triggerKey, string processId);        
+
+        /// <summary>
+        /// Получить данные о счетчике по триггеру.
+        /// Может использоваться как всполомагательные данные для хендлера триггера.
+        /// </summary>
         Task<Dictionary<string, (int Counter, ISet<string> Members)>> GetCountersByTriggersAsync(
             ICollection<string> triggersKeys,
             CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Отчиска окружения.
+        /// Удалить все ключи счетчиков (для тестов). 
+        /// </summary>
         Task ClearAsync();
     }
 }

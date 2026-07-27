@@ -16,44 +16,57 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
     {
         private readonly ConnectionMultiplexer _connectionMultiplexer;
 
+        private readonly OptionsDto _options;
+
         public RedisExternalCounterProvider(
-            ConnectionMultiplexer connectionMultiplexer)
+            ConnectionMultiplexer connectionMultiplexer, 
+            OptionsDto options)
         {
             _connectionMultiplexer = connectionMultiplexer;
+            _options = options;
         }
+
+        #region IExternalCounterProvider
 
         public async Task CreateCounterAsync(
             string triggerKey, 
             int value, 
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             // Pipelining
             await Task.WhenAll(
-                db.KeyDeleteAsync(GetCounterKey(triggerKey)),
-                db.KeyDeleteAsync(GetMemberSetKey(triggerKey)),
-                db.StringIncrementAsync(GetCounterKey(triggerKey), value),
-                db.SetAddAsync(GetMemberSetKey(triggerKey), "-1"),
+                
+                // Пересоздаем структуры по ключам.
+                db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
+                db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
+                db.StringIncrementAsync(_options.TriggerCounterKeyFactory(triggerKey), value),
+                db.SetAddAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1"),
 
-                db.SetAddAsync("allKeys", GetCounterKey(triggerKey)),
-                db.SetAddAsync("allKeys", GetMemberSetKey(triggerKey))
+                // Вносим ключи в справочник.
+                db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
+                db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
 
-                // db.SetRemoveAsync(GetMemberSetKey(triggerKey), "-1")
+                // db.SetRemoveAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1")
                 );
         }
 
-        public async Task RemoveCounterAsync(string triggerKey, CancellationToken cancellationToken)
+        public async Task RemoveCounterAsync(
+            string triggerKey,
+            CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             // Pipelining
             await Task.WhenAll(
-                db.KeyDeleteAsync(GetCounterKey(triggerKey)),
-                db.KeyDeleteAsync(GetMemberSetKey(triggerKey)),
+                // Удаляем ключи.
+                db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
+                db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
 
-                db.SetRemoveAsync("allKeys", GetCounterKey(triggerKey)),
-                db.SetRemoveAsync("allKeys", GetMemberSetKey(triggerKey))
+                // Удаляем из справочника.
+                db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
+                db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
                 );
         }
 
@@ -61,19 +74,21 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             string triggerKey,
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
-            var t1 = db.KeyExistsAsync(GetCounterKey(triggerKey));
-            var t2 = db.KeyExistsAsync(GetMemberSetKey(triggerKey));
+            var key1 = db.KeyExistsAsync(_options.TriggerCounterKeyFactory(triggerKey));
+            var key2 = db.KeyExistsAsync(_options.TriggerMembersKeyFactory(triggerKey));
 
-            await Task.WhenAll(t1, t2);
+            await Task.WhenAll(key1, key2);
 
-            return t1.Result && t2.Result;
+            return key1.Result && key2.Result;
         }
 
-        public async Task<bool> CheckDecrementedAsync(string triggerKey, string processId)
+        public async Task<bool> CompensateCounterAsync(
+            string triggerKey,
+            string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             //if (!await db.SetContainsAsync(triggerKey, processId))
             //{
@@ -81,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             //}
 
             var isExecuted = await ExecuteTransactionAsync(
-                (counterKey: GetCounterKey(triggerKey), memberSetKey: GetMemberSetKey(triggerKey), processId),
+                (counterKey: _options.TriggerCounterKeyFactory(triggerKey), memberSetKey: _options.TriggerMembersKeyFactory(triggerKey), processId),
                 db,
                 prepareHandller: static (p, t) => 
                 {
@@ -103,11 +118,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                 {
                     if (!c.counterKeyExists.WasSatisfied)
                     {
-                        throw new Exception();
+                        throw new RedisKeyNotFoundException(p.counterKey);
                     }
                     if (!c.memberKeyExists.WasSatisfied)
                     {
-                        throw new Exception();
+                        throw new RedisKeyNotFoundException(p.memberSetKey);
                     }
 
                     return !c.memberExsist.WasSatisfied;
@@ -119,13 +134,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         }        
 
         public async Task<int> TryDecrementCounterAsync(
-            string triggerKey, 
+            string triggerKey,
             string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             var result = await ExecuteTransactionAsync(
-                (counterKey: GetCounterKey(triggerKey), memberSetKey: GetMemberSetKey(triggerKey), processId),
+                (_options, counterKey: _options.TriggerCounterKeyFactory(triggerKey), memberSetKey: _options.TriggerMembersKeyFactory(triggerKey), processId),
                 db,
                 prepareHandller: (p, t) => 
                 {
@@ -134,7 +149,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                     var memberKeyExists = t.AddCondition(
                         Condition.KeyExists(p.memberSetKey));
                     var membersCount = t.AddCondition(
-                        Condition.SetLengthLessThan(p.memberSetKey, 100));
+                        Condition.SetLengthLessThan(p.memberSetKey, p._options.MemberSetSizeLimit));
                     var memberNotExists = t.AddCondition(
                         Condition.SetNotContains(p.memberSetKey, p.processId));                    
 
@@ -152,48 +167,64 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                 {
                     if (!c.counterKeyExists.WasSatisfied)
                     {
-                        throw new Exception();
+                        throw new RedisKeyNotFoundException(p.counterKey);
                     }
                     if (!c.memberKeyExists.WasSatisfied)
                     {
-                        throw new Exception();
+                        throw new RedisKeyNotFoundException(p.memberSetKey);
                     }
                     if (!c.membersCount.WasSatisfied)
                     {
-                        throw new Exception();
+                        throw new Exception("Буфер участников заполнен.");
+                    }
+                    if (c.memberNotExists.WasSatisfied)
+                    {
+                        return (int?)null;
                     }
 
                     return (int)c.incrementResult.Result;
                 }
                 );
 
-            return result;
+            if (!result.HasValue)
+            {
+                var counterValue = await db.StringGetAsync(_options.TriggerCounterKeyFactory(triggerKey));
+
+                if (!counterValue.HasValue)
+                {
+                    throw new RedisKeyNotFoundException(_options.TriggerCounterKeyFactory(triggerKey));
+                }
+
+                result = (int)counterValue;
+            }
+
+            return result.Value;
         }
 
-        public async Task DecrementCompleteAsync(string triggerKey, string processId)
+        public async Task CommitCounterAsync(string triggerKey, string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
-            await db.SetRemoveAsync(GetMemberSetKey(triggerKey), processId);
+            await db.SetRemoveAsync(_options.TriggerMembersKeyFactory(triggerKey), processId);
         }
 
         public async Task<Dictionary<string, (int Counter, ISet<string> Members)>> GetCountersByTriggersAsync(
             ICollection<string> triggersKeys, 
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             var result = new Dictionary<string, (int Counter, ISet<string> Members)>(triggersKeys.Count);
             foreach (var elem in triggersKeys)
             {
-                var counter = await db.StringGetAsync(elem);
+                var counter = await db.StringGetAsync(_options.TriggerCounterKeyFactory(elem));
                 if (!counter.HasValue)
                 {
                     continue;
                 }
 
                 var members = await GetMembersAsync(db, elem);
-                result.Add(elem, (int.Parse(counter), members));
+                result.Add(elem, ((int)counter, members));
             }
 
             return result;
@@ -201,10 +232,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         
         public async Task ClearAsync()
         {
-            var db = _connectionMultiplexer.GetDatabase();
+            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
 
             var keys = new List<string>();
-            await foreach (var elem in db.SetScanAsync("allKeys"))
+            await foreach (var elem in db.SetScanAsync(_options.UsingKeysKeyFactory()))
             {
                 keys.Add(elem);
             }
@@ -212,20 +243,29 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             await Task.WhenAll(
                 keys.Select(
                     e => db.KeyDeleteAsync(e))
+                .Union(
+                    [db.KeyDeleteAsync(_options.UsingKeysKeyFactory())]
+                    )
                 );
         }
 
-        private async Task<ISet<string>> GetMembersAsync(IDatabase db, string triggerKey)
+        #endregion
+
+        private async Task<ISet<string>> GetMembersAsync(
+            IDatabase db, 
+            string triggerKey)
         {
+            const int bufferLimit = 250;
+
             var membersBuffer = new HashSet<string>(0);
-            await foreach (var elem2 in db.SetScanAsync(triggerKey))
+            await foreach (var elem2 in db.SetScanAsync(_options.TriggerMembersKeyFactory(triggerKey), pageSize: bufferLimit))
             {
                 membersBuffer.Add(elem2);
             }
 
-            if (membersBuffer.Count == 250)
+            if (membersBuffer.Count == bufferLimit)
             {
-                throw new Exception();
+                throw new Exception("Ошибка переполнения буфера.");
             }
 
             return membersBuffer;
@@ -266,14 +306,38 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             return executedHandler(param, prepareResult, isExecuted);
         }
 
-        private static string GetCounterKey(string triggerKey)
+        #region types
+
+        public class OptionsDto
         {
-            return $"external_counter_{triggerKey}";
+            public int MemberSetSizeLimit { get; set; }
+                = 100;
+
+            public int DbId { get; set; }
+                = -1;
+
+            public Func<string, string> TriggerCounterKeyFactory { get; set; }
+                = static (triggerKey) => $"external_counter_{triggerKey}";
+
+            public Func<string, string> TriggerMembersKeyFactory { get; set; }
+                = static (triggerKey) => $"external_counter_members_{triggerKey}";
+
+            public Func<string> UsingKeysKeyFactory { get; set; }
+                = static () => "external_counter_all_keys";
         }
 
-        private static string GetMemberSetKey(string triggerKey)
+        public class RedisKeyNotFoundException
+            : Exception
         {
-            return $"external_counter_member_{triggerKey}";
+            public string Key { get; set; }
+
+            public RedisKeyNotFoundException(string key)
+                : base($"Ожидается наличие ключа. {key}")
+            {
+                Key = key;
+            }
         }
+
+        #endregion
     }
 }

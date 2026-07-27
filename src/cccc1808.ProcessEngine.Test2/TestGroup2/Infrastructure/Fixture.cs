@@ -152,7 +152,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new RedisExternalCounterProviderFactory.OptionsDto() 
                         { 
                             ConnectinoString = $"localhost:{RedisContainer.GetMappedPublicPort()}" 
-                        }
+                        },
+                        new RedisExternalCounterProvider.OptionsDto() 
+                        { }
                     )
 
                     .AddIsolationServices()

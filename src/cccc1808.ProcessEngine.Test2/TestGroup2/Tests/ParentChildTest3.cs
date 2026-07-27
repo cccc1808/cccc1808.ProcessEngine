@@ -372,7 +372,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             // Счетчик существует.
 
                             // 1) Если текущий процес уже менял счетчик, то сбрасываем это.
-                            await externalCounterProvider.CheckDecrementedAsync(component.ParentTriggerKey, processIdString);
+                            await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString);
 
                             // 2) Меняем значение счетчика и фиксируем процесс.
                             var counter = await externalCounterProvider.TryDecrementCounterAsync(
@@ -384,13 +384,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             isolationService.RegisterManualCompensate(
                                 async (t) => 
                                 {
-                                    await externalCounterProvider.CheckDecrementedAsync(component.ParentTriggerKey, processIdString);
+                                    await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString);
                                 });
                             currentTransaction.AddAfterCommitHandler(
                                 // В случае коммита транзакции удаляем отметку участника счетчика.
-                                commitHandler: async (t) => await externalCounterProvider.DecrementCompleteAsync(component.ParentTriggerKey, processIdString),
+                                commitHandler: async (t) => await externalCounterProvider.CommitCounterAsync(component.ParentTriggerKey, processIdString),
                                 // В случае падения транзакции пробуем сбросить.
-                                roolbackHandler: async (t) => await externalCounterProvider.CheckDecrementedAsync(component.ParentTriggerKey, processIdString));
+                                roolbackHandler: async (t) => await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString));
 
                             if (counter == 0)
                             {
@@ -400,10 +400,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     triggerOptions.TriggerEventQueues.Single().QueueName,
                                     component.ParentProcessId,
                                     new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
-                                    )
-                                    {
-                                        UsePersist = true,
-                                    }],
+                                    )],
                                     default);
                             }
                             else if (counter < 0)
@@ -420,12 +417,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             // и теперь триггер обязан каждый раз првоерять условие.
                             await triggerEventRaiser.RaiseAsync(
                                 [new ITriggerEventRaiser<Guid>.RaiseContainer(
+                                    // Для этой ветки можно использовать очередь с большей задержкой (окном аггрегации).
                                     triggerOptions.TriggerEventQueues.Single().QueueName,
                                     component.ParentProcessId,
                                     new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
                                     )],
                                 default);
-                            // TODO timeout event.
+                            
+                            // TODO можно добавить timeout тут, если значение меньше указанного. Но также timeout в хендлере триггера после активации.
                         }
 
                         setter.SetStatus(

@@ -60,6 +60,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -82,7 +83,6 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Servi
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
@@ -455,19 +455,21 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         public static IServiceCollection AddRedisExternalCounter(
             this IServiceCollection services,
-            RedisExternalCounterProviderFactory.OptionsDto options
+            RedisExternalCounterProviderFactory.OptionsDto factoryOptions,
+            RedisExternalCounterProvider.OptionsDto providerOptions
             )
         {
             if (!UseInMemoryExternalCounter)
             {
                 services
-                    .AddSingleton(options)
+                    .AddSingleton(factoryOptions)
+                    .AddSingleton(providerOptions)
                     .AddSingleton<IExternalCounterProviderFactory, RedisExternalCounterProviderFactory>();
             }
             else 
             {
                 services
-                    .AddSingleton<IExternalCounterProviderFactory, RedisExternalCounterProviderFactory>();
+                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>();
             }
             
             return services;
