@@ -21,6 +21,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -59,6 +60,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -79,8 +81,8 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
@@ -95,8 +97,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-using static cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners.IInMemoryQueueProcessRunner;
-
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
@@ -106,6 +106,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// Выключить, если нужна првоерка на реальном брокере.
         /// </summary>
         private static bool UseInMemoryQueue => true;
+
+        private static bool UseInMemoryExternalCounter => false;
 
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
@@ -448,6 +450,28 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 ////  services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
             }
 
+            return services;
+        }
+
+        public static IServiceCollection AddRedisExternalCounter(
+            this IServiceCollection services,
+            RedisExternalCounterProviderFactory.OptionsDto factoryOptions,
+            RedisExternalCounterProvider.OptionsDto providerOptions
+            )
+        {
+            if (!UseInMemoryExternalCounter)
+            {
+                services
+                    .AddSingleton(factoryOptions)
+                    .AddSingleton(providerOptions)
+                    .AddSingleton<IExternalCounterProviderFactory, RedisExternalCounterProviderFactory>();
+            }
+            else 
+            {
+                services
+                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>();
+            }
+            
             return services;
         }
     }
