@@ -47,5 +47,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCo
         Task<Dictionary<string, (int Counter, ISet<string> Members)>> GetCountersByTriggersAsync(
             ICollection<string> triggersKeys,
             CancellationToken cancellationToken);
+
+        Task ClearAsync();
     }
 }

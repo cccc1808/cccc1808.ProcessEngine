@@ -32,6 +32,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
@@ -42,6 +43,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 
 using Xunit.Sdk;
 
@@ -59,6 +61,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
             private KafkaContainer KafkaContainer { get; set; } = null!;
 
+            private RedisContainer RedisContainer { get; set; } = null!;
+
             public ServiceProvider ServiceProvider { get; private set; } = null!;
 
             public ExecuteStepByStepGroupMiddleware<Guid>.IHandler StubHander { get; private set; } = null!;
@@ -72,6 +76,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
+
+                    var redisBuilder = new RedisBuilder();
+                    RedisContainer = redisBuilder.Build();
                 }
 
                 var tryStartCount = 0;
@@ -80,7 +87,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     var startTasks = new Task[]
                     {
                         PostgreSqlContainer.StartAsync(),
-                        KafkaContainer.StartAsync()
+                        KafkaContainer.StartAsync(),
+                        RedisContainer.StartAsync()
                     };
                     try 
                     {
@@ -139,6 +147,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             (_) => 1
                             )
                     )
+
+                    .AddRedisExternalCounter(
+                        new RedisExternalCounterProviderFactory.OptionsDto() 
+                        { 
+                            ConnectinoString = $"localhost:{RedisContainer.GetMappedPublicPort()}" 
+                        }
+                    )
+
                     .AddIsolationServices()
 
                     .AddParallelLimitProcessRunner()
@@ -239,7 +255,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         })
                 );
                 services
-                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>()
                     .AddScoped<TestProcessBody>()
                     .AddSingleton<TestProcessBody.TestState>();                
 
@@ -287,9 +302,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     }
 
                     {
-                        var externalCounter = (InMemoryExternalCounterProvider)await scope.ServiceProvider.GetRequiredService<IExternalCounterProviderFactory>()
+                        var externalCounter = await scope.ServiceProvider.GetRequiredService<IExternalCounterProviderFactory>()
                             .GetProviderAsync(default);
-                        externalCounter.Clear();
+                        await externalCounter.ClearAsync();
                     }
                 }
             }

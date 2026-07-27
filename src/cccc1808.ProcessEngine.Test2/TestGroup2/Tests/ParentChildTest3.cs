@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -353,7 +354,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                 case 4:
                     {
-                        var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>(); 
+                        var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
+                        var isolationService = serviceProvider.GetRequiredService<IIsolationService>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
@@ -363,9 +365,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var processIdString = process.Id.ToString();
                         var component = process.GetComponent<ChildProcessDbEntity>();
 
-                        var isEmergency = !await externalCounterProvider.CounterExists(component.ParentTriggerKey, default);
+                        var counterCorrupted = !await externalCounterProvider.CounterExists(component.ParentTriggerKey, default);
 
-                        if (!isEmergency)
+                        if (!counterCorrupted)
                         {
                             // Счетчик существует.
 
@@ -378,16 +380,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 processIdString);
 
                             transactionManager.TryGetCurrentTransaction(out var currentTransaction);
-                            // TODO: current step isolation, manual compensation.
+
+                            isolationService.RegisterManualCompensate(
+                                async (t) => 
+                                {
+                                    await externalCounterProvider.CheckDecrementedAsync(component.ParentTriggerKey, processIdString);
+                                });
                             currentTransaction.AddAfterCommitHandler(
                                 // В случае коммита транзакции удаляем отметку участника счетчика.
                                 commitHandler: async (t) => await externalCounterProvider.DecrementCompleteAsync(component.ParentTriggerKey, processIdString),
                                 // В случае падения транзакции пробуем сбросить.
                                 roolbackHandler: async (t) => await externalCounterProvider.CheckDecrementedAsync(component.ParentTriggerKey, processIdString));
 
-                            // Если счетчик исчерпан, то шлем событие на триггер.
-                            if (counter <= 0)
+                            if (counter == 0)
                             {
+                                // Если счетчик исчерпан, то шлем событие на триггер.
                                 await triggerEventRaiser.RaiseAsync(
                                     [new ITriggerEventRaiser<Guid>.RaiseContainer(
                                     triggerOptions.TriggerEventQueues.Single().QueueName,
@@ -399,23 +406,28 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     }],
                                     default);
                             }
+                            else if (counter < 0)
+                            {
+                                counterCorrupted = true;
+                            }
                         }
-                        else 
+
+                        if (counterCorrupted)
                         {
-                            // Счетчик был потерян (падение хранилища).
-                            
+                            // Счетчик был потерян (падение хранилища) или поврежден.
+
                             // Тогда просто публикуем событие на триггер и timeout т.к. мы не можем использовать счетчик
                             // и теперь триггер обязан каждый раз првоерять условие.
                             await triggerEventRaiser.RaiseAsync(
                                 [new ITriggerEventRaiser<Guid>.RaiseContainer(
-                                triggerOptions.TriggerEventQueues.Single().QueueName,
-                                component.ParentProcessId,
-                                new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
-                                )],
+                                    triggerOptions.TriggerEventQueues.Single().QueueName,
+                                    component.ParentProcessId,
+                                    new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
+                                    )],
                                 default);
                             // TODO timeout event.
                         }
-                        
+
                         setter.SetStatus(
                             process,
                             ProcessStatusEnum.Complete);

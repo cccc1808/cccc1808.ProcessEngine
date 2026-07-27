@@ -10,7 +10,8 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounte
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter
 {
-    public class InMemoryExternalCounterProvider : IExternalCounterProvider
+    public class InMemoryExternalCounterProvider 
+        : IExternalCounterProvider
     {
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, bool>> _members;
         private readonly ConcurrentDictionary<string, int> _counters;        
@@ -119,10 +120,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.Exte
             return Task.FromResult(result);
         }        
 
-        public void Clear()
+        public Task ClearAsync()
         {
             _counters.Clear();
             _members.Clear();
+
+            return Task.CompletedTask;
         }
     }
 }

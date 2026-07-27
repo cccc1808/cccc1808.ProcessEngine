@@ -29,26 +29,32 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            await db.StringGetDeleteAsync(triggerKey);
-            await db.StringIncrementAsync(triggerKey, value);            
+            // Pipelining
+            await Task.WhenAll(
+                db.KeyDeleteAsync(GetCounterKey(triggerKey)),
+                db.KeyDeleteAsync(GetMemberSetKey(triggerKey)),
+                db.StringIncrementAsync(GetCounterKey(triggerKey), value),
+                db.SetAddAsync(GetMemberSetKey(triggerKey), "-1"),
+
+                db.SetAddAsync("allKeys", GetCounterKey(triggerKey)),
+                db.SetAddAsync("allKeys", GetMemberSetKey(triggerKey))
+
+                // db.SetRemoveAsync(GetMemberSetKey(triggerKey), "-1")
+                );
         }
 
         public async Task RemoveCounterAsync(string triggerKey, CancellationToken cancellationToken)
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            await db.StringGetDeleteAsync(triggerKey);
+            // Pipelining
+            await Task.WhenAll(
+                db.KeyDeleteAsync(GetCounterKey(triggerKey)),
+                db.KeyDeleteAsync(GetMemberSetKey(triggerKey)),
 
-            var members = await GetMembersAsync(db, triggerKey);
-            if (members.Any())
-            {
-                await db.SetRemoveAsync(
-                    triggerKey, 
-                    members
-                        .Select(e => new RedisValue(e))
-                        .ToArray()
-                        );
-            }
+                db.SetRemoveAsync("allKeys", GetCounterKey(triggerKey)),
+                db.SetRemoveAsync("allKeys", GetMemberSetKey(triggerKey))
+                );
         }
 
         public async Task<bool> CounterExists(
@@ -57,21 +63,59 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            var result = await db.StringGetAsync(triggerKey);
-            return result.HasValue;
+            var t1 = db.KeyExistsAsync(GetCounterKey(triggerKey));
+            var t2 = db.KeyExistsAsync(GetMemberSetKey(triggerKey));
+
+            await Task.WhenAll(t1, t2);
+
+            return t1.Result && t2.Result;
         }
 
         public async Task<bool> CheckDecrementedAsync(string triggerKey, string processId)
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            if (!await db.SetRemoveAsync(triggerKey, processId))
-            {
-                return false;
-            }
+            //if (!await db.SetContainsAsync(triggerKey, processId))
+            //{
+            //    return false;
+            //}
 
-            await db.StringIncrementAsync(triggerKey, 1);
-            return true;
+            var isExecuted = await ExecuteTransactionAsync(
+                (counterKey: GetCounterKey(triggerKey), memberSetKey: GetMemberSetKey(triggerKey), processId),
+                db,
+                prepareHandller: static (p, t) => 
+                {
+                    var counterKeyExists = t.AddCondition(
+                        Condition.KeyExists(p.counterKey));
+                    var memberKeyExists = t.AddCondition(
+                        Condition.KeyExists(p.memberSetKey));
+                    var memberExsist = t.AddCondition(
+                        Condition.SetContains(p.memberSetKey, p.processId));
+                    var removeResult = t.SetRemoveAsync(p.memberSetKey, p.processId);
+                    var incrementResult = t.StringIncrementAsync(p.counterKey, 1);
+
+                    return (
+                        counterKeyExists,
+                        memberKeyExists,
+                        memberExsist);
+                },
+                executedHandler: static (p, c, r) => 
+                {
+                    if (!c.counterKeyExists.WasSatisfied)
+                    {
+                        throw new Exception();
+                    }
+                    if (!c.memberKeyExists.WasSatisfied)
+                    {
+                        throw new Exception();
+                    }
+
+                    return !c.memberExsist.WasSatisfied;
+                }
+                );       
+
+            return isExecuted;
+
         }        
 
         public async Task<int> TryDecrementCounterAsync(
@@ -80,37 +124,57 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            var tran = db.CreateTransaction();
-            {
-                var isInserted = await db.SetAddAsync(triggerKey, processId);
-                if (!isInserted)
+            var result = await ExecuteTransactionAsync(
+                (counterKey: GetCounterKey(triggerKey), memberSetKey: GetMemberSetKey(triggerKey), processId),
+                db,
+                prepareHandller: (p, t) => 
                 {
-                    var counter = await db.StringGetAsync(triggerKey);
-                    if (!counter.HasValue)
+                    var counterKeyExists = t.AddCondition(
+                        Condition.KeyExists(p.counterKey));
+                    var memberKeyExists = t.AddCondition(
+                        Condition.KeyExists(p.memberSetKey));
+                    var membersCount = t.AddCondition(
+                        Condition.SetLengthLessThan(p.memberSetKey, 100));
+                    var memberNotExists = t.AddCondition(
+                        Condition.SetNotContains(p.memberSetKey, p.processId));                    
+
+                    var insertResult = t.SetAddAsync(p.memberSetKey, p.processId);
+                    var incrementResult = t.StringIncrementAsync(p.counterKey, -1);
+
+                    return (
+                        counterKeyExists,
+                        memberKeyExists,
+                        membersCount,
+                        memberNotExists,
+                        incrementResult);
+                },
+                executedHandler: (p, c, r) => 
+                {
+                    if (!c.counterKeyExists.WasSatisfied)
+                    {
+                        throw new Exception();
+                    }
+                    if (!c.memberKeyExists.WasSatisfied)
+                    {
+                        throw new Exception();
+                    }
+                    if (!c.membersCount.WasSatisfied)
                     {
                         throw new Exception();
                     }
 
-                    return int.Parse(counter);
+                    return (int)c.incrementResult.Result;
                 }
+                );
 
-                var result = await db.StringIncrementAsync(triggerKey, -1);
-
-                var committed = tran.Execute();
-                if (!committed)
-                {
-                    throw new Exception();
-                }
-
-                return (int)result;
-            }
+            return result;
         }
 
         public async Task DecrementCompleteAsync(string triggerKey, string processId)
         {
             var db = _connectionMultiplexer.GetDatabase();
 
-            await db.SetRemoveAsync(triggerKey, processId);
+            await db.SetRemoveAsync(GetMemberSetKey(triggerKey), processId);
         }
 
         public async Task<Dictionary<string, (int Counter, ISet<string> Members)>> GetCountersByTriggersAsync(
@@ -135,6 +199,22 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             return result;
         }      
         
+        public async Task ClearAsync()
+        {
+            var db = _connectionMultiplexer.GetDatabase();
+
+            var keys = new List<string>();
+            await foreach (var elem in db.SetScanAsync("allKeys"))
+            {
+                keys.Add(elem);
+            }
+
+            await Task.WhenAll(
+                keys.Select(
+                    e => db.KeyDeleteAsync(e))
+                );
+        }
+
         private async Task<ISet<string>> GetMembersAsync(IDatabase db, string triggerKey)
         {
             var membersBuffer = new HashSet<string>(0);
@@ -154,6 +234,46 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         public async ValueTask DisposeAsync()
         {
             await _connectionMultiplexer.DisposeAsync();
+        }
+
+        private static async ValueTask<TResult> ExecuteTransactionAsync<TParam, TCommands, TResult>(
+            TParam param,
+            IDatabase database,
+            Func<TParam, ITransaction, TCommands> prepareHandller,
+            Func<TParam, TCommands, bool, ValueTask<TResult>> executedHandler)
+        {
+            var transaction = database.CreateTransaction();
+
+            var prepareResult = prepareHandller(param, transaction);
+
+            var isExecuted = await transaction.ExecuteAsync();
+
+            return await executedHandler(param, prepareResult, isExecuted);
+        }
+
+        private static async ValueTask<TResult> ExecuteTransactionAsync<TParam, TCommands, TResult>(
+            TParam param,
+            IDatabase database,
+            Func<TParam, ITransaction, TCommands> prepareHandller,
+            Func<TParam, TCommands, bool, TResult> executedHandler)
+        {
+            var transaction = database.CreateTransaction();
+
+            var prepareResult = prepareHandller(param, transaction);
+
+            var isExecuted = await transaction.ExecuteAsync();
+
+            return executedHandler(param, prepareResult, isExecuted);
+        }
+
+        private static string GetCounterKey(string triggerKey)
+        {
+            return $"external_counter_{triggerKey}";
+        }
+
+        private static string GetMemberSetKey(string triggerKey)
+        {
+            return $"external_counter_member_{triggerKey}";
         }
     }
 }
