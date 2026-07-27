@@ -25,7 +25,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
         public readonly record struct RaiseContainer(
             string EventQueue,
             TId ProcessId,
-            ITriggerEvent Event
+            ITriggerEvent Event,
+            bool UsePersist = false
             );
     }
 }

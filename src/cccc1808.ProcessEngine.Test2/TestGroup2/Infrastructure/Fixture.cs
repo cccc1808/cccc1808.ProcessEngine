@@ -13,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -29,6 +30,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -237,6 +239,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         })
                 );
                 services
+                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>()
                     .AddScoped<TestProcessBody>()
                     .AddSingleton<TestProcessBody.TestState>();                
 
@@ -281,6 +284,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 topics
                                 );
                         }
+                    }
+
+                    {
+                        var externalCounter = (InMemoryExternalCounterProvider)await scope.ServiceProvider.GetRequiredService<IExternalCounterProviderFactory>()
+                            .GetProviderAsync(default);
+                        externalCounter.Clear();
                     }
                 }
             }
