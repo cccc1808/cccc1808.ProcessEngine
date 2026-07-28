@@ -251,9 +251,19 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             )
                         .ToArray();
 
+                    if (!forCheck.Any())
+                    {
+                        return true;
+                    }
+
                     var lockedTriggerKeys = await query.LockSkipLockedAsync(
                         forCheck.Select(e => e.Trigger.Key).ToArray(),
                         cancellationToken);
+
+                    if (!lockedTriggerKeys.Any())
+                    {
+                        return true;
+                    }
 
                     var lockedTriggers = forCheck
                         .Select(e => e.Trigger)

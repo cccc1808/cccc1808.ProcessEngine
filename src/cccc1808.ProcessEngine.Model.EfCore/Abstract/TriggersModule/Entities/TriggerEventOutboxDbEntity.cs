@@ -16,17 +16,21 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         public long Timestamp { get; set; }
 
+        public short BatchOrderId { get; set; }
+
         public JsonElement Data { get; set; }
 
 
         public TriggerEventOutboxDbEntity(
             TId id, 
             long timestamp,
+            short batchOrderId,
             JsonElement data)
         {
             Id = id;
             Timestamp = timestamp;
-            Data = data;
+            BatchOrderId = batchOrderId;
+            Data = data;            
         }
 
 

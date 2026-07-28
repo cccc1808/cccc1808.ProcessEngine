@@ -6,7 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
+	<!--Constructor init as error-->
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<WarningsAsErrors>$(WarningsAsErrors);NU1605;CS8618;</WarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
     <PackageReference Include="StackExchange.Redis" Version="3.0.17" />
   </ItemGroup>
 

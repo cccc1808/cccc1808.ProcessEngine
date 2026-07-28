@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             }
             catch(Exception ex)
             {
-                // Не удалось отправть событие в очередь напрямую, сохранием его в БД outbox.
+                // Не удалось отправть событие в очередь напрямую, сохраняем его в БД outbox.
                 // TODO: log;
 
                 try

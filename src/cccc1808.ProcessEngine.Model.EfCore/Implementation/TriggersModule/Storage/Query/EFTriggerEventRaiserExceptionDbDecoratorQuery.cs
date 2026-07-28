@@ -15,6 +15,7 @@ using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 
 using Microsoft.EntityFrameworkCore;
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query
 {
@@ -26,17 +27,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         : TriggerEventRaiserExceptionDbDecorator<TId>.IQuery
     {
         private readonly IIdGenerator<TId> _idGenerator;
+        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly IEventJsonSerializer _eventJsonSerializer;
 
         public EFTriggerEventRaiserExceptionDbDecoratorQuery(
             IIdGenerator<TId> idGenerator,
+            ILockQueryHintStore lockQueryHintStore,
             IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             IEventJsonSerializer eventJsonSerializer)
         {
             _idGenerator = idGenerator;
+            _lockQueryHintStore = lockQueryHintStore;
             _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _eventJsonSerializer = eventJsonSerializer;
@@ -52,9 +56,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
                 .AddRange(
                     events.Select(
-                        e => new TriggerEventOutboxDbEntity<TId>(
+                        (e, i) => new TriggerEventOutboxDbEntity<TId>(
                             id: ids.Dequeue(),
                             timestamp: now.Ticks,
+                            batchOrderId: (short)i,
                             data: JsonHelper.ToJsonElement(Map(e))
                             )
                     )
@@ -66,16 +71,25 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             int batchSize, 
             CancellationToken cancellationToken)
         {
-            // TODO: lock
-            var eventsEntities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
-                .AsNoTracking()
-                .OrderBy(e => e.Timestamp)
-                .Take(batchSize)
-                .ToArrayAsync(cancellationToken);
+            // Ждем блокировку (без параллелизма) для сохранения упорядоченности.
+            // Также это не освной механизм отправки, а страхующий, поэтому пока не прорабатываю распараллеливание по нодам.
+
+            TriggerEventOutboxDbEntity<TId>[] eventsEntities;
+            using (var scope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+            {
+                eventsEntities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+                    .AsNoTracking()
+                    .OrderBy(e => e.Timestamp)
+                    .ThenBy(e => e.BatchOrderId)
+                    .Take(batchSize)
+                    .ToArrayAsync(cancellationToken);
+            }
 
             await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
                 .Where(e => eventsEntities.Select(e => e.Id).Contains(e.Id))
                 .ExecuteDeleteAsync(cancellationToken);
+            //_dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+            //    .RemoveRange(eventsEntities);
 
             return eventsEntities
                 .Select(
