@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Serializers
@@ -16,6 +18,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
     public class SchemaSerializer 
         : ISchemaSerializer
     {
+        private readonly ISchemaProcessActionSetter _schemaProcessActionSetter;
+
+        public SchemaSerializer(
+            ISchemaProcessActionSetter schemaProcessActionSetter)
+        {
+            _schemaProcessActionSetter = schemaProcessActionSetter;
+        }
+
         public JsonElement Serialize(ProcessSchemaDto schema)
         {
             var container = new ProcessSchemaDtoContainer() 
@@ -34,14 +44,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
                                     {
                                         Id = e.Id,
                                         Name = e.Name,
-                                        Kind = e switch 
-                                        {
-                                            ServiceTaskTokenAction => KindEnum.ServiceTask, 
-                                            TimerTokenAction => KindEnum.Timer,
-                                            ConditionTokenAction => KindEnum.Condition,
-
-                                            _ => throw new NotImplementedException(e.GetType().FullName)
-                                        },
+                                        Kind = _schemaProcessActionSetter.CommonSetter.GetKind(e),
                                         Data = JsonHelper.ToJsonElement(e)
                                     })
                                 .ToArray(),
@@ -64,14 +67,13 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
                             e.Id,
                             e.Actions
                                 .Select(
-                                    e => e.Kind switch 
-                                    {
-                                        KindEnum.ServiceTask => (ITokenAction)e.Data.Deserialize<ServiceTaskTokenAction>()!,
-                                        KindEnum.Timer => e.Data.Deserialize<TimerTokenAction>()!,
-                                        KindEnum.Condition => e.Data.Deserialize<ConditionTokenAction>()!,
-
-                                        _ => throw new NotImplementedException(e.Kind.ToString())
-                                    }
+                                    e => _schemaProcessActionSetter.CommonSetter.OneOfKind(
+                                        e,
+                                        e.Kind,
+                                        serviceTaskHandler: static (e) => (ITokenAction)e.Data.Deserialize<ServiceTaskTokenAction>()!,
+                                        conditionHandler: static (e) => e.Data.Deserialize<ConditionTokenAction>()!,
+                                        timerHandler: static (e) => e.Data.Deserialize<TimerTokenAction>()!
+                                        )
                                     )
                                 .ToArray()
                         )
@@ -111,16 +113,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
 
             public required string? Name { get; set; } = default!;
 
-            public required KindEnum Kind { get; set; }
+            public required TokenActionKindEnum Kind { get; set; }
 
             public required JsonElement Data { get; set; }
-        }
-
-        public enum KindEnum
-        {
-            ServiceTask,
-            Condition,
-            Timer,
         }
     }
 }

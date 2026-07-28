@@ -13,24 +13,35 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers
     {
         public readonly record struct ExecuteServiceTaskResult(
             bool IsComplete,
-            ActivateActionDto[] ActivateActions)
+            ActivateActionDto[] ActivateActions,
+            CompleteActionDto[] CompleteActions)
         {
             public static ExecuteServiceTaskResult Result(bool isComplete, params ActivateActionDto[] activateActions)
-                => new ExecuteServiceTaskResult(isComplete, activateActions);
+                => new ExecuteServiceTaskResult(isComplete, activateActions, []);
         }
 
         public readonly record struct ExecuteConditionResult(
-            ActivateActionDto[] ActivateActions)
+            ActivateActionDto[] ActivateActions,
+            CompleteActionDto[] CompleteActions)
         {
             public static ExecuteConditionResult Result(params ActivateActionDto[] activateActions)
-                => new ExecuteConditionResult(activateActions);
+                => new ExecuteConditionResult(activateActions, []);
+
+            public static ExecuteConditionResult Result(
+                ActivateActionDto[] activateActions,
+                CompleteActionDto[] completeActions)
+                => new ExecuteConditionResult(activateActions, completeActions);
         }
 
         public readonly record struct ExecuteTimerResult(
-            ActivateActionDto[] ActivateActions)
+            ActivateActionDto[] ActivateActions,
+            CompleteActionDto[] CompleteActions)
         {
             public static ExecuteTimerResult Result(params ActivateActionDto[] activateActions)
-                => new ExecuteTimerResult(activateActions);
+                => new ExecuteTimerResult(activateActions, []);
+
+            public static ExecuteTimerResult Result(ActivateActionDto[] activateActions, CompleteActionDto[] completeActions)
+                => new ExecuteTimerResult(activateActions, completeActions);
         }
 
         /// <summary>
@@ -39,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers
         /// <param name="ActionId">Идентефикатор действия.</param>
         /// <param name="AsyncExecuteOrWaitSignal">
         /// True - асинхронное выполнение нужно сейчас,
-        /// False - асинхронное выполнение не нужно, ожидается внешний сигнал или воздействие.
+        /// False - асинхронное выполнение не нужно, ожидается внешний сигнал или воздействие (Можно переводить процесс в Wait).
         /// </param>
         public readonly record struct ActivateActionDto(
             string ActionId,
@@ -77,6 +88,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers
                 bool asyncExecuteOrWaitSignal)
                 => new ActivateActionDto(actionId, asyncExecuteOrWaitSignal);
         }
+
+        public readonly record struct CompleteActionDto(
+            string ActionId);
     }
 
     public interface ISchemaProcessHandler<TId> : ISchemaProcessHandler

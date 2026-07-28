@@ -24,14 +24,19 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             /// </summary>
             public bool IsStreamTrigger { get; init; }
 
-            public string RemoveTriggerQueueName { get; init; }
+            /// <summary>
+            /// Удалить триггер при завершении любого из указанных действий.
+            /// </summary>
+            public bool RemoveIfActionComplete { get; init; }
 
-            public string? RemoveTokenId { get; init; }
+            public string[] RemoveActionIds { get; init; }
 
             /// <summary>
             /// Удалить триггер, если происходит переход на другой токен.
             /// </summary>
             public bool RemoveIfTokenMove { get; init; }
+
+            public string? RemoveTokenId { get; init; }            
 
             /// <summary>
             /// Удалить триггер, если процесс завершен.
@@ -41,23 +46,34 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto
             public TriggerInfo(
                 string key,
                 bool isStreamTrigger,
-                string removeTriggerQueueName,
-                string? removeTokenId,
+
                 bool removeIfTokenMove,
+                string? removeTokenId,
+
+                bool removeIfActionComplete,
+                string[] removeActionIds,
+                
                 bool removeIfProcessComplete)
             {
                 Key = key;
                 IsStreamTrigger = isStreamTrigger;
-                RemoveTriggerQueueName = removeTriggerQueueName;
-                RemoveTokenId = removeTokenId;
+
                 RemoveIfTokenMove = removeIfTokenMove;
+                RemoveTokenId = removeTokenId;
+
+                if (removeIfActionComplete)
+                {
+                    if (!removeActionIds.Any())
+                    {
+                        throw new ArgumentException(nameof(removeActionIds));
+                    }
+                }
+
+                RemoveIfActionComplete = removeIfActionComplete;
+                RemoveActionIds = removeActionIds;
+
                 RemoveIfProcessComplete = removeIfProcessComplete;                
             }
         }
-    }
-
-    public interface IProcessStateWithTriggers
-    {
-        TriggerStateContainer TriggerState { get; }
     }
 }

@@ -46,15 +46,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
         public TestSchemaProcessHandler2() :
             base()
         {
-            RegistryServiceTask("SendRequest", SendRequestHandlerAsync);
-            RegistryConditionTaskCheck("CheckResponse", CheckReponseReceivedAsync);
+            RegistryServiceTask("SendRequest", SendRequestHandler);
+            RegistryConditionTaskCheck("CheckResponse", CheckReponseReceived);
         }
 
         #region handlers
 
-        private ISchemaProcessHandler.ExecuteServiceTaskResult SendRequestHandlerAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+        private ISchemaProcessHandler.ExecuteServiceTaskResult SendRequestHandler(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var typedTokenState = new RpcTokenState()
             {
@@ -70,9 +69,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2
                 );
         }
 
-        private bool CheckReponseReceivedAsync(
-            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters,
-            CancellationToken cancellationToken)
+        private bool CheckReponseReceived(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
         {
             var state = GetOrCreateTokenState(parameters.schemaComponent);
             return state.IsReceived;

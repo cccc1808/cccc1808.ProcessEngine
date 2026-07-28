@@ -17,7 +17,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         public void Configure(EntityTypeBuilder<TriggerEventOutboxDbEntity<TId>> builder)
         {
             builder
-                .HasIndex(e => e.Timestamp);
+                .HasIndex(e => new { e.Timestamp, e.BatchOrderId });
         }
     }
 }

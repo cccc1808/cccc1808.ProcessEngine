@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Component.ActionComponent;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 
 namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Serializers
@@ -14,6 +16,14 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
     public class ActionStateSerializer 
         : IActionStateSerializer
     {
+        private readonly ISchemaProcessActionSetter _schemaProcessActionSetter;
+
+        public ActionStateSerializer(
+            ISchemaProcessActionSetter schemaProcessActionSetter)
+        {
+            _schemaProcessActionSetter = schemaProcessActionSetter;
+        }
+
         public JsonElement Serialize(IEnumerable<ITokenActionStateComponent> data)
         {
             var container = data
@@ -21,14 +31,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
                     e => new ActionStateContainer() 
                     {
                         Id = e.Id,
-                        Kind = e switch 
-                        {
-                            ServiceTaskActionState => SchemaSerializer.KindEnum.ServiceTask,
-                            TimerActionStateComponent => SchemaSerializer.KindEnum.Timer,
-                            ConditionActionStateComponent => SchemaSerializer.KindEnum.Condition,
-
-                            _ => throw new NotImplementedException(e.GetType().FullName)
-                        },
+                        Kind = _schemaProcessActionSetter.CommonSetter.GetKind(e),
                         Data = JsonHelper.ToJsonElement(e)
                     }
                     )
@@ -43,14 +46,12 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
 
             var result = container
                 .Select(
-                    e => e.Kind switch
-                    {
-                        SchemaSerializer.KindEnum.ServiceTask => (ITokenActionStateComponent)e.Data.Deserialize<ServiceTaskActionState>()!,
-                        SchemaSerializer.KindEnum.Timer => e.Data.Deserialize<TimerActionStateComponent>(),
-                        SchemaSerializer.KindEnum.Condition => e.Data.Deserialize<ConditionActionStateComponent>(),
-
-                        _ => throw new NotImplementedException(e.Kind.ToString())
-                    }
+                    e => _schemaProcessActionSetter.CommonSetter.OneOfKind(
+                        e,
+                        e.Kind,
+                        serviceTaskHandler: static (e) => (ITokenActionStateComponent)e.Data.Deserialize<ServiceTaskActionState>()!,
+                        conditionHandler: static (e) => e.Data.Deserialize<ConditionActionStateComponent>(),
+                        timerHandler: static (e) => e.Data.Deserialize<TimerActionStateComponent>())
                     )
                 .ToArray();
 
@@ -61,7 +62,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Seri
         {
             public string Id { get; set; } = default!;
 
-            public SchemaSerializer.KindEnum Kind { get; set; }
+            public TokenActionKindEnum Kind { get; set; }
 
             public JsonElement Data { get; set; }
         }

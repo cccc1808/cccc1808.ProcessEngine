@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
+namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
     /// <summary>
     /// Часто используемые методы для .

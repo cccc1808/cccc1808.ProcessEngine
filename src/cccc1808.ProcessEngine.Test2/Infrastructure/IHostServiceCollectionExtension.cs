@@ -21,6 +21,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -59,6 +60,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -79,9 +81,10 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Queries;
@@ -94,8 +97,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-using static cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners.IInMemoryQueueProcessRunner;
-
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
     internal static class IHostServiceCollectionExtension
@@ -105,6 +106,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// Выключить, если нужна првоерка на реальном брокере.
         /// </summary>
         private static bool UseInMemoryQueue => true;
+
+        private static bool UseInMemoryExternalCounter => false;
 
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
@@ -409,6 +412,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddSchemaProcess(
             this IServiceCollection services,
             TokenExecutionService<Guid>.OptionsDto tokenExecutionOptions,
+            TriggerStateService<Guid>.OptionsDto triggerStateOptions,
             params SchemaProcessRegistrationDto[] registrations)
         {
             services
@@ -417,6 +421,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<ISchemaService<Guid>, SchemaService<Guid>>()
                 .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
+
+                .AddScoped<ITriggerStateService<Guid>, TriggerStateService<Guid>>()
+                .AddSingleton(triggerStateOptions)
                 
                 .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
                 .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()
@@ -425,6 +432,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ISchemaSerializer, SchemaSerializer>()
                 .AddScoped<IActionStateSerializer, ActionStateSerializer>()
                 .AddScoped<SchemaSingleProcessHandler<Guid>>()
+
+                .AddScoped<ISchemaProcessActionSetter, SchemaProcessActionSetter>()
+                .AddScoped<ISchemaProcessActionSetter.ICommonSetter, SchemaProcessActionSetter.CommonSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IServiceTaskSetter, SchemaProcessActionSetter.ServiceTaskSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IConditionSetter, SchemaProcessActionSetter.ConditionSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.ITimerSetter, SchemaProcessActionSetter.TimerSetterImpl>()
                 ;
 
             foreach (var elem in registrations)
@@ -432,12 +445,34 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddSingleton(elem);
 
                 services.AddScoped(elem.ProcessHandlerType);
-                services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+                //// services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
 
                 services.TryAddScoped(elem.ProcessStateHandlerType);
-                services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
+                ////  services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
             }
 
+            return services;
+        }
+
+        public static IServiceCollection AddRedisExternalCounter(
+            this IServiceCollection services,
+            RedisExternalCounterProviderFactory.OptionsDto factoryOptions,
+            RedisExternalCounterProvider.OptionsDto providerOptions
+            )
+        {
+            if (!UseInMemoryExternalCounter)
+            {
+                services
+                    .AddSingleton(factoryOptions)
+                    .AddSingleton(providerOptions)
+                    .AddSingleton<IExternalCounterProviderFactory, RedisExternalCounterProviderFactory>();
+            }
+            else 
+            {
+                services
+                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>();
+            }
+            
             return services;
         }
     }

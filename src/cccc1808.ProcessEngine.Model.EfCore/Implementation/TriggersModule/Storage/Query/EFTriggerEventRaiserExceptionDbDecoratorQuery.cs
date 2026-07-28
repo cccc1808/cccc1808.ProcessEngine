@@ -27,6 +27,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         : TriggerEventRaiserExceptionDbDecorator<TId>.IQuery
     {
         private readonly IIdGenerator<TId> _idGenerator;
+        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEFDbContext _dbContext;
@@ -34,12 +35,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         public EFTriggerEventRaiserExceptionDbDecoratorQuery(
             IIdGenerator<TId> idGenerator,
+            ILockQueryHintStore lockQueryHintStore,
             IDateTimeProvider dateTimeProvider,
             ILockQueryHintStore lockQueryHintStore,
             IEFDbContext dbContext,
             IEventJsonSerializer eventJsonSerializer)
         {
             _idGenerator = idGenerator;
+            _lockQueryHintStore = lockQueryHintStore;
             _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
             _dbContext = dbContext;
@@ -56,9 +59,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
                 .AddRange(
                     events.Select(
-                        e => new TriggerEventOutboxDbEntity<TId>(
+                        (e, i) => new TriggerEventOutboxDbEntity<TId>(
                             id: ids.Dequeue(),
                             timestamp: now.Ticks,
+                            batchOrderId: (short)i,
                             data: JsonHelper.ToJsonElement(Map(e))
                             )
                     )
@@ -70,17 +74,26 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             int batchSize, 
             CancellationToken cancellationToken)
         {
-            TriggerEventOutboxDbEntity<TId>[] entities;
-            using (_ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
+            // Ждем блокировку (без параллелизма) для сохранения упорядоченности.
+            // Также это не освной механизм отправки, а страхующий, поэтому пока не прорабатываю распараллеливание по нодам.
+
+            TriggerEventOutboxDbEntity<TId>[] eventsEntities;
+            using (var scope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdate))
             {
-                entities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+                eventsEntities = await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+                    .AsNoTracking()
                     .OrderBy(e => e.Timestamp)
+                    .ThenBy(e => e.BatchOrderId)
                     .Take(batchSize)
                     .ToArrayAsync(cancellationToken);
             }
 
-            _dbContext.Set<TriggerEventOutboxDbEntity<TId>>().RemoveRange(entities);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+                .Where(e => eventsEntities.Select(e => e.Id).Contains(e.Id))
+                .ExecuteDeleteAsync(cancellationToken);
+            //_dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
+            //    .RemoveRange(eventsEntities);
+            // await _dbContext.SaveChangesAsync(cancellationToken);
 
             return entities
                 .Select(

@@ -36,11 +36,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
                             Name = "Ждем ответ.",
                             ActivatedOnStart = false,
                             Transition = ITokenAction.TransitionDto.Complete(),
+                            ActionHandlerKey = "ResponseHandler",
                         },
                         new TimerTokenAction("3", TimeSpan.FromSeconds(30))
                         {
                             Name = "Timeout ожидания ответа.",
                             ActivatedOnStart = false,
+                            HandlerKey = "WaitTimeout"
                         }
                         )
                     {
@@ -57,7 +59,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
         {
             RegistryServiceTask("SendRequest", SendRequestHandlerAsync);
             RegistryConditionTaskCheck("CheckResponse", CheckReponseReceivedAsync);
-            RegistryTimerTask("", WaitResponseTimeoutTimerAsync);
+            RegistryConditionTaskExecute("ResponseHandler", ResponseReceived);
+            RegistryTimerTask("WaitTimeout", WaitResponseTimeoutTimerAsync);
             _processSetter = processSetter;
         }
 
@@ -99,6 +102,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3
             var state = GetOrCreateTokenState(parameters.schemaComponent);
 
             return ValueTask.FromResult(state.IsReceived);
+        }
+
+        private ISchemaProcessHandler.ExecuteConditionResult ResponseReceived(
+            ISchemaProcessHandler<Guid>.ExecuteParametersDto parameters)
+        {
+            return ISchemaProcessHandler.ExecuteConditionResult.Result(
+                [],
+                // Ответ получен завешаем ServiceTask и Timer.
+                [new ISchemaProcessHandler.CompleteActionDto("1"), new ISchemaProcessHandler.CompleteActionDto("3")]);
         }
 
         private ISchemaProcessHandler.ExecuteTimerResult WaitResponseTimeoutTimerAsync(

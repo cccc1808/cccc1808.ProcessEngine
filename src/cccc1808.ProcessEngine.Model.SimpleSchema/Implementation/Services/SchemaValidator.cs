@@ -126,7 +126,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
                                 if (!haveAction)
                                 {
-                                    throw new Exception("TimerTokenAction не содержит не хенндлера ни перехода.");
+                                    throw new Exception("TimerTokenAction не содержит не хендлера ни перехода.");
                                 }
                                 
                                 break;
@@ -166,7 +166,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
 
                                 if (!haveAction)
                                 {
-                                    throw new Exception("ConditionTokenAction не содержит не хенндлера ни перехода.");
+                                    throw new Exception("ConditionTokenAction не содержит не хендлера ни перехода.");
                                 }
 
                                 break;
