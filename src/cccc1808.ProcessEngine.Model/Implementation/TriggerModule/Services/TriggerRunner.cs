@@ -148,6 +148,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     scope2.ServiceProvider,
                                     eventTypeMismathErrorHandler,
                                     groupByTrigger,
+                                    receivedMessages.Data,
                                     offsetData,
                                     recheckProcessStatusBuffer,
                                     cancellationToken);
@@ -205,8 +206,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             static async Task ProcessEventsHandlerAsync(
                 IServiceProvider serviceProvider,
-                Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
+                Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,                
                 Dictionary<string, List<(MessageDto Message, ITriggerEvent TriggerEvent)>> groupByTrigger,
+                int messagesCount,
                 Dictionary<ITriggerEventInboxService.PartitionKey, ITriggerEventInboxService.PartitionOffset> offsetData,
                 Dictionary<string, bool> recheckProcessStatusBuffer,
                 CancellationToken cancellationToken)
@@ -219,12 +221,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                 var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
 
+                ITriggerEventInboxService.IContext inboxContext;
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
                     // Inbox
-                    await eventInbox.FilterMessagesAsync(
-                        groupByTrigger, 
+                    inboxContext = await eventInbox.FilterMessagesAsync(
+                        groupByTrigger,
                         offsetData,
+                        messagesCount,
                         cancellationToken);
 
                     // Триггеры (используемые для TriggerEvents) не должно подвисать на обработке (не содержат долгих операций), иначе тут будет подвисать consumer.
@@ -561,6 +565,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     await repository.SaveAsync(triggers.Values, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
+
+                await eventInbox.AfterCommitAsync(inboxContext, CancellationToken.None);
             }
 
             var runningTasks = new List<Task>(_options.TriggerEventQueues.Count);

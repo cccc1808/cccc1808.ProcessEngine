@@ -38,11 +38,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             _idGenerator = idGenerator;
             _lockQueryHintStore = lockQueryHintStore;
             _dbContext = dbContext;
-        }
+        }        
 
-        public async ValueTask FilterMessagesAsync(
+        public async ValueTask<ITriggerEventInboxService.IContext> FilterMessagesAsync(
             Dictionary<string, List<(MessageDto Message, ITriggerEvent Event)>> groupByTriggerMessages,
             Dictionary<ITriggerEventInboxService.PartitionKey, ITriggerEventInboxService.PartitionOffset> offsetsData,
+            int allMessages,
             CancellationToken cancellationToken)
         {
             Dictionary<ITriggerEventInboxService.PartitionKey, TriggerEventOffsetInboxDbEntity<TId>> offsets;
@@ -104,7 +105,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                 if (allProcessed)
                 {
                     // Дальнейшая проверка не нужна.
-                    return;
+                    return null;
                 }
             }
 
@@ -143,6 +144,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             {
                 groupByTriggerMessages.Remove(elem);
             }
+
+            return null;
+        }
+
+        public ValueTask AfterCommitAsync(
+            ITriggerEventInboxService.IContext context,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
         }
     }
 }

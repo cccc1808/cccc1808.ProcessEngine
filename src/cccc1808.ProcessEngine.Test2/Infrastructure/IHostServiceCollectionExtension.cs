@@ -81,6 +81,8 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
@@ -322,7 +324,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             services
                 .AddScoped<TriggerEventRaiser<Guid>>()
-                .AddScoped<ITriggerEventInboxService, EFTriggerEventOffsetInboxService<Guid>>()
+                 // .AddScoped<ITriggerEventInboxService, EFTriggerEventOffsetInboxService<Guid>>()                 
+                .AddScoped<ITriggerEventInboxService, RedisTriggerEventInboxService>()                 
+                .AddSingleton(new RedisTriggerEventInboxService.OptionsDto() { ConnectionName = "1", DatabaseId = -1 })
                 .AddScoped<ITriggerEventRaiser<Guid>>(s => s.GetRequiredService<TriggerEventRaiser<Guid>>())
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserExceptionDbDecorator<Guid>>()
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
@@ -454,23 +458,32 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             return services;
         }
 
+        public static IServiceCollection AddRedis(
+            this IServiceCollection services,
+            RedisConnectionFactory.OptionsDto connectionOptions)
+        {
+            services
+                .AddSingleton(connectionOptions)
+                .AddSingleton<IRedisConnectionFactory, RedisConnectionFactory>();
+
+            return services;
+        }
+
         public static IServiceCollection AddRedisExternalCounter(
             this IServiceCollection services,
-            RedisExternalCounterProviderFactory.OptionsDto factoryOptions,
             RedisExternalCounterProvider.OptionsDto providerOptions
             )
         {
             if (!UseInMemoryExternalCounter)
             {
                 services
-                    .AddSingleton(factoryOptions)
                     .AddSingleton(providerOptions)
-                    .AddSingleton<IExternalCounterProviderFactory, RedisExternalCounterProviderFactory>();
+                    .AddSingleton<IExternalCounterProvider, RedisExternalCounterProvider>();
             }
             else 
             {
                 services
-                    .AddSingleton<IExternalCounterProviderFactory, InMemoryExternalCounterProviderFactory>();
+                    .AddSingleton<IExternalCounterProvider, InMemoryExternalCounterProvider>();
             }
             
             return services;

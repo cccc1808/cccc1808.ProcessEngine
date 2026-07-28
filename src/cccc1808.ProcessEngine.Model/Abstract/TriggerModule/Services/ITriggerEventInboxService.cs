@@ -11,12 +11,20 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
     public interface ITriggerEventInboxService
     {
-        ValueTask FilterMessagesAsync(
+        ValueTask<IContext> FilterMessagesAsync(
             Dictionary<string, List<(MessageDto Message, ITriggerEvent Event)>> groupByTriggerMessages,
             Dictionary<PartitionKey, PartitionOffset> offsetsData,
+            int allMessageCount,
+            CancellationToken cancellationToken);
+
+        ValueTask AfterCommitAsync(
+            IContext context,
             CancellationToken cancellationToken);
 
         #region types
+
+        public interface IContext
+        { }
 
         public readonly record struct PartitionKey(
             string Queue,

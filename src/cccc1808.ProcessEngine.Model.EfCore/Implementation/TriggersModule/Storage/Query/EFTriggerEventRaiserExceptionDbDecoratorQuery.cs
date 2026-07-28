@@ -29,7 +29,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IIdGenerator<TId> _idGenerator;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IDateTimeProvider _dateTimeProvider;
-        private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IEFDbContext _dbContext;
         private readonly IEventJsonSerializer _eventJsonSerializer;
 
@@ -37,14 +36,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             IIdGenerator<TId> idGenerator,
             ILockQueryHintStore lockQueryHintStore,
             IDateTimeProvider dateTimeProvider,
-            ILockQueryHintStore lockQueryHintStore,
             IEFDbContext dbContext,
             IEventJsonSerializer eventJsonSerializer)
         {
             _idGenerator = idGenerator;
             _lockQueryHintStore = lockQueryHintStore;
             _dateTimeProvider = dateTimeProvider;
-            _lockQueryHintStore = lockQueryHintStore;
             _dbContext = dbContext;
             _eventJsonSerializer = eventJsonSerializer;
         }
@@ -95,7 +92,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             //    .RemoveRange(eventsEntities);
             // await _dbContext.SaveChangesAsync(cancellationToken);
 
-            return entities
+            return eventsEntities
                 .Select(
                     e => Map(
                         e.Data.Deserialize<TriggerEventOutboxDbEntity<TId>.EventDto>()
