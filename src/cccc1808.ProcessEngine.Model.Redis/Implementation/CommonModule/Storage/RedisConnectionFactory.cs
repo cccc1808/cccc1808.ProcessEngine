@@ -54,16 +54,20 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
             foreach (var elem in _buffer.Values)
             {
                 await elem.Write(
-                    1,
+                    (elem),
                     static async (p, e, t) => 
                     {
-                        await e.DisposeAsync();
+                        if (e is not null)
+                        {
+                            await e.DisposeAsync();
+                        }
+
+                        p.Dispose();
+
                         return null;
                     },
                     CancellationToken.None
                     );
-
-                elem.Dispose();
             }
         }
 
