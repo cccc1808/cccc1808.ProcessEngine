@@ -74,7 +74,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
                 {
                     foreach (var elem in messages)
                     {
-                        _queue.Queue.Writer.TryWrite(elem);
+                        // var message = elem with { Offset = Interlocked.Increment(ref _queue.OffsetId) };
+
+                        if (!_queue.Queue.Writer.TryWrite(elem))
+                        {
+                            throw new Exception();
+                        }
                     }
                 }
 
@@ -196,6 +201,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
             public List<MessageDto> NotCommitedMesages { get; }
 
             public TestInMemoryQueueConsumer? ConnectedConsumer { get; set; }
+
+            public long OffsetId;
 
             public QueueEntry() 
             {

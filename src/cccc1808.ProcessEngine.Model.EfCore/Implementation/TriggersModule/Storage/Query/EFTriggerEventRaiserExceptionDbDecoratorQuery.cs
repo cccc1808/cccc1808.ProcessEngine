@@ -90,6 +90,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 .ExecuteDeleteAsync(cancellationToken);
             //_dbContext.Set<TriggerEventOutboxDbEntity<TId>>()
             //    .RemoveRange(eventsEntities);
+            // await _dbContext.SaveChangesAsync(cancellationToken);
 
             return eventsEntities
                 .Select(

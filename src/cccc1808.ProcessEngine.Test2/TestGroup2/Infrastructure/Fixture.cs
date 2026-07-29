@@ -32,6 +32,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -77,7 +78,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
 
-                    var redisBuilder = new RedisBuilder();
+                    var redisBuilder = new RedisBuilder("redis:7.4");
                     RedisContainer = redisBuilder.Build();
                 }
 
@@ -148,13 +149,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             )
                     )
 
-                    .AddRedisExternalCounter(
-                        new RedisExternalCounterProviderFactory.OptionsDto() 
+                    .AddRedis(
+                        new RedisConnectionFactory.OptionsDto() 
                         { 
-                            ConnectinoString = $"localhost:{RedisContainer.GetMappedPublicPort()}" 
-                        },
+                            ConnectionConfigrations = new Dictionary<string, (string ConnectionString, TimeSpan PiplineTimeout)>() 
+                            {
+                                ["1"] = new ($"localhost:{RedisContainer.GetMappedPublicPort()}", TimeSpan.FromSeconds(10))
+                            }
+                        }
+                    )
+                    .AddRedisExternalCounter(
                         new RedisExternalCounterProvider.OptionsDto() 
-                        { }
+                        {
+                            ConnectionName = "1",
+                            DatabaseId = -1,
+                        }
                     )
 
                     .AddIsolationServices()
@@ -304,8 +313,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     }
 
                     {
-                        var externalCounter = await scope.ServiceProvider.GetRequiredService<IExternalCounterProviderFactory>()
-                            .GetProviderAsync(default);
+                        var externalCounter = scope.ServiceProvider.GetRequiredService<IExternalCounterProvider>();
                         await externalCounter.ClearAsync();
                     }
                 }

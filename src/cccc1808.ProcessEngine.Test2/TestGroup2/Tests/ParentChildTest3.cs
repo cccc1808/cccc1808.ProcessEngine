@@ -278,8 +278,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
-                        var externalCounterProvider = await serviceProvider.GetRequiredService<IExternalCounterProviderFactory>()
-                            .GetProviderAsync(default);
+                        var externalCounterProvider = serviceProvider.GetRequiredService<IExternalCounterProvider>();
 
                         var childProcessesCreated = await dbcontext
                             .Set<ChildProcessDbEntity>()
@@ -359,8 +358,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
-                        var externalCounterProvider = await serviceProvider.GetRequiredService<IExternalCounterProviderFactory>()
-                            .GetProviderAsync(default);
+                        var externalCounterProvider = serviceProvider.GetRequiredService<IExternalCounterProvider>();
 
                         var processIdString = process.Id.ToString();
                         var component = process.GetComponent<ChildProcessDbEntity>();

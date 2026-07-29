@@ -2,27 +2,30 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 
 using StackExchange.Redis;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
 {
     public class RedisExternalCounterProvider : 
-        IExternalCounterProvider,
-        IAsyncDisposable
+        IExternalCounterProvider
     {
-        private readonly ConnectionMultiplexer _connectionMultiplexer;
+        private readonly IRedisConnectionFactory _redisConnectionFactory;
 
         private readonly OptionsDto _options;
 
         public RedisExternalCounterProvider(
-            ConnectionMultiplexer connectionMultiplexer, 
+            IRedisConnectionFactory redisConnectionFactory,
+
             OptionsDto options)
         {
-            _connectionMultiplexer = connectionMultiplexer;
+            _redisConnectionFactory = redisConnectionFactory;
+
             _options = options;
         }
 
@@ -33,22 +36,24 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             int value, 
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
-            // Pipelining
-            await Task.WhenAll(
-                
-                // Пересоздаем структуры по ключам.
-                db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
-                db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
-                db.StringIncrementAsync(_options.TriggerCounterKeyFactory(triggerKey), value),
-                db.SetAddAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1"),
+            await connection.WaitPiplineWithTimeoutAsync(
+                [
+                    // Пересоздаем структуры по ключам.
+                    db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
+                    db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
+                    db.StringIncrementAsync(_options.TriggerCounterKeyFactory(triggerKey), value),
+                    db.SetAddAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1"),
 
-                // Вносим ключи в справочник.
-                db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
-                db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
+                    // Вносим ключи в справочник.
+                    db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
+                    db.SetAddAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
 
-                // db.SetRemoveAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1")
+                    // db.SetRemoveAsync(_options.TriggerMembersKeyFactory(triggerKey), "-1")
+                ],
+                cancellationToken
                 );
         }
 
@@ -56,17 +61,20 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             string triggerKey,
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
-            // Pipelining
-            await Task.WhenAll(
-                // Удаляем ключи.
-                db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
-                db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
+            await connection.WaitPiplineWithTimeoutAsync(
+                [
+                    // Удаляем ключи.
+                    db.KeyDeleteAsync(_options.TriggerCounterKeyFactory(triggerKey)),
+                    db.KeyDeleteAsync(_options.TriggerMembersKeyFactory(triggerKey)),
 
-                // Удаляем из справочника.
-                db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
-                db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
+                    // Удаляем из справочника.
+                    db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerCounterKeyFactory(triggerKey)),
+                    db.SetRemoveAsync(_options.UsingKeysKeyFactory(), _options.TriggerMembersKeyFactory(triggerKey))
+                ],
+                cancellationToken
                 );
         }
 
@@ -74,12 +82,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             string triggerKey,
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
             var key1 = db.KeyExistsAsync(_options.TriggerCounterKeyFactory(triggerKey));
             var key2 = db.KeyExistsAsync(_options.TriggerMembersKeyFactory(triggerKey));
 
-            await Task.WhenAll(key1, key2);
+            await connection.WaitPiplineWithTimeoutAsync([key1, key2], cancellationToken);
 
             return key1.Result && key2.Result;
         }
@@ -88,14 +97,15 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             string triggerKey,
             string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
             //if (!await db.SetContainsAsync(triggerKey, processId))
             //{
             //    return false;
             //}
 
-            var isExecuted = await ExecuteTransactionAsync(
+            var isExecuted = await connection.ExecuteTransactionAsync(
                 (counterKey: _options.TriggerCounterKeyFactory(triggerKey), memberSetKey: _options.TriggerMembersKeyFactory(triggerKey), processId),
                 db,
                 prepareHandller: static (p, t) => 
@@ -137,9 +147,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             string triggerKey,
             string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
-            var result = await ExecuteTransactionAsync(
+            var result = await connection.ExecuteTransactionAsync(
                 (_options, counterKey: _options.TriggerCounterKeyFactory(triggerKey), memberSetKey: _options.TriggerMembersKeyFactory(triggerKey), processId),
                 db,
                 prepareHandller: (p, t) => 
@@ -203,7 +214,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
 
         public async Task CommitCounterAsync(string triggerKey, string processId)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
             await db.SetRemoveAsync(_options.TriggerMembersKeyFactory(triggerKey), processId);
         }
@@ -212,7 +224,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             ICollection<string> triggersKeys, 
             CancellationToken cancellationToken)
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
             var result = new Dictionary<string, (int Counter, ISet<string> Members)>(triggersKeys.Count);
             foreach (var elem in triggersKeys)
@@ -223,8 +236,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                     continue;
                 }
 
-                var members = await GetMembersAsync(db, elem);
-                result.Add(elem, ((int)counter, members));
+                var members = await db.SetMembersAsync(_options.TriggerMembersKeyFactory(elem));
+                result.Add(elem, ((int)counter, members.Select(e => (string)e).ToHashSet()));
             }
 
             return result;
@@ -232,7 +245,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         
         public async Task ClearAsync()
         {
-            var db = _connectionMultiplexer.GetDatabase(_options.DbId);
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_options.DatabaseId);
 
             var keys = new List<string>();
             await foreach (var elem in db.SetScanAsync(_options.UsingKeysKeyFactory()))
@@ -251,61 +265,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
 
         #endregion
 
-        private async Task<ISet<string>> GetMembersAsync(
-            IDatabase db, 
-            string triggerKey)
-        {
-            const int bufferLimit = 250;
-
-            var membersBuffer = new HashSet<string>(0);
-            await foreach (var elem2 in db.SetScanAsync(_options.TriggerMembersKeyFactory(triggerKey), pageSize: bufferLimit))
-            {
-                membersBuffer.Add(elem2);
-            }
-
-            if (membersBuffer.Count == bufferLimit)
-            {
-                throw new Exception("Ошибка переполнения буфера.");
-            }
-
-            return membersBuffer;
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await _connectionMultiplexer.DisposeAsync();
-        }
-
-        private static async ValueTask<TResult> ExecuteTransactionAsync<TParam, TCommands, TResult>(
-            TParam param,
-            IDatabase database,
-            Func<TParam, ITransaction, TCommands> prepareHandller,
-            Func<TParam, TCommands, bool, ValueTask<TResult>> executedHandler)
-        {
-            var transaction = database.CreateTransaction();
-
-            var prepareResult = prepareHandller(param, transaction);
-
-            var isExecuted = await transaction.ExecuteAsync();
-
-            return await executedHandler(param, prepareResult, isExecuted);
-        }
-
-        private static async ValueTask<TResult> ExecuteTransactionAsync<TParam, TCommands, TResult>(
-            TParam param,
-            IDatabase database,
-            Func<TParam, ITransaction, TCommands> prepareHandller,
-            Func<TParam, TCommands, bool, TResult> executedHandler)
-        {
-            var transaction = database.CreateTransaction();
-
-            var prepareResult = prepareHandller(param, transaction);
-
-            var isExecuted = await transaction.ExecuteAsync();
-
-            return executedHandler(param, prepareResult, isExecuted);
-        }
-
         #region types
 
         public class OptionsDto
@@ -313,8 +272,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
             public int MemberSetSizeLimit { get; set; }
                 = 100;
 
-            public int DbId { get; set; }
-                = -1;
+            public required string ConnectionName { get; set; }
+
+            public required int DatabaseId { get; set; }
 
             public Func<string, string> TriggerCounterKeyFactory { get; set; }
                 = static (triggerKey) => $"external_counter_{triggerKey}";
