@@ -326,7 +326,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<TriggerEventRaiser<Guid>>()
                  // .AddScoped<ITriggerEventInboxService, EFTriggerEventOffsetInboxService<Guid>>()                 
                 .AddScoped<ITriggerEventInboxService, RedisTriggerEventInboxService>()                 
-                .AddSingleton(new RedisTriggerEventInboxService.OptionsDto() { ConnectionName = "1", DatabaseId = -1 })
+                .AddSingleton(new RedisTriggerEventInboxService.OptionsDto() 
+                { 
+                    ConnectionName = "1", 
+                    DatabaseId = -1,
+                    ClearPolicy = RedisTriggerEventInboxService.OptionsDto.ClearPolicyEnum.SizeLimit,
+                    SizeLimit = 2,
+                })
                 .AddScoped<ITriggerEventRaiser<Guid>>(s => s.GetRequiredService<TriggerEventRaiser<Guid>>())
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserExceptionDbDecorator<Guid>>()
                 .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
