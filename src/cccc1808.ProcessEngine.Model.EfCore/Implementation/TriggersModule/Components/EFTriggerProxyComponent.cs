@@ -15,7 +15,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
         : ITriggerComponent<TId>
     {
         private readonly ITriggerSetter<TId> _triggerSetter;
-        public TriggerDbEntity<TId> Entity { get; }       
+        public TriggerDbEntity<TId> Entity { get; }
+
+        public TId Id => Entity.Id;
 
         public string Key => Entity.Key;
 
@@ -31,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public ITriggerComponent.TriggerKind Kind => Entity.Kind;
         
-        public DateTimeOffset SelectLockTimeout { get => Entity.SelectLockTimeout; set => Entity.SelectLockTimeout = value; }
+        public DateTimeOffset ReservationTimeout { get => Entity.ReservationTimeout; set => Entity.ReservationTimeout = value; }
 
         public object? State { get; private set; }
 

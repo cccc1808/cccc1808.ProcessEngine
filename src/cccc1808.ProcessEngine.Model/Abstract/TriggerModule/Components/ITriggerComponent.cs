@@ -13,6 +13,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
     {
         #region prop
 
+        TId Id { get; }
+
         /// <summary>
         /// Ключ триггера.
         /// </summary>
@@ -53,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// </summary>
         string HandlerKey { get; }
 
-        DateTimeOffset SelectLockTimeout { get; set; }
+        DateTimeOffset ReservationTimeout { get; set; }
 
         /// <summary>
         /// Кастомное состояние триггера.

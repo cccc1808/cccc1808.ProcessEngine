@@ -60,11 +60,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
 
 
         public readonly record struct DbProcessingForSelectorParameters(
-            DateTimeOffset NowDate);
+            DateTimeOffset NowDate,
+            ICollection<TId> reservedIds);
 
         public readonly record struct DbProcessingForSelectorParameters3(
             DateTimeOffset NowDate,
-            bool IsRangeTrigger);
+            bool IsRangeTrigger,
+            ICollection<TId> reservedIds);
 
         public readonly record struct DbProcessingForHandlerParameters(
             DateTimeOffset NowDate,

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter
+namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
 {
     /// <summary>
     /// Провайдер внешнего счетчика для триггеров.

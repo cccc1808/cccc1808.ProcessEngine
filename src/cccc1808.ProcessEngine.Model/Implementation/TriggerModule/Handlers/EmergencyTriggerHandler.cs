@@ -7,11 +7,13 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
@@ -247,7 +249,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             !e.Trigger.IsCompleted
                             && !e.Trigger.IsActivated
                             && e.Trigger.Kind != ITriggerComponent.TriggerKind.SimpleStreamRoot // Он реагирует на сигналы дочерних.
-                            && e.Trigger.SelectLockTimeout < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
+                            && e.Trigger.ReservationTimeout < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
                             )
                         .ToArray();
 

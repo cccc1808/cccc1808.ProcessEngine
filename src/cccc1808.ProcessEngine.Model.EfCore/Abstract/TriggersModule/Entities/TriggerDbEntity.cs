@@ -29,7 +29,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// Дополняет updatelock.
         /// Отмечает бронь записи, между select транзакций и транзакций выполнения.
         /// </summary>
-        public DateTimeOffset SelectLockTimeout { get; set; }
+        public DateTimeOffset ReservationTimeout { get; set; }
 
         /// <summary>
         /// Смещение keyset пагинации.
@@ -124,7 +124,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         {
             Id = id;
             Key = key;
-            SelectLockTimeout = selectLockTimeout;
+            ReservationTimeout = selectLockTimeout;
             TimerDate = timerDate;
             IsRangeHandler = isRangeHandler;
             HandlerKey = handlerKey;

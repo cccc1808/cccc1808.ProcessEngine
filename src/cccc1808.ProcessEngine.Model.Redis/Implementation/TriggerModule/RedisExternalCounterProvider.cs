@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 
 using StackExchange.Redis;

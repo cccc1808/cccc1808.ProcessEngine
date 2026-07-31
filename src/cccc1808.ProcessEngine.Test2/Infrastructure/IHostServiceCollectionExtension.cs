@@ -21,7 +21,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -43,6 +43,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Q
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
@@ -294,6 +295,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EFTriggerHandlerFacade<Guid>>()
                 .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
                 .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
+                .AddScoped<ITriggerReservationProvider<Guid>, EFTriggerReservationProvider<Guid>>()
                 .AddScoped<IRootTriggerQuery<Guid>, StubRootTriggerQuery<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                

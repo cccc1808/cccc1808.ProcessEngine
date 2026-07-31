@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
