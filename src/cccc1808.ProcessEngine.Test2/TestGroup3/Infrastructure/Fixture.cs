@@ -133,6 +133,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
+                    .AddEFTriggerReservationServices()
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto(
                             new EFTriggerSelectQuery<Guid>.Options3()

@@ -34,7 +34,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
@@ -184,6 +184,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(Services.RootTrigger.ChildTriggerHandler.Name, typeof(Services.RootTrigger.ChildTriggerHandler))
                     )
+                    .AddEFTriggerReservationServices()
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
                             "trigger_events"

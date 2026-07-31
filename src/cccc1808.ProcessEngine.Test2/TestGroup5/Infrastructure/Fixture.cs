@@ -159,6 +159,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>.Name, typeof(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>))
                     )
+                    .AddEFTriggerReservationServices()
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
                             FixtureCollection.TriggerEvents

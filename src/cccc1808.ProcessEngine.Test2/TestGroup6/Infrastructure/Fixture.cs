@@ -139,6 +139,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                     )
 
                     .AddTriggerServices()
+                    .AddEFTriggerReservationServices()
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
                             FixtureCollection.TriggerEvents

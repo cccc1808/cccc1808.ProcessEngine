@@ -84,8 +84,11 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Servic
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
@@ -295,7 +298,6 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EFTriggerHandlerFacade<Guid>>()
                 .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
                 .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
-                .AddScoped<ITriggerReservationProvider<Guid>, EFTriggerReservationProvider<Guid>>()
                 .AddScoped<IRootTriggerQuery<Guid>, StubRootTriggerQuery<Guid>>()
 
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
@@ -307,6 +309,31 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddScoped(elem.ImplementationType);
             }
 
+            return services;
+        }
+
+        public static IServiceCollection AddEFTriggerReservationServices(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<ITriggerReservationProvider<Guid>, EFTriggerReservationProvider<Guid>>();
+            return services;
+        }
+
+        public static IServiceCollection AddRedisTriggerReservationServices(
+            this IServiceCollection services,
+            RedisTriggerReservationProvider<Guid>.OptionsDto options,
+            RedisTriggerReservationOptions reservationOptions)
+        {
+            services
+                .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
+                .AddSingleton(options)
+                .AddSingleton(reservationOptions)
+                
+                .AddSingleton<ITriggerReservationState<Guid>, InmemoryTriggerReservationState<Guid>>()
+                
+                .AddSingleton<ITriggerRedisReservationRunner, RedisTriggerReservationRunner<Guid>>()
+                ;
             return services;
         }
 

@@ -10,7 +10,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider
 {
     public class RedisExternalCounterProvider : 
         IExternalCounterProvider
