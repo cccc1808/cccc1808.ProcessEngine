@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter
 {

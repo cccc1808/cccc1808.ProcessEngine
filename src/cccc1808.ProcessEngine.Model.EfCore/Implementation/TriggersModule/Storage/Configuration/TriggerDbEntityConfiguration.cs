@@ -72,7 +72,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
         {
             // 
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.Id })
                 .HasFilter(@"
     is_activated is true 
     and child_trigger_wait_delivery_timestamp is null
@@ -85,7 +85,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="builder"></param>
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex2(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
                 .HasFilter(@"
     is_activated is true 
     and child_trigger_wait_delivery_timestamp is null
@@ -98,7 +98,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="builder"></param>
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex31(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
                 .HasFilter(@"
     is_activated is true
     and child_trigger_wait_delivery_timestamp is null
@@ -112,7 +112,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <param name="builder"></param>
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex32(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.SelectLockTimeout, e.HandlerKey })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
                 .HasFilter(@"
     is_activated is true 
     and child_trigger_wait_delivery_timestamp is null

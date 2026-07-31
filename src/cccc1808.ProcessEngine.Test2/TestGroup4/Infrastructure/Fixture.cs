@@ -132,6 +132,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddIsolationServices()
 
                     .AddParallelLimitProcessRunner()
+                    .AddEFProcessReservationService()
 
                     .AddWakeupServices(
                         [
@@ -150,6 +151,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(EFOutboxTriggerWakeupHandler<Guid>.Name, typeof(EFOutboxTriggerWakeupHandler<Guid>))
                     )
+                    .AddEFTriggerReservationServices()
 
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto(

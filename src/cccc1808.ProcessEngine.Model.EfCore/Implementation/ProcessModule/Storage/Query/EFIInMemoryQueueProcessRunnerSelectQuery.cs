@@ -11,6 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -29,6 +30,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         private readonly IEFDbContext _dbContext;
         private readonly ITransactionManager _transactionManager;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly IProcessReservationProvider<TId> _processReservationProvider;
         private readonly IProcessDbEntityConditions<TId, TEntity> _processDbEntityConditions;
 
         private readonly OptionsDto _options;
@@ -38,6 +40,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             IEFDbContext dbContext,
             ITransactionManager transactionManager,
             ILockQueryHintStore lockQueryHintStore,
+            IProcessReservationProvider<TId> processReservationProvider,
             IProcessDbEntityConditions<TId, TEntity> processDbEntityConditions,
 
             OptionsDto options)
@@ -46,6 +49,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _dbContext = dbContext;
             _transactionManager = transactionManager;
             _lockQueryHintStore = lockQueryHintStore;
+            _processReservationProvider = processReservationProvider;
             _processDbEntityConditions = processDbEntityConditions;
 
             _options = options;
@@ -73,6 +77,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     {
                         // TODO: можно сделать без загрузки, но не через LINQ.
 
+                        var reservedProcessIds = await _processReservationProvider.GetReservedAsync(cancellationToken);
+
                         // В1: нормальный join
                         var registrationQuery = _dbContext.QueryFromCollection(
                             registrations
@@ -93,7 +99,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         query = query.ApplayQueryCondition(
                             _processDbEntityConditions.DbProcessingForSelectorForProjection1(query),
                             e => e.Process,
-                            new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(now, _dbContext, registrations)
+                            new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters(
+                                now, 
+                                _dbContext, 
+                                registrations,
+                                reservedProcessIds)
                             );
 
                         var batch = await query
@@ -132,19 +142,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     }
 
                     // Устанавливаем отметку о блокировке выборки.
-                    _ = _processDbEntityConditions.DbProcessingForHandler; // для ссылки;
-                    await _dbContext.Set<TEntity>()
-                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
-                        .Where(e => e.Status == ProcessStatusEnum.AsyncExecute)
+                    {
+                        var reserved = await _processReservationProvider.TryReserveAsync(
+                            result.Select(e => e.Id).ToArray(),
+                            selectDate,
+                            cancellationToken);
 
-                        //.ApplayQueryCondition(
-                        //    _processDbEntityConditions.DbProcessingForHandler.Query,
-                        //    new IProcessDbEntityConditions<TId, TEntity>.DbProcessingForHandlerParameters(
-                        //        _dbContext,
-                        //        registrations,
-                        //        result.Select(e => e.Id).ToArray()
-                        //        ))                      
-                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.ReservationTimeout, selectDate), cancellationToken);
+                        result = result.Where(
+                            e => reserved.Contains(e.Id))
+                            .ToArray();
+                    }
 
                     await transaction.CommitAsync(cancellationToken);
                 }
