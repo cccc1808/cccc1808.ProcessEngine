@@ -99,7 +99,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new PostgresTriggerDbEntityConfiguration<Guid>().Configure(b);
                         b.Property(e => e.Id).ValueGeneratedNever();
                     });
-                modelBuilder.Entity<TriggerLockDbEntity<Guid>>(
+                modelBuilder.Entity<TriggerReserveDbEntity<Guid>>(
                     (b) =>
                     {
                         new PostgresTriggerLockDbEntityConfiguration<Guid>().Configure(b);

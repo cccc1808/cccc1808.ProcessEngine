@@ -142,8 +142,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                         && e.TimerDate < p.NowDate
                                         && e.ReservationTimeout < p.NowDate
                                         // Отсутсвие записей о блокировке с неистекшей датой.
-                                        && !p.DbContext.Set<TriggerLockDbEntity<TId>>()
-                                            .Any(e2 => e2.Id.Equals(e.Id) && e2.LockDate < p.NowDate)
+                                        && !p.DbContext.Set<TriggerReserveDbEntity<TId>>()
+                                            .Any(e2 => e2.Id.Equals(e.Id) && e2.ReserveDate < p.NowDate)
                                             )
                                 .OrderByDescending(e => e.Priority)
                                 .ThenBy(e => e.HandlerKey);

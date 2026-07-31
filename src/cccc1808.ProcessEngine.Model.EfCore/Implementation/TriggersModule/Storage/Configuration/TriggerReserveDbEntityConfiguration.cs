@@ -14,10 +14,10 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Configuration
 {
-    public class TriggerLockDbEntityConfiguration<TId>
-        : IEntityTypeConfiguration<TriggerLockDbEntity<TId>>
+    public class TriggerReserveDbEntityConfiguration<TId>
+        : IEntityTypeConfiguration<TriggerReserveDbEntity<TId>>
     {
-        public virtual void Configure(EntityTypeBuilder<TriggerLockDbEntity<TId>> builder)
+        public virtual void Configure(EntityTypeBuilder<TriggerReserveDbEntity<TId>> builder)
         {
             KeyIndex(builder);
         }
@@ -26,10 +26,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         /// <see cref="ITriggerDbEntityConditions{TId}.Key"/>
         /// </summary>
         /// <param name="builder"></param>
-        protected virtual IndexBuilder<TriggerLockDbEntity<TId>> KeyIndex(EntityTypeBuilder<TriggerLockDbEntity<TId>> builder) 
+        protected virtual IndexBuilder<TriggerReserveDbEntity<TId>> KeyIndex(EntityTypeBuilder<TriggerReserveDbEntity<TId>> builder) 
         {
             // Уникальный
-            return builder.HasIndex(e => new { e.Id, e.LockDate })
+            return builder.HasIndex(e => new { e.Id, e.ReserveDate })
                 .IsUnique();
         }
     }

@@ -14,10 +14,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
             IContextState contextState,
             CancellationToken cancellationToken);
 
-        Task UnholdSelectLockAsync(
-            ICollection<TId> ids, 
-            CancellationToken cancellationToken);
-
         public readonly record struct SelectDto(
             TId Id,
             // string Key,

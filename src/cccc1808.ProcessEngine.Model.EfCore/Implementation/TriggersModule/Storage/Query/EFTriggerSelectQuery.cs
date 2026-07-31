@@ -78,18 +78,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return data;
         }
 
-        public async Task UnholdSelectLockAsync(
-            ICollection<TId> ids, 
-            CancellationToken cancellationToken)
-        {
-            // В одном случаев select lock храниться в самой таблице (и обновлен при ее записи).
-
-            // TODO: пробросить условие.
-            // В другом случае hold lock храниться еще и в отдельной inmemory таблице, обновляем ее.
-            await _dbContext.Set<TriggerLockDbEntity<TId>>()
-                .Where(e => ids.Contains(e.Id))
-                .ExecuteDeleteAsync(cancellationToken);
-        }
 
         /// <summary>
         /// Простая реализация (только batchSize).
@@ -331,7 +319,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                                 now,
                                 IsRangeTrigger: false,
                                 reservedIds: await _triggerReservationProvider.GetReservedAsync(cancellationToken),
-                                UseSelectLockTable: state.Options.UseSelectLockTable)))
+                                UseSelectLockTable: state.Options.UseSelectLockTable))
                         .Take(state.Options.SingleTriggerBatchSize(state.ParallelSlots))
                         .Select(e => new { e.Id, e.HandlerKey })
                         .ToArrayAsync(cancellationToken);                    

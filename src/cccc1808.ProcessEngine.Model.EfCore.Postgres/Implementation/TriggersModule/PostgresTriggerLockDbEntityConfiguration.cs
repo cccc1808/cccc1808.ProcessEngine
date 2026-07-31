@@ -13,9 +13,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule
 {
     public class PostgresTriggerLockDbEntityConfiguration<TId> 
-        : TriggerLockDbEntityConfiguration<TId>
+        : TriggerReserveDbEntityConfiguration<TId>
     {
-        public override void Configure(EntityTypeBuilder<TriggerLockDbEntity<TId>> builder)
+        public override void Configure(EntityTypeBuilder<TriggerReserveDbEntity<TId>> builder)
         {
             base.Configure(builder);
             

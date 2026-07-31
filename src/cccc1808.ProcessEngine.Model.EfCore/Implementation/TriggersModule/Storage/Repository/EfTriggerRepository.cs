@@ -176,7 +176,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         public async Task SaveAsync(
             ICollection<ITriggerComponent<TId>> triggers,
-            bool fromRunner,
             CancellationToken cancellationToken)
         {
             var forRemove = new List<TriggerDbEntity<TId>>();

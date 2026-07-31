@@ -15,25 +15,25 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
     /// таким образом понижается нагрузка на жесткий диск.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public class TriggerLockDbEntity<TId>
+    public class TriggerReserveDbEntity<TId>
         : IId<TId>
     {
         public TId Id { get; set; }
 
-        public DateTimeOffset LockDate { get; set; }
+        public DateTimeOffset ReserveDate { get; set; }
 
         [Obsolete("Для EF и запросов.")]
-        public TriggerLockDbEntity() 
+        public TriggerReserveDbEntity() 
         {
             Id = default!;
         }
 
-        public TriggerLockDbEntity(
+        public TriggerReserveDbEntity(
             TId id, 
             DateTimeOffset lockDate)
         {
             Id = id;
-            LockDate = lockDate;
+            ReserveDate = lockDate;
         }
     }
 }
