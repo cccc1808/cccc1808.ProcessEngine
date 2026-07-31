@@ -34,5 +34,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
         /// Получить набор триггеров, которые зарезервированы всеми нодами (если провайдер поддерживает).
         /// </summary>
         ValueTask<ISet<TId>> GetReservedAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Отчистка окружения (!! только для тестов).
+        /// </summary>
+        /// <returns></returns>
+        ValueTask ClearAsync();
     }
 }

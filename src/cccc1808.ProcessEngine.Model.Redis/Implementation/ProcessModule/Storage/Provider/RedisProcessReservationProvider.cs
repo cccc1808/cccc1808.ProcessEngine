@@ -20,16 +20,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
         : IProcessReservationProvider<TId>
     {
         private readonly IRedisConnectionFactory _connectionFactory;
-        private readonly IReservationState<TId> _reservationState;
+        private readonly IProcessReservationState<TId> _reservationState;
 
-        private readonly RedisReservationOptions _reservationOptions;
+        private readonly RedisProcessReservationOptions _reservationOptions;
         private readonly OptionsDto _options;
 
         public RedisProcessReservationProvider(
             IRedisConnectionFactory connectionFactory,
-            IReservationState<TId> reservationState,
+            IProcessReservationState<TId> reservationState,
 
-            RedisReservationOptions reservationOptions,
+            RedisProcessReservationOptions reservationOptions,
             OptionsDto options)
         {
             _connectionFactory = connectionFactory;
@@ -44,11 +44,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             DateTimeOffset date,
             CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             // 1) InsertIfNotExists в redis.
-            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>();
+            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>(processIds.Count);
             var piplineTasks = new List<Task>(processIds.Count + 1);
             foreach (var elem in processIds)
             {
@@ -72,7 +72,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             await connection.WaitPiplineWithTimeoutAsync(piplineTasks, cancellationToken);
 
             // 2) Публикуем событие для других нод.
-            var connection2 = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
             var result = new HashSet<TId>(insertResult.Count);
             var pubMessages = new List<JsonElement>(insertResult.Count);
             foreach (var elem in insertResult)
@@ -92,7 +91,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 }
             }
 
-            await connection2.PubAsync(
+            await connection.PubAsync(
                 _reservationOptions.ChannelName,
                 pubMessages,
                 cancellationToken);
@@ -104,8 +103,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             ICollection<TId> processIds, 
             CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             // 1) Удаляем из redis.
             await db.HashDeleteAsync(
@@ -115,7 +114,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     .ToArray());
 
             // 2) Публикуем событие для других нод.
-            var connection2 = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
             var pubMessages = new List<JsonElement>(processIds.Count);
             foreach (var elem in processIds) 
             {
@@ -138,8 +136,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
         public async ValueTask InitAsync(CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             var members = await db.HashGetAllAsync(_options.HashKey);
 
@@ -161,10 +159,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
         public class OptionsDto 
         {
-            public required string ConnectionName { get; set; }
-
-            public required int DbId { get; set; }
-
             public string HashKey { get; set; }
                 = "process_reservation";
 

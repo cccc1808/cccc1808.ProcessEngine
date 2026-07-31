@@ -146,6 +146,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                     .AddIsolationServices()
 
                     .AddParallelLimitProcessRunner()
+                    .AddEFProcessReservationService()
 
                     .AddWakeupServices(
                         [],

@@ -9,5 +9,10 @@
         ISet<TId> GetAll();
 
         void ClearTimeout(DateTimeOffset date);
+
+        /// <summary>
+        /// Отчистка окружения.
+        /// </summary>
+        void Clear();
     }
 }

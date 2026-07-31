@@ -96,8 +96,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         public class OptionsDto
         {
             public TimeSpan PubSubTaskExceptionDelay { get; set; }
+                = TimeSpan.FromSeconds(2);
 
             public TimeSpan ClearTaskDelay { get; set; }
+                = TimeSpan.FromSeconds(2);
         }
     }
 }

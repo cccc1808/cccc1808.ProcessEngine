@@ -84,8 +84,11 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Servic
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
@@ -253,7 +256,6 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped(s => new ProcessCountLimiter(processCountLimiter))
                 .AddScoped<IExecuteLimiter>(s => s.GetRequiredService<ProcessCountLimiter>())
 
-                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<EFIInMemoryQueueProcessRunnerSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
@@ -264,10 +266,37 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services)
         {
             services
-                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
+            return services;
+        }
+
+        public static IServiceCollection AddEFProcessReservationService(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>();
+            return services;
+        }
+
+        public static IServiceCollection AddRedisProcessReservationService(
+            this IServiceCollection services,
+            RedisProcessReservationProvider<Guid>.OptionsDto options,
+            RedisProcessReservationOptions reservationOptions,
+            RedisProcessReservationRunner<Guid>.OptionsDto runnerOptions
+            )
+        {
+            services
+                .AddScoped<IProcessReservationProvider<Guid>, RedisProcessReservationProvider<Guid>>()
+                .AddSingleton(options)
+                .AddSingleton(reservationOptions)
+
+                .AddSingleton<IProcessReservationState<Guid>, InmemoryProcessReservationState<Guid>>()
+
+                .AddScoped<IRedisProcessReservationRunner, RedisProcessReservationRunner<Guid>>()
+                .AddSingleton(runnerOptions)
+                ;
             return services;
         }
 
@@ -323,7 +352,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddRedisTriggerReservationServices(
             this IServiceCollection services,
             RedisTriggerReservationProvider<Guid>.OptionsDto options,
-            RedisTriggerReservationOptions reservationOptions)
+            RedisTriggerReservationOptions reservationOptions,
+            RedisTriggerReservationRunner<Guid>.OptionsDto runnerOptions)
         {
             services
                 .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
@@ -332,7 +362,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 
                 .AddSingleton<ITriggerReservationState<Guid>, InmemoryTriggerReservationState<Guid>>()
                 
-                .AddSingleton<ITriggerRedisReservationRunner, RedisTriggerReservationRunner<Guid>>()
+                .AddScoped<ITriggerRedisReservationRunner, RedisTriggerReservationRunner<Guid>>()
+                .AddSingleton(runnerOptions)
                 ;
             return services;
         }

@@ -1,6 +1,6 @@
 ﻿namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule
 {
-    public interface IRedisReservationRunner
+    public interface IRedisProcessReservationRunner
     {
         Task RunSubAsync(CancellationToken cancellationToken);
 

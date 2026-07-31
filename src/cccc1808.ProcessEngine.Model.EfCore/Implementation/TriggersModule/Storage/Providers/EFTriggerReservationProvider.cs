@@ -75,5 +75,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     e => e.SetProperty(e => e.ReservationTimeout, _dateTimeProvider.UtcNow),
                     cancellationToken);
         }
+
+        public ValueTask ClearAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
     }
 }

@@ -9,10 +9,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
     /// <summary>
     /// Опции резервирования процессов.
     /// </summary>
-    public class RedisReservationOptions
+    public class RedisProcessReservationOptions
     {
         public required string ConnectionName { get; set; }
 
-        public required string ChannelName { get; set; }
+        public required int DbId { get; set; }
+
+        public string ChannelName { get; set; }
+             = "process_reserved";
     }
 }

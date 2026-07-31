@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
@@ -39,17 +40,17 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         }
 
         public async ValueTask<ISet<TId>> TryReserveAsync(
-            ICollection<TId> processIds,
+            ICollection<TId> triggerIds,
             DateTimeOffset date,
             CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             // 1) InsertIfNotExists в redis.
-            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>();
-            var piplineTasks = new List<Task>(processIds.Count + 1);
-            foreach (var elem in processIds)
+            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>(triggerIds.Count);
+            var piplineTasks = new List<Task>(triggerIds.Count + 1);
+            foreach (var elem in triggerIds)
             {
                 var keyString = _options.KeyToStringHandler(elem);
 
@@ -71,7 +72,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             await connection.WaitPiplineWithTimeoutAsync(piplineTasks, cancellationToken);
 
             // 2) Публикуем событие для других нод.
-            var connection2 = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
             var result = new HashSet<TId>(insertResult.Count);
             var pubMessages = new List<JsonElement>(insertResult.Count);
             foreach (var elem in insertResult)
@@ -91,7 +91,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                 }
             }
 
-            await connection2.PubAsync(
+            await connection.PubAsync(
                 _reservationOptions.ChannelName,
                 pubMessages,
                 cancellationToken);
@@ -100,24 +100,23 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         }
 
         public async ValueTask UnreserveAsync(
-            ICollection<TId> processIds,
+            ICollection<TId> triggerIds,
             bool fromRunner,
             CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             // 1) Удаляем из redis.
             await db.HashDeleteAsync(
                 _options.HashKey,
-                processIds
+                triggerIds
                     .Select(e => new RedisValue(_options.KeyToStringHandler(e)))
                     .ToArray());
 
             // 2) Публикуем событие для других нод.
-            var connection2 = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
-            var pubMessages = new List<JsonElement>(processIds.Count);
-            foreach (var elem in processIds)
+            var pubMessages = new List<JsonElement>(triggerIds.Count);
+            foreach (var elem in triggerIds)
             {
                 _reservationState.Unreserve(elem);
                 pubMessages.Add(
@@ -138,8 +137,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
         public async ValueTask InitAsync(CancellationToken cancellationToken)
         {
-            var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
-            var db = connection.GetDatabase(_options.DbId);
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
 
             var members = await db.HashGetAllAsync(_options.HashKey);
 
@@ -159,12 +158,18 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             return ValueTask.FromResult(data);
         }
 
+        public async ValueTask ClearAsync()
+        {
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
+
+            await db.KeyDeleteAsync(_options.HashKey);
+
+            _reservationState.Clear();
+        }
+
         public class OptionsDto
         {
-            public required string ConnectionName { get; set; }
-
-            public required int DbId { get; set; }
-
             public string HashKey { get; set; }
                 = "trigger_reservation";
 

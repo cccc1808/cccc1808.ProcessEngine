@@ -10,12 +10,12 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
 {
-    public class InmemoryReservationState<TId> 
-        : IReservationState<TId>
+    public class InmemoryProcessReservationState<TId> 
+        : IProcessReservationState<TId>
     {
         private readonly ConcurrentDictionary<TId, DateTimeOffset> _reservations;
 
-        public InmemoryReservationState()
+        public InmemoryProcessReservationState()
         {
             _reservations = new ConcurrentDictionary<TId, DateTimeOffset>();
         }        

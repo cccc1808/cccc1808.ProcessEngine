@@ -14,23 +14,23 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
 {
-    public class RedisReservationRunner<TId> : IRedisReservationRunner
+    public class RedisProcessReservationRunner<TId> : IRedisProcessReservationRunner
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
         private readonly IProcessReservationProvider<TId> _processReservationProvider;
-        private readonly IReservationState<TId> _reservationState;
+        private readonly IProcessReservationState<TId> _reservationState;
 
-        private readonly RedisReservationOptions _reservationOptions;
+        private readonly RedisProcessReservationOptions _reservationOptions;
         private readonly OptionsDto _options;
 
-        public RedisReservationRunner(
+        public RedisProcessReservationRunner(
             IDateTimeProvider dateTimeProvider,
             IRedisConnectionFactory redisConnectionFactory,
             IProcessReservationProvider<TId> processReservationProvider,
-            IReservationState<TId> reservationState,
+            IProcessReservationState<TId> reservationState,
 
-            RedisReservationOptions reservationOptions,
+            RedisProcessReservationOptions reservationOptions,
             OptionsDto options)
         {
             _dateTimeProvider = dateTimeProvider;

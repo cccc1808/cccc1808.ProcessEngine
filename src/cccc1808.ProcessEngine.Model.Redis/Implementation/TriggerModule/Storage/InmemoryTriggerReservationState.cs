@@ -49,5 +49,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                 }
             }
         }
+
+        public void Clear()
+        {
+            _reservations.Clear();
+        }
     }
 }

@@ -10,7 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule
     /// Содержит буфер данных о зарезервированных всеми нодами процессах.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public interface IReservationState<TId>
+    public interface IProcessReservationState<TId>
     {
         ISet<TId> GetAll();
 

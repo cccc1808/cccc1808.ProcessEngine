@@ -124,6 +124,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                     )
                     .AddIsolationServices()
                     .AddParallelLimitProcessRunner()
+                    .AddEFProcessReservationService()
                     .AddWakeupServices(
                         [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
                         []

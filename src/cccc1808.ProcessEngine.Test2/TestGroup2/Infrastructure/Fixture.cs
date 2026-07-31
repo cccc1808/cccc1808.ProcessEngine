@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -22,7 +21,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Q
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
@@ -31,9 +29,12 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -56,6 +57,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
     {       
         public const string Name = "FixtureCollection 2";
         public const int TestTimeout = 115000;
+
+        private static string RedisConnectionName { get; } = "1";
+
+        private static int RedisDb { get; } = -1;
 
         public class Fixture : IAsyncLifetime
         {           
@@ -162,14 +167,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddRedisExternalCounter(
                         new RedisExternalCounterProvider.OptionsDto() 
                         {
-                            ConnectionName = "1",
-                            DatabaseId = -1,
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DatabaseId = FixtureCollection.RedisDb,
                         }
                     )
 
                     .AddIsolationServices()
 
                     .AddParallelLimitProcessRunner()
+                    .AddRedisProcessReservationService(
+                        new RedisProcessReservationProvider<Guid>.OptionsDto()
+                        {
+                            KeyToStringHandler = (e) => e.ToString(),
+                            StringToKeyHandler = (e) => Guid.Parse(e)
+                        },
+                        new RedisProcessReservationOptions()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                        },
+                        new RedisProcessReservationRunner<Guid>.OptionsDto()
+                    )
 
                     .AddWakeupServices(
                         [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3, 1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
@@ -184,7 +202,22 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(Services.RootTrigger.ChildTriggerHandler.Name, typeof(Services.RootTrigger.ChildTriggerHandler))
                     )
-                    .AddEFTriggerReservationServices()
+                    // .AddEFTriggerReservationServices()
+
+                    .AddRedisTriggerReservationServices(
+                        new RedisTriggerReservationProvider<Guid>.OptionsDto() 
+                        {
+                            KeyToStringHandler = (e) => e.ToString(),
+                            StringToKeyHandler = (e) => Guid.Parse(e),
+                        },
+                        new RedisTriggerReservationOptions()
+                        { 
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                        },
+                        new RedisTriggerReservationRunner<Guid>.OptionsDto()
+                    )
+
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
                             "trigger_events"
@@ -248,7 +281,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             },
                             selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                             rangeMiddlewareFactory: (s) => throw new Exception(""),
-                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
+                            signleMiddlewareFactory: (s) => new ProcessUnreserveMiddleware<Guid>(
+                                s, 
+                                s.GetRequiredService<IProcessReservationProvider<Guid>>(), 
+                                nextFactory: (s) => new TransactionMiddleware<Guid>(
                                     s,
                                     (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                         s,
@@ -261,6 +297,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                         ),
                                     s.GetRequiredService<ITransactionManager>()
                                 )
+                            )
                             )
                         { 
                             ExceptionDelay = TimeSpan.Zero,
@@ -314,9 +351,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         }
                     }
 
+                    // ExternalCounterProvider
                     {
                         var externalCounter = scope.ServiceProvider.GetRequiredService<IExternalCounterProvider>();
                         await externalCounter.ClearAsync();
+                    }
+
+                    // Reservation
+                    {
+                        var triggerReservationProvider = scope.ServiceProvider.GetRequiredService<ITriggerReservationProvider<Guid>>();
+                        await triggerReservationProvider.ClearAsync();
                     }
                 }
             }
