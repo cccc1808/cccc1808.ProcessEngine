@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
@@ -23,6 +25,9 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -260,6 +265,47 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             e => e.Status.ShouldBe(ProcessStatusEnum.Complete))
                         );
                 }
+            }
+        }
+
+        /// <summary>
+        /// TODO: подвинуть в другой test class.
+        /// </summary>
+        /// <returns></returns>
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        public async Task ReservationSubTestAsync()
+        {
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var options = scope.ServiceProvider.GetRequiredService<RedisProcessReservationOptions>();
+                var connectionFactory = scope.ServiceProvider.GetRequiredService<IRedisConnectionFactory>();
+                var provider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<Guid>>();
+
+                var connection = await connectionFactory.GetAsync(options.ConnectionName, CancellationToken.None);
+                await using var subscribe = await connection.SubscribeAsync(options.ChannelName, CancellationToken.None);
+                await using var subscribeEnumerator = subscribe.ChannelMessages.GetAsyncEnumerator();
+
+                // 1)
+                await provider.TryReserveAsync([Guid.Empty], DateTimeOffset.Now.AddHours(1), CancellationToken.None);
+
+                (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
+                JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
+                    .Deserialize<ReservationMessageDto<Guid>>()
+                    .ShouldSatisfyAllConditions(
+                        e => e.ProcessId.ShouldBe(Guid.Empty),
+                        e => e.IsReserveOrUnreserve.ShouldBeTrue()
+                        );
+
+                // 2)
+                await provider.UnreserveAsync([Guid.Empty], CancellationToken.None);
+
+                (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
+                JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
+                    .Deserialize<ReservationMessageDto<Guid>>()
+                    .ShouldSatisfyAllConditions(
+                        e => e.ProcessId.ShouldBe(Guid.Empty),
+                        e => e.IsReserveOrUnreserve.ShouldBeFalse()
+                        );
             }
         }
 
