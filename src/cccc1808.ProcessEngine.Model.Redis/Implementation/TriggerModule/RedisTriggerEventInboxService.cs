@@ -250,6 +250,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                             }
 
                             var lenghtTask = db.SortedSetLengthAsync(sortedKey);
+
                             piplineTasks.Add(lenghtTask);
 
                             await connection.WaitPiplineWithTimeoutAsync(piplineTasks, cancellationToken);
@@ -257,46 +258,45 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
                             setLenght = (int)lenghtTask.Result;
                         }
 
-                        // TODO: тут не уверен точно как лучше орагнизовать.
-                        // В1: SortedSetRangeByScoreWithScoresAsync(skip: _options.SizeLimit) - Чтение O(n) на каждый вызов навеное не очень.
-                        // В2: Проверка размера, чтение с начала избыточных. Тоже есть чтение, но не на каждый вызов.
                         if (setLenght > _options.SizeLimit)
                         {
-                            var targerSize = (_options.SizeLimit / 2);
+                            var targerSize = (_options.SizeLimit / 3 * 2);
 
                             // Элементов нужно удалить.
                             var needRemoveCount = Math.Abs(targerSize - setLenght);
 
-                            // Считываем набор для удаления.
-                            var overLimit = await db.SortedSetRangeByScoreWithScoresAsync(sortedKey, order: Order.Ascending, take: needRemoveCount);
-
-                            var isRemoved = await connection.ExecuteTransactionAsync(
-                                (sortedKey, overLimit, targerSize),
+                            var removedSet = await connection.ExecuteTransactionAsync(
+                                (sortedKey, needRemoveCount, setLenght),
                                 db,
                                 static (p, t) => 
                                 {
-                                    // Другая нода еще не удалила 1.
-                                    var targerSizeResult = t.AddCondition(
-                                        Condition.SortedSetLengthGreaterThan(p.sortedKey, p.targerSize));
-                                    // Другая нода еще не удалила 2.
-                                    var conditionResult = t.AddCondition(
-                                        Condition.SortedSetContains(p.sortedKey, p.overLimit.First().Element));
+                                    // Никто другой не удалил.
+                                    var targerSizeCondition = t.AddCondition(
+                                        Condition.SortedSetLengthGreaterThan(p.sortedKey, p.setLenght - 1));
 
-                                    // Удаляем из SortedSet.
-                                    var removeCommand = t.SortedSetRemoveAsync(
+                                    var popCommand = t.SortedSetPopAsync(
                                         p.sortedKey, 
-                                        p.overLimit.Select(e => e.Element).ToArray());
+                                        order: Order.Ascending,
+                                        count: p.needRemoveCount);
 
-                                    return 1;
+                                    return (targerSizeCondition, popCommand);
                                 },
-                                static (p, c, r) => r
+                                static (p, c, r) => 
+                                {
+                                    if (!r)
+                                    {
+                                        return [];
+                                    }
+
+                                    return c.popCommand.Result;
+                                }
                                 );
 
-                            if (isRemoved)
+                            if (removedSet.Any())
                             {
                                 // Если удаление было выполнено, то также удаляем из HashSet.
-                                var removeKeys = new List<RedisValue>(overLimit.Length * 2);
-                                foreach (var elem in overLimit)
+                                var removeKeys = new List<RedisValue>(removedSet.Length * 2);
+                                foreach (var elem in removedSet)
                                 {
                                     removeKeys.Add(_options.IsProcessedKeyFactory(elem.Element));
                                     removeKeys.Add(_options.StartProcessTimeStampKeyFactory(elem.Element));
