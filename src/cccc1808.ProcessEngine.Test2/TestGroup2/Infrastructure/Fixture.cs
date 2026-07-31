@@ -361,6 +361,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         var triggerReservationProvider = scope.ServiceProvider.GetRequiredService<ITriggerReservationProvider<Guid>>();
                         await triggerReservationProvider.ClearAsync();
+
+                        var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<Guid>>();
+                        await processReservationProvider.ClearAsync();
                     }
                 }
             }

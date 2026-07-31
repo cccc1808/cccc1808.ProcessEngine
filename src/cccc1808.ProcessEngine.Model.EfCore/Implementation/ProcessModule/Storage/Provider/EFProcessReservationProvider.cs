@@ -28,6 +28,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _dbContext = dbContext;
         }
 
+        public ValueTask ClearAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
+
         public ValueTask<ISet<TId>> GetReservedAsync(CancellationToken cancellationToken)
         {
             // Данный провайдер не использует и не отслежиавет зарезервированные ноды.

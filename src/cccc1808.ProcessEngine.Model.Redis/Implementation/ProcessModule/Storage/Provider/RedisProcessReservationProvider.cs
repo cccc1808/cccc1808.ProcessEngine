@@ -157,6 +157,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             return ValueTask.FromResult(data);
         }
 
+        public async ValueTask ClearAsync()
+        {
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, CancellationToken.None);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
+
+            await db.KeyDeleteAsync(_options.HashKey);
+
+            _reservationState.Clear();
+        }
+
         public class OptionsDto 
         {
             public string HashKey { get; set; }

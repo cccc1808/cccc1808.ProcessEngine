@@ -19,5 +19,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule
         void Unreserve(TId procesId);
 
         void ClearTimeout(DateTimeOffset date);
+
+        void Clear();
     }
 }

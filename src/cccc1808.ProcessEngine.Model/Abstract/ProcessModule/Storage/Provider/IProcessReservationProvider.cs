@@ -37,5 +37,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
         /// Получить набор процессов, которын зарезервированы всеми нодами (если провайдер поддерживает).
         /// </summary>
         ValueTask<ISet<TId>> GetReservedAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Отчистка окружения (!! только для тестов).
+        /// </summary>
+        /// <returns></returns>
+        ValueTask ClearAsync();
     }
 }
