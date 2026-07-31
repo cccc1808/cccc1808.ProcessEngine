@@ -10,7 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Queries;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
@@ -77,7 +77,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         var freeSpace = buffer.FreeSpace;
 
                         var select = options.SelectFactory(scope.ServiceProvider);
-                        var unreserveProcessQuery = scope.ServiceProvider.GetRequiredService<IUnreserveProcessQuery<TId>>();
+                        var reservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<TId>>();
 
                         var selectContext = new LinkContainer<(object? _, int BatchSize)>(
                             ((object? _, int BatchSize))(null, Math.Min(freeSpace, options.SelectBatchLimit))
@@ -106,8 +106,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 {
                                     // Очередь заполнена, разблокируем процессы, которын не попали в буфер,
                                     // чтобы их могли взять в обработку другие экземпляры.
-                                    await unreserveProcessQuery.UnreserveAsync(
-                                        produceResult.ids,
+                                    await reservationProvider.UnreserveAsync(
+                                        produceResult.ids.Select(e => e.Id).ToArray(),
                                         cancellationToken);
 
                                     break;

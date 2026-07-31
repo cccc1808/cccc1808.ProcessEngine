@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using StackExchange.Redis;
@@ -27,5 +28,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage
             IDatabase database,
             Func<TParam, ITransaction, TCommands> prepareHandller, 
             Func<TParam, TCommands, bool, TResult> executedHandler);
+
+        Task<ChannelMessageQueue> SubscribeAsync(string channel, CancellationToken cancellationToken);
+
+        Task PubAsync(string channel, ICollection<JsonElement> messages, CancellationToken cancellationToken);
     }
 }

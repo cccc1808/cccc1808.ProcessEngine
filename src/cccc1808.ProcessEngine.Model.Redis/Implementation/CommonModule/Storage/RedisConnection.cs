@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
@@ -15,6 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
         IAsyncDisposable
     {
         private readonly ConnectionMultiplexer _connectionMultiplexer;
+        private readonly SemaphoreSlim _subscribeLock;
         private readonly TimeSpan _pipelineTimeout;
 
         public RedisConnection(
@@ -22,12 +24,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
             TimeSpan pipelineTimeout)
         {
             _connectionMultiplexer = connectionMultiplexer;
+            _subscribeLock = new SemaphoreSlim(1, 1);
             _pipelineTimeout = pipelineTimeout;
         }
 
         public IDatabase GetDatabase(int databaseId)
         {
-            return _connectionMultiplexer.GetDatabase(databaseId);
+            return _connectionMultiplexer.GetDatabase(databaseId);            
         }
 
         public async ValueTask<TResult> ExecuteTransactionAsync<TParam, TCommands, TResult>(
@@ -63,6 +66,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
         public async ValueTask DisposeAsync()
         {
             await _connectionMultiplexer.DisposeAsync();
+            _subscribeLock.Dispose();
         }
 
         public async ValueTask WaitPiplineWithTimeoutAsync(
@@ -79,6 +83,46 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
             //    Task.Delay(_pipelineTimeout.Add(TimeSpan.FromMinutes(1)), cancel.Token)
             //    );
             //await completeTask;
-        }        
+        }
+
+        public async Task<ChannelMessageQueue> SubscribeAsync(string channel, CancellationToken cancellationToken)
+        {
+            await _subscribeLock.WaitAsync(cancellationToken);
+            try 
+            {
+                return await _connectionMultiplexer
+                    .GetSubscriber()
+                    .SubscribeAsync(
+                        new RedisChannel(
+                            channel,
+                            RedisChannel.PatternMode.Literal)
+                        );
+            }
+            finally 
+            {
+                _subscribeLock.Release();
+            }            
+        }
+
+        public Task PubAsync(
+            string channel, 
+            ICollection<JsonElement> messages, 
+            CancellationToken cancellationToken)
+        {
+            var subsriber = _connectionMultiplexer.GetSubscriber();
+            var channe = new RedisChannel(
+                channel,
+                RedisChannel.PatternMode.Literal
+                );
+
+            var tasks = new List<Task>(messages.Count);
+            foreach (var elem in messages)
+            {
+                var t = subsriber.PublishAsync(channe, elem.GetRawText());
+                tasks.Add(t);
+            }
+
+            return Task.WhenAll(tasks);
+        }
     }
 }

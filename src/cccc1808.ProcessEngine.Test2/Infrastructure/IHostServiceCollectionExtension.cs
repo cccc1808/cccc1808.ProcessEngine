@@ -11,10 +11,10 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Queries;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
@@ -38,6 +38,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
@@ -248,7 +249,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped(s => new ProcessCountLimiter(processCountLimiter))
                 .AddScoped<IExecuteLimiter>(s => s.GetRequiredService<ProcessCountLimiter>())
 
-                .AddScoped<IUnreserveProcessQuery<Guid>, EFUnreserveProcessQuery<Guid, ProcessDbEntity<Guid>>>()
+                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<EFIInMemoryQueueProcessRunnerSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
@@ -259,7 +260,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services)
         {
             services
-                .AddScoped<IUnreserveProcessQuery<Guid>, EFUnreserveProcessQuery<Guid, ProcessDbEntity<Guid>>>()
+                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>()
                 .AddScoped<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 

@@ -63,6 +63,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 (q, p, pr) => q
                     .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
                     .DWhere(p, e => e.ReservationTimeout < pr.now)
+                    .DWhere(p, e => !pr.reserverProcessIds.Contains(e.Id))
                     );
         }
 
@@ -73,6 +74,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                     .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
                     .DWhere(p, e => e.IsRangeExecution == pr.isRangeExecution)
                     .DWhere(p, e => e.ReservationTimeout < pr.now)
+                    .DWhere(p, e => !pr.reservedProcessIds.Contains(e.Id))
                     );
         }
 
@@ -195,6 +197,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                             .ApplayQueryCondition(AsyncExecute.Query)
                             .ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations))
                             .ApplayQueryCondition(SelectLock.Query, p.now)
+                            .Where(e => !p.reserverProcessIds.Contains(e.Id))
                             .OrderByDescending(e => e.Priority);
 
                         return s;

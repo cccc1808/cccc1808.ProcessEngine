@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -247,19 +248,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
                             rangeMiddlewareFactory: (s) => throw new Exception(""),
                             signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
-                                s,
-                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
                                     s,
-                                    s.GetRequiredService<IDateTimeProvider>(),
-                                    s.GetRequiredService<IIsolationService>(),
-                                    s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeupService<Guid>>(),
-                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestProcessBody>()),
-                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                    ),
-                                s.GetRequiredService<ITransactionManager>()
+                                    (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                        s,
+                                        s.GetRequiredService<IDateTimeProvider>(),
+                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IProcessSetter>(),
+                                        s.GetRequiredService<IWakeupService<Guid>>(),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestProcessBody>()),
+                                        s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                        ),
+                                    s.GetRequiredService<ITransactionManager>()
                                 )
-                        )
+                            )
                         { 
                             ExceptionDelay = TimeSpan.Zero,
                             DbExecuteParallelismLimit = 1,
