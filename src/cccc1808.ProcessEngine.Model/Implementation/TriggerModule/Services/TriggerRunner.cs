@@ -16,11 +16,14 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.QueueModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,7 +33,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
-
 
         public TriggerRunner(
             IServiceProvider serviceProvider, 
@@ -63,6 +65,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 var receivedMessages = new LinkContainer<int>(0);
                 var groupByTrigger = new Dictionary<string, List<ITriggerEvent>>();
+                var recheckProcessStatusBuffer = new Dictionary<string, bool>();
 
                 var consumer = await QueuePatternHelper.ConnectOrReconnectConsumerAsync(
                     queueProviderFactory,
@@ -79,9 +82,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     {
                         receivedMessages.Data = 0;
                         groupByTrigger.Clear();
+                        recheckProcessStatusBuffer.Clear();
 
                         await consumer.ConsumeBatchAsync(
-                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger),
+                            (options, consumerQueueOptions, serializer, receivedMessages, groupByTrigger, recheckProcessStatusBuffer),
                             consumerQueueOptions.QueueConsumeBatchTimeout,
                             static (p, e) =>
                             {
@@ -96,6 +100,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 }
                                 triggerEvents.Add(triggerEvent);
                                 p.receivedMessages.Data++;
+
+                                if (triggerEvent.Kind == TriggerEventKindEnum.RecheckProcessStatusStreamTriggerEvent)
+                                {
+                                    p.recheckProcessStatusBuffer.Add(triggerEvent.TriggerKey, false);
+                                }
 
                                 // Критерий лимита батча (помимо timeout) и количество сообщений и количество уникальных триггеров.
                                 var stop =
@@ -118,6 +127,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     scope2.ServiceProvider,
                                     eventTypeMismathErrorHandler,
                                     groupByTrigger,
+                                    recheckProcessStatusBuffer,
                                     cancellationToken);
                             }
                             catch (Exception ex)
@@ -175,12 +185,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 IServiceProvider serviceProvider,
                 Action<ITriggerComponent<TId>, ITriggerEvent> eventTypeMismathErrorHandler,
                 Dictionary<string, List<ITriggerEvent>> groupByTrigger,
+                Dictionary<string, bool> recheckProcessStatusBuffer,
                 CancellationToken cancellationToken)
             {
+                var emergencyOptions = serviceProvider.GetRequiredService<EmergencyTriggerHandler<TId>.OptionsDto>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+                var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
@@ -189,7 +202,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
+                    // Для stream триггера треюуется перепроверить статус процесса.
+                    if (recheckProcessStatusBuffer.Any())
+                    {
+                        var processIds = recheckProcessStatusBuffer
+                            .Select(e => triggers[e.Key].ProcessId)
+                            .ToArray();
+
+                        // [MVCC Only]: подумать если иначе.
+                        // TODO: проверяе что процесс спит.
+                        var checkResult = await repository.CheckProcessWaitingAsync(processIds, cancellationToken);
+                        foreach (var elem in triggers.Values)
+                        {
+                            if (checkResult.Contains(elem.ProcessId))
+                            {
+                                recheckProcessStatusBuffer[elem.Key] = true;
+                            }
+                        }
+                    }
+
                     var now = dateTimeProvider.UtcNow;
+                    var sendEventsBuffer = new List<ITriggerEventRaiser<TId>.RaiseContainer>(triggers.Count);
                     foreach (var elem in groupByTrigger)
                     {
                         if (!triggers.TryGetValue(elem.Key, out var trigger))
@@ -205,40 +238,63 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    continue;
                         //}
 
-                        triggerSetter.OneOfSetter.OneOfTrigger(
+                        triggerSetter.OneOfTriggerSetter.OneOf(
                             trigger,
-                            (eventTypeMismathErrorHandler, triggerSetter, trigger, now, messages: elem.Value),
+                            (
+                                eventTypeMismathErrorHandler, 
+                                triggerSetter, 
+                                trigger,
+                                emergencyOptions,
+                                now,
+                                messages: elem.Value, 
+                                recheckProcessStatusBuffer, 
+                                sendEventsBuffer
+                                ),
+                            // 1) counter
                             counterHandler: static (state, p) =>
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
-                                        removeTriggerEventHandler: (_, p) => 
+                                        removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
-                                        counterTriggerEventHandler: static (typedEvent, p) =>                                        
+                                        counterTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.CounterSetter.CounterEvent(
-                                                p.trigger, 
-                                                p.state, 
+                                                p.trigger,
+                                                p.state,
                                                 typedEvent.Reset,
                                                 typedEvent.Value),
                                         timerTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.StandartSetter.SetTimer(
-                                                p.trigger,                                                
+                                                p.trigger,
                                                 new ITriggerSetter<TId>.IStandartSetter.TimerDto(
                                                     p.now,
-                                                    typedEvent.Timer, typedEvent.IfDeltaMore                                                    
-                                                    )                                                    
+                                                    typedEvent.Timer, typedEvent.IfDeltaMore
+                                                    )
                                                 ),
-                                        signalSimpleStreamTriggerEventHandler: static  (typedEvent, p) => 
+                                        signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        processGoWaitStreamTriggerEventHandler: static  (typedEvent, p) => 
+                                        processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
+                                        processedOffsetTriggerEventHandler: static (typedEvent, p) =>
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
-                                        signalOffsetTriggerEventHandler: static  (typedEvent, p) => 
-                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
+                                        signalOffsetTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        deliveryResultEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.triggerSetter.ChildTriggerSetter.IsChildTrigger(p.trigger, out var childState))
+                                            {
+                                                p.triggerSetter.ChildTriggerSetter.DeliveryResultReceived(p.trigger, childState, typedEvent.Timestamp);
+                                            }
+                                            else
+                                            {
+                                                p.eventTypeMismathErrorHandler(p.trigger, typedEvent);
+                                            }
+                                        }
                                         );
                                 }
 
@@ -247,11 +303,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.CounterSetter.Activate(p.trigger, state);
                                 }
                             },
+                            // 2) timer
                             timerHandler: static (p) => 
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
                                         (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now),
                                         removeTriggerEventHandler: (_, p) =>
@@ -273,17 +330,31 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         processedOffsetTriggerEventHandler: static (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
-                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        deliveryResultEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.triggerSetter.ChildTriggerSetter.IsChildTrigger(p.trigger, out var childState))
+                                            {
+                                                p.triggerSetter.ChildTriggerSetter.DeliveryResultReceived(p.trigger, childState, typedEvent.Timestamp);
+                                            }
+                                            else
+                                            {
+                                                p.eventTypeMismathErrorHandler(p.trigger, typedEvent);
+                                            }
+                                        }
                                         );
                                 }
                             },
+                            // 3) simpleStream
                             simpleStreamHandler: static (state, p) => 
                             {
                                 foreach (var elem in p.messages)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, state, p.now),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.emergencyOptions, state, p.now, p.recheckProcessStatusBuffer, p.sendEventsBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
@@ -297,13 +368,54 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     )
                                                 ),
                                         signalSimpleStreamTriggerEventHandler: static (typedEvent, p) =>
-                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state),
+                                        {
+                                            p.triggerSetter.SimpleStreamSetter.SignalEventReceived(p.trigger, p.state);
+
+                                            if (p.state.IsRootTrigger && typedEvent.SendTriggerKey != null)
+                                            {
+                                                // Если это корневой триггер, то посылаем подтверждение о получении сигнала для дочернего триггера.
+                                                p.sendEventsBuffer.Add(
+                                                    new ITriggerEventRaiser<TId>.RaiseContainer(
+                                                    p.emergencyOptions.TriggerEventQueue,
+                                                    p.trigger.ProcessId,
+                                                    new DeliveryResultEvent(
+                                                        triggerKey: typedEvent.SendTriggerKey, 
+                                                        timestamp: typedEvent.SendTimeStamp.Value!
+                                                        )
+                                                    ));
+                                            }
+                                        },
                                         processGoWaitStreamTriggerEventHandler: static (typedEvent, p) =>
                                             p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(p.trigger, p.state),                                        
                                         processedOffsetTriggerEventHandler: static  (typedEvent, p) => 
                                             p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
                                         signalOffsetTriggerEventHandler: static (typedEvent, p) => 
-                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent)
+                                            p.eventTypeMismathErrorHandler(p.trigger, typedEvent),
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            // Emergency trigger сообщил, что процесс возможно спит, а strean триггер не знает об этом (потеря события).
+                                            if (
+                                                !p.trigger.IsActivated 
+                                                && !p.state.StreamsProcessIsWaiting 
+                                                && p.recheckProcessStatusBuffer.TryGetValue(p.trigger.Key, out var processIsWaiting)
+                                                && processIsWaiting)
+                                            {
+                                                p.triggerSetter.SimpleStreamSetter.ProcessGoWaitEventReceived(
+                                                    p.trigger, 
+                                                    p.state);
+                                            }
+                                        },
+                                        deliveryResultEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.triggerSetter.ChildTriggerSetter.IsChildTrigger(p.trigger, out var childState))
+                                            {
+                                                p.triggerSetter.ChildTriggerSetter.DeliveryResultReceived(p.trigger, childState, typedEvent.Timestamp);
+                                            }
+                                            else
+                                            {
+                                                p.eventTypeMismathErrorHandler(p.trigger, typedEvent);
+                                            }
+                                        }
                                         );
                                 }
 
@@ -312,13 +424,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     p.triggerSetter.SimpleStreamSetter.Activate(p.trigger, state);
                                 }
                             },
+                            // 4) offsetStream
                             offsetStreamHanler: (state, p) =>
                             {
                                 foreach (var elem2 in elem.Value)
                                 {
-                                    p.triggerSetter.OneOfSetter.OneOfEvent(
+                                    p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem2,
-                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now),
+                                        (p.eventTypeMismathErrorHandler, triggerSetter, trigger, state, p.now, p.recheckProcessStatusBuffer),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) => 
@@ -357,6 +470,31 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                             {
                                                 // TODO: log warnig событие с меньшим смещением.
                                             }
+                                        },
+                                        recheckProcessStatusStreamTriggerEventHandler: static (typedEvent, p) =>
+                                        {
+                                            // Emergency trigger сообщил, что процесс возможно спит, а strean триггер не знает об этом (потеря события).
+                                            if (
+                                                !p.trigger.IsActivated
+                                                && !p.state.StreamsProcessIsWaiting
+                                                && p.recheckProcessStatusBuffer.TryGetValue(p.trigger.Key, out var processIsWaiting)
+                                                && processIsWaiting)
+                                            {
+                                                p.triggerSetter.OffsetStreamSetter.ProcessGoWaitEventReceived(
+                                                    p.trigger,
+                                                    p.state);
+                                            }
+                                        },
+                                        deliveryResultEventHandler: static (typedEvent, p) =>
+                                        {
+                                            if (p.triggerSetter.ChildTriggerSetter.IsChildTrigger(p.trigger, out var childState))
+                                            {
+                                                p.triggerSetter.ChildTriggerSetter.DeliveryResultReceived(p.trigger, childState, typedEvent.Timestamp);
+                                            }
+                                            else
+                                            {
+                                                p.eventTypeMismathErrorHandler(p.trigger, typedEvent);
+                                            }
                                         }
                                         );
                                 }
@@ -368,6 +506,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             }
                             );
 
+                        if ((trigger.ReservationTimeout - now) >= emergencyOptions.LostTriggerTimeout)
+                        {
+                            // Обновляем select lock timeout, чтобы обозначить, что на триггер поступают события.
+                            triggerSetter.StandartSetter.SetReservationTimeout(trigger, now);
+                        }
+
                         //if (
                         //    trigger.NeedUpdate
                         //    && trigger.IsActivated
@@ -376,8 +520,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         //    triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
                         //}
                     }
-                    
-                    await repository.SaveAsync(triggers.Values, fromAsyncRunner: false, cancellationToken);
+
+                    if (sendEventsBuffer.Any())
+                    {
+                        await triggerEventRaiser.RaiseAsync(
+                            sendEventsBuffer, 
+                            cancellationToken);
+                    }
+
+                    await repository.SaveAsync(triggers.Values, cancellationToken);
                     await transaction.CommitAsync(cancellationToken);
                 }
             }
@@ -459,6 +610,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
 
                     var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, handlerKey);
@@ -474,16 +626,49 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        var result = await handler.HandleAsync(triggers, cancellationToken);
+                        var result = await handler.CheckAsync(
+                            triggers, 
+                            isEmergencyTrigger: false,
+                            cancellationToken);
 
+                        var now = dateTimeProvider.UtcNow;
+                        var forExecute = new List<ITriggerComponent<TId>>(result.Count);
                         foreach (var elem in triggers)
                         {
                             var elemResult = result[elem.Key];
-                            WriteHandlerResult(dateTimeProvider, triggerSetter, elem, elemResult);
+
+                            if (!triggerSetter.ChildTriggerSetter.IsChildTrigger(elem, out var childTriggerState))
+                            {
+                                triggerSetter.StandartSetter.SetTriggerResult(elem, elemResult.Result);
+                            }
+                            else 
+                            {
+                                triggerSetter.ChildTriggerSetter.SetTriggerResult(
+                                    elem, 
+                                    childTriggerState, 
+                                    elemResult.Result,
+                                    triggerSetter.ChildTriggerSetter.DateToTimestamp(now));
+                            }
+
+                            if (elemResult.NeedExecute)
+                            {
+                                forExecute.Add(elem);
+                            }
                         }
 
-                        // Тут учитывать сохранение triggerEntity
-                        await repository.SaveAsync(triggers, fromAsyncRunner: true, cancellationToken);
+                        await handler.ExecuteAsync(
+                            forExecute,
+                            cancellationToken
+                            );
+
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        await repository.SaveAsync(triggers, cancellationToken);
+
+                        await triggerReservationProvider.UnreserveAsync(
+                            triggers.Select(e => e.Id).ToArray(), 
+                            fromRunner: true,
+                            cancellationToken);
+
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
@@ -497,6 +682,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
+                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
 
@@ -515,10 +701,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);
-                        WriteHandlerResult(dateTimeProvider, triggerSetter, trigger, result);
+                        triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
 
-                        // Тут учитывать сохранение triggerEntity
-                        await repository.SaveAsync([trigger], fromAsyncRunner: true, cancellationToken);
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        await repository.SaveAsync([trigger], cancellationToken);
+
+                        await triggerReservationProvider.UnreserveAsync(
+                            [trigger.Id],
+                            fromRunner: true,
+                            cancellationToken);
+
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
@@ -548,7 +740,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         await using (var scope = serviceProvider.CreateAsyncScope())
                                         {
                                             await ExecuteRangeHandlerAsync(
-                                                serviceProvider,
+                                                scope.ServiceProvider,
                                                 group.Key,
                                                 batch,
                                                 cancellationToken);
@@ -677,26 +869,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        private static void WriteHandlerResult(
-            IDateTimeProvider dateTimeProvider,
-            ITriggerSetter<TId> setter,
-            ITriggerComponent<TId> trigger,
-            ITriggerHandler.Result result)
-        {
-            if (result.NeedRepeat)
-            {
-                setter.StandartSetter.SetTimer(trigger, result.ExecuteDelay);
-                setter.StandartSetter.SetActivated(trigger, result.IsActivated);
-                setter.StandartSetter.SetCompleted(trigger, false);
-            }
-            else
-            {
-                setter.StandartSetter.SetActivated(trigger, false);
-                setter.StandartSetter.SetCompleted(trigger, true);
-            }
-            setter.StandartSetter.SetSelectLockTimeout(trigger, dateTimeProvider.UtcNow);
-        }
-
 
         public class OptionsDto
         {
@@ -734,7 +906,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 = TimeSpan.FromSeconds(5);
 
             /// <summary>
-            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.SelectLockTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
+            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.ReservationTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
             /// т.к. он зарезирвирован на выполнение текущей нодой (сбрасываеься при выполнении обработки).
             /// </summary>
             public TimeSpan DbExecuteSelectLockTimeout { get; set; }

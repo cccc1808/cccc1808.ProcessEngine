@@ -1,5 +1,6 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
 {
@@ -18,10 +19,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public short Priority { get; set; }
 
         /// <summary>
-        /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
-        /// Дополняет updatelock.
+        /// Используется в <see cref="EFParallelLimitProcessSelectQuery{TId, TEntity}"/> для распределения между слотами параллельного выполнения.
+        /// TODO: не учитывается в индексах.
         /// </summary>
-        public DateTimeOffset SelectLockTimeout { get; set; }
+        public bool IsRangeExecution { get; set; }
+
+        /// <summary>
+        /// * Указывает нодам сервиса, что процес уже зарезирвирован нодой на выполнение (даже если на нем нет Updatelock).
+        /// * Индексируется (в отличии от updatelock).
+        /// </summary>
+        public DateTimeOffset ReservationTimeout { get; set; }
 
         #region Status
 
@@ -58,7 +65,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
             ProcessTypeId = processTypeId;
             ProcessVersion = processVersion;
             Priority = priority;
-            SelectLockTimeout = selectLockTimeout;
+            ReservationTimeout = selectLockTimeout;
             StoppedByError = stoppedByError;
             Status = status;
             RetryCount = retryCount;

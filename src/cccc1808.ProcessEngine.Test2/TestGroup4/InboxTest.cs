@@ -5,16 +5,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using Shouldly;
@@ -26,11 +25,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public InboxTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -82,7 +83,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],
-                            System.Text.Json.JsonSerializer.SerializeToDocument(e).RootElement.Clone(),
+                            JsonHelper.ToJsonElement(e),
                             Partition: -1))
                         .ToArray(),
                     default);
@@ -108,11 +109,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("3", Stopwatch.StartNew());
 
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-                await triggerRunnern.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(FixtureCollection.TriggerQueue, default)).ShouldBeTrue();
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
 
                 watches["3"].Stop();
             }
@@ -121,9 +118,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("4", Stopwatch.StartNew());
 
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-                await triggerRunnern.DbWorkAsync(executeOne: true, default);
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
 
                 watches["4"].Stop();
             }
@@ -132,10 +127,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("5", Stopwatch.StartNew());
 
-                var processRunner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await processRunner.RunAsync(oneCycle: true, default);
-                await processRunner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
                 watches["5"].Stop();
             }
@@ -145,9 +137,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("6", Stopwatch.StartNew());
 
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-
-                var entities = await dbContext.Set<BuisnessDbEntity>().ToArrayAsync();
+                var entities = await _testService.LoadAsync<BuisnessDbEntity>(scope.ServiceProvider);
                 entities.ShouldSatisfyAllConditions(
                     e => e.Length.ShouldBe(2),
                     e => e.ShouldContain(e => e.Id == beId1),
@@ -184,7 +174,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                             Guid.NewGuid().ToString(),
                             FixtureCollection.InboxQueue,
                             [],
-                            System.Text.Json.JsonSerializer.SerializeToDocument(e).RootElement.Clone(),
+                            JsonHelper.ToJsonElement(e),
                             Partition: -1))
                         .ToArray(),
                     default);
@@ -210,12 +200,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("9", Stopwatch.StartNew());
 
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-
-                await triggerRunnern.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(FixtureCollection.TriggerQueue, default)).ShouldBeTrue();
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
 
                 watches["9"].Stop();
             }
@@ -224,9 +209,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("10", Stopwatch.StartNew());
 
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-                await triggerRunnern.DbWorkAsync(executeOne: true, default);
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
 
                 watches["10"].Stop();
             }
@@ -235,10 +218,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("11", Stopwatch.StartNew());
 
-                var processRunner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await processRunner.RunAsync(oneCycle: true, default);
-                await processRunner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
                 watches["11"].Stop();
             }
@@ -248,9 +228,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("12", Stopwatch.StartNew());
 
-                var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-
-                var entities = await dbContext.Set<BuisnessDbEntity>().ToArrayAsync();
+                var entities = await _testService.LoadAsync<BuisnessDbEntity>(scope.ServiceProvider);
                 entities.ShouldSatisfyAllConditions(
                     e => e.Length.ShouldBe(2),
                     e => e.ShouldContain(e => e.Id == beId1),

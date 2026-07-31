@@ -14,12 +14,14 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -36,9 +38,12 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
@@ -54,8 +59,10 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
@@ -76,12 +83,29 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Servi
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.InboxModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Queries;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services.Serializers;
 using cccc1808.ProcessEngine.Test2.Infrastructure.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
-using Scrutor;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -92,6 +116,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// Выключить, если нужна првоерка на реальном брокере.
         /// </summary>
         private static bool UseInMemoryQueue => true;
+
+        private static bool UseInMemoryExternalCounter => false;
 
         public static IServiceCollection AddDbServices(
             this IServiceCollection services,
@@ -218,22 +244,59 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             return services;
         }
 
-        public static IServiceCollection AddProcessExecutionServices(
+        public static IServiceCollection AddInmemoryQueueProcessRunner(
             this IServiceCollection services,
             LocalProcessBufferService<Guid>.Options localProcessBufferOptions,
-            int processCountLimiter) 
+            int processCountLimiter)
         {
             services
-                .AddScoped<ILocalProcessBufferService<Guid>, LocalProcessBufferService<Guid>>()
+                .AddScoped<IInMemoryQueueProcessRunner.ILocalProcessBufferService<Guid>, LocalProcessBufferService<Guid>>()
                 .AddSingleton(localProcessBufferOptions)
                 .AddScoped<IExecuteLimiterInvoker, ExecuteLimiterInvoker>()
                 .AddScoped(s => new ProcessCountLimiter(processCountLimiter))
                 .AddScoped<IExecuteLimiter>(s => s.GetRequiredService<ProcessCountLimiter>())
-                
-                .AddScoped<EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
-                .AddSingleton(s => new EFProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.OptionsDto(TimeSpan.FromSeconds(30)))
+
+                .AddScoped<EFIInMemoryQueueProcessRunnerSelectQuery<Guid, ProcessDbEntity<Guid>>>()
                 ;
 
+            return services;
+        }
+
+        public static IServiceCollection AddParallelLimitProcessRunner(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>()
+                ;
+
+            return services;
+        }
+
+        public static IServiceCollection AddEFProcessReservationService(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<IProcessReservationProvider<Guid>, EFProcessReservationProvider<Guid, ProcessDbEntity<Guid>>>();
+            return services;
+        }
+
+        public static IServiceCollection AddRedisProcessReservationService(
+            this IServiceCollection services,
+            RedisProcessReservationProvider<Guid>.OptionsDto options,
+            RedisProcessReservationOptions reservationOptions,
+            RedisProcessReservationRunner<Guid>.OptionsDto runnerOptions
+            )
+        {
+            services
+                .AddScoped<IProcessReservationProvider<Guid>, RedisProcessReservationProvider<Guid>>()
+                .AddSingleton(options)
+                .AddSingleton(reservationOptions)
+
+                .AddSingleton<IProcessReservationState<Guid>, InmemoryProcessReservationState<Guid>>()
+
+                .AddScoped<IRedisProcessReservationRunner, RedisProcessReservationRunner<Guid>>()
+                .AddSingleton(runnerOptions)
+                ;
             return services;
         }
 
@@ -245,9 +308,12 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
-                .AddScoped<ITriggerSetter<Guid>.IOneOfSetter, TriggerSetter<Guid>.OneOfSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerSetter, TriggerSetter<Guid>.OneOfTriggerSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerEventSetter, TriggerSetter<Guid>.OneOfTriggerEventSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
-                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.IChildTriggerSetter, TriggerSetter<Guid>.ChildTriggerSetterImpl>()
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.IStreamSetter, TriggerSetter<Guid>.StreamSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
                 .AddSingleton(
                     new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto() 
@@ -258,7 +324,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerSetter<Guid>.IOffsetStreamSetter, TriggerSetter<Guid>.OffsetStreamSetterImpl>()
                 .AddSingleton<ITriggerHandlerFactory<Guid>, TriggerHandlerFactory<Guid>>()
 
-                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>();
+                .AddScoped<EFTriggerHandlerFacade<Guid>>()
+                .AddScoped<ITriggerHandlerFacade<Guid>>(s => s.GetRequiredService<EFTriggerHandlerFacade<Guid>>())
+                .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
+                .AddScoped<IRootTriggerQuery<Guid>, StubRootTriggerQuery<Guid>>()
+
+                .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
+                ;
 
             foreach (var elem in registrations)
             {
@@ -266,6 +338,33 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 services.AddScoped(elem.ImplementationType);
             }
 
+            return services;
+        }
+
+        public static IServiceCollection AddEFTriggerReservationServices(
+            this IServiceCollection services)
+        {
+            services
+                .AddScoped<ITriggerReservationProvider<Guid>, EFTriggerReservationProvider<Guid>>();
+            return services;
+        }
+
+        public static IServiceCollection AddRedisTriggerReservationServices(
+            this IServiceCollection services,
+            RedisTriggerReservationProvider<Guid>.OptionsDto options,
+            RedisTriggerReservationOptions reservationOptions,
+            RedisTriggerReservationRunner<Guid>.OptionsDto runnerOptions)
+        {
+            services
+                .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
+                .AddSingleton(options)
+                .AddSingleton(reservationOptions)
+                
+                .AddSingleton<ITriggerReservationState<Guid>, InmemoryTriggerReservationState<Guid>>()
+                
+                .AddScoped<ITriggerRedisReservationRunner, RedisTriggerReservationRunner<Guid>>()
+                .AddSingleton(runnerOptions)
+                ;
             return services;
         }
 
@@ -279,12 +378,26 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton(triggerServiceOptions)
 
                 .AddScoped<ITriggerSelectQuery<Guid>, EFTriggerSelectQuery<Guid>>()
-
-                .AddScoped<ITriggerEventRaiser<Guid>, TriggerEventRaiser<Guid>>()
-                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
+                
                 .AddSingleton(triggerOptions)
                 .AddScoped<IEventJsonSerializer, EventJsonSerializer<Guid>>()
                 ;
+
+            services
+                .AddScoped<TriggerEventRaiser<Guid>>()
+                .AddScoped<ITriggerEventRaiser<Guid>>(s => s.GetRequiredService<TriggerEventRaiser<Guid>>())
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserExceptionDbDecorator<Guid>>()
+                .Decorate<ITriggerEventRaiser<Guid>, TriggerEventRaiserAfterTransactionCompleteDecorator<Guid>>()
+                
+                .AddSingleton(
+                    new TriggerEventOutboxRunner<Guid>.OptionsDto() 
+                    { 
+                        NoDecoratorEventRaiserFactory = static s => s.GetRequiredService<TriggerEventRaiser<Guid>>(),
+                        
+                    }
+                )
+                
+                .AddScoped< TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
 
             return services;
         }
@@ -294,7 +407,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             InboxRunner<Guid>.OptionsDto inboxRunnerOptions,
             EFInboxConsumerService<Guid>.Options inboxConsumerOptions,
             EFInboxDbProvider<Guid>.Options inboxDbProviderOptions,
-            EFOutboxDbProvider<Guid>.Options outboxDbProviderOptions,
+            EFOutboxDbProvider1<Guid>.Options outboxDbProviderOptions,
             InboxRegistryDto inboxRegistry,
             OutboxRegistryDto outboxRegistry) 
         {
@@ -305,9 +418,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EFInboxDbProvider<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)
                 .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider<Guid>>())
-                .AddScoped<EFOutboxDbProvider<Guid>>()
+                .AddScoped<EFOutboxDbProvider1<Guid>>()
                 .AddSingleton(outboxDbProviderOptions)
-                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider<Guid>>())
+                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider1<Guid>>())
 
                 .AddScoped<IHeaderJsonSerializer, HeaderJsonSerializer>()
 
@@ -323,7 +436,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IClassifierRepository<Guid>, EFClassifierRepository<Guid>>()
                 .AddSingleton<EFClassifierRepository<Guid>.CachState>()
 
-                .AddScoped(s => new OutboxRangeProcessHandler<Guid>(
+                .AddScoped(s => new OutboxRangeProcessHandler1<Guid>(
                     s.GetRequiredService<IProcessRepository<Guid>>(),
                     s.GetRequiredService<ITriggerRepository<Guid>>(),
                     s.GetRequiredService<IProcessSetter>(),
@@ -331,12 +444,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                     s.GetRequiredService<IDateTimeProvider>(),
                     s.GetRequiredService<IOutboxSetter>(),
                     s.GetRequiredService<IHeaderJsonSerializer>(),
-                    new ExecuteStepByStepGroupMiddleware<Guid>.OptionsDto(
-                        10,
-                        IIsolationService.IsolationMode.DbSavepointAndClearChangeTracker,
-                        true,
-                        true,
-                        true)
+                    Presets<Guid>.Preset1
                     ))
 
                 .AddScoped<IAggregateClassifierDbEntityCondition<Guid>, AggregateClassifierDbEntityCondition<Guid>>()
@@ -353,6 +461,89 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>, ProcessLinkedConditions<Guid, OutboxProcessDataDbEntity<Guid>>>()
                 ;
 
+            return services;
+        }
+
+        public static IServiceCollection AddTestService(this IServiceCollection services)
+        {
+            services.AddSingleton<TestService>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddSchemaProcess(
+            this IServiceCollection services,
+            TokenExecutionService<Guid>.OptionsDto tokenExecutionOptions,
+            TriggerStateService<Guid>.OptionsDto triggerStateOptions,
+            params SchemaProcessRegistrationDto[] registrations)
+        {
+            services
+                .AddSingleton<ISchemaRegistry, SchemaRegistry>()
+                .AddScoped<ISchemaValidator, SchemaValidator<Guid>>()
+
+                .AddScoped<ISchemaService<Guid>, SchemaService<Guid>>()
+                .AddScoped<SchemaService<Guid>.IQueries, EFSchemaServiceQueries<Guid>>()
+
+                .AddScoped<ITriggerStateService<Guid>, TriggerStateService<Guid>>()
+                .AddSingleton(triggerStateOptions)
+                
+                .AddScoped<ITokenExecutionService<Guid>, TokenExecutionService<Guid>>()
+                .AddScoped<TokenExecutionService<Guid>.IQueries, EFTokenExecutionServiceQueries<Guid>>()
+                .AddSingleton(tokenExecutionOptions)
+
+                .AddScoped<ISchemaSerializer, SchemaSerializer>()
+                .AddScoped<IActionStateSerializer, ActionStateSerializer>()
+                .AddScoped<SchemaSingleProcessHandler<Guid>>()
+
+                .AddScoped<ISchemaProcessActionSetter, SchemaProcessActionSetter>()
+                .AddScoped<ISchemaProcessActionSetter.ICommonSetter, SchemaProcessActionSetter.CommonSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IServiceTaskSetter, SchemaProcessActionSetter.ServiceTaskSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.IConditionSetter, SchemaProcessActionSetter.ConditionSetterImpl>()
+                .AddScoped<ISchemaProcessActionSetter.ITimerSetter, SchemaProcessActionSetter.TimerSetterImpl>()
+                ;
+
+            foreach (var elem in registrations)
+            {
+                services.AddSingleton(elem);
+
+                services.AddScoped(elem.ProcessHandlerType);
+                //// services.AddScoped<ISchemaProcessHandler<Guid>>(s => (ISchemaProcessHandler<Guid>)s.GetRequiredService(elem.ProcessHandlerType));
+
+                services.TryAddScoped(elem.ProcessStateHandlerType);
+                ////  services.AddScoped<ISchemaProcessStateHandler<Guid>>(s => (ISchemaProcessStateHandler<Guid>)s.GetRequiredService(elem.ProcessStateHandlerType));
+            }
+
+            return services;
+        }
+
+        public static IServiceCollection AddRedis(
+            this IServiceCollection services,
+            RedisConnectionFactory.OptionsDto connectionOptions)
+        {
+            services
+                .AddSingleton(connectionOptions)
+                .AddSingleton<IRedisConnectionFactory, RedisConnectionFactory>();
+
+            return services;
+        }
+
+        public static IServiceCollection AddRedisExternalCounter(
+            this IServiceCollection services,
+            RedisExternalCounterProvider.OptionsDto providerOptions
+            )
+        {
+            if (!UseInMemoryExternalCounter)
+            {
+                services
+                    .AddSingleton(providerOptions)
+                    .AddSingleton<IExternalCounterProvider, RedisExternalCounterProvider>();
+            }
+            else 
+            {
+                services
+                    .AddSingleton<IExternalCounterProvider, InMemoryExternalCounterProvider>();
+            }
+            
             return services;
         }
     }

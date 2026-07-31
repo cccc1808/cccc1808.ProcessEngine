@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.Services
@@ -19,8 +20,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.CommonModule.S
 
         public JsonElement Serialize(ICollection<HeaderDto> headers)
         {
-            using var document = JsonSerializer.SerializeToDocument(headers);
-            return document.RootElement.Clone();
+            return JsonHelper.ToJsonElement(headers);
         }
     }
 }

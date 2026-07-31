@@ -26,6 +26,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto
         /// * Позволяет триггеру не конкурировать за блокировку процесса, если он выполняется, береться только share блокировка на WakeupLockTable.
         /// * Все триггеры должны вызывать <see cref="IWakeupService{TId}.WakeupProcessHandlerAsync(ICollection{TId}, bool, CancellationToken)"/> (кроме триггера ошибки).
         /// </summary>
+        [Obsolete("Рекомендуется использовать каскад триггеров.")]
         CheckWakeupWithLock,
 
         /// <summary>
@@ -37,6 +38,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto
         /// т.к. тригер знает о состоянии стрима и конкуренции и потери сигнала не будет.
         /// * Все триггеры должны блокировать процесс напрямую.
         /// </summary>
-        CheckWakeupWithoutLock,        
+        CheckWakeupWithoutLock,
     }
 }

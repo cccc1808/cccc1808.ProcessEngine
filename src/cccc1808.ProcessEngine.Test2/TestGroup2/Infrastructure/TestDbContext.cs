@@ -11,10 +11,12 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Configuration;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
+using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -104,6 +106,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         b.Property(e => e.Id).ValueGeneratedNever();
                     });
 
+                modelBuilder.Entity<TriggerEventOutboxDbEntity<Guid>>(
+                    b =>
+                    {
+                        new TriggerEventOutboxDbEntityConfiguration<Guid>().Configure(b);
+                        b.Property(e => e.Id).ValueGeneratedNever();
+                    });                
+
                 modelBuilder.Entity<MemoryJoinStubEntity>();
 
                 // ----------
@@ -118,6 +127,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     b => 
                     {
                         new ParentProcessDataDbEntityConfiguration().Configure(b);
+                    });
+
+                // ----------
+
+                modelBuilder.Entity<RootTriggerDbEntity>(
+                    b =>
+                    {                        
                     });
             }
         }

@@ -51,10 +51,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
             set => ProcessDbEntity.RetryCount = value;
         }       
 
-        public DateTimeOffset SelectLockTimeout 
+        public DateTimeOffset ReservationTimeout 
         {
-            get => ProcessDbEntity.SelectLockTimeout;
-            set => ProcessDbEntity.SelectLockTimeout = value;
+            get => ProcessDbEntity.ReservationTimeout;
+            set => ProcessDbEntity.ReservationTimeout = value;
         }
 
         /// <summary>

@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Query;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -236,9 +236,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             foreach (var elem in processGroups)
             {
                 // Так как мы уже считали с блокировкой,
-                // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
+                // то в конце текущей транзакции тожно сбросить ReservationTimeout, т.к. сессия работы была завершена.
                 // Не сбрасываем на min, потому что значение используется.
-                elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
+                elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                 var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
@@ -334,7 +334,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.SelectLockTimeout = _dateTimeProvider.UtcNow;
+                                            elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 
@@ -387,9 +387,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        var selectQuery = scope.ServiceProvider.GetRequiredService<IProcessAsyncProcessingSelectQuery<TId>>();
+                        var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<TId>>();
 
-                        await selectQuery.UnlockSelectAsync(
+                        await processReservationProvider.UnreserveAsync(
                             notProcessedInboxProcessesIds,
                             cancellationToken);
                     }
@@ -401,15 +401,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     }
                 }
             }
-        }
-
-        public async Task LoadRangeAsync(
-            IDictionary<TId, IProcessContainer<TId>> processes,
-            IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
-            bool withLock,
-            CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
         }
 
         public Task UpdateAsync(

@@ -57,12 +57,24 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
             ) DbProcessingForSelector
         { get; }
 
-        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters> DbProcessingForSelectorProjection<T>(IQueryable<T> _)
+        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters> DbProcessingForSelectorForProjection1<T>(IQueryable<T> _)
         {
             return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters>(
                 (q, p, pr) => q
                     .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
-                    .DWhere(p, e => e.SelectLockTimeout < pr.now)
+                    .DWhere(p, e => e.ReservationTimeout < pr.now)
+                    .DWhere(p, e => !pr.reserverProcessIds.Contains(e.Id))
+                    );
+        }
+
+        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2> DbProcessingForSelectorForProjection2<T>(IQueryable<T> _)
+        {
+            return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2>(
+                (q, p, pr) => q
+                    .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
+                    .DWhere(p, e => e.IsRangeExecution == pr.isRangeExecution)
+                    .DWhere(p, e => e.ReservationTimeout < pr.now)
+                    .DWhere(p, e => !pr.reservedProcessIds.Contains(e.Id))
                     );
         }
 
@@ -85,7 +97,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                         // .DWhere(s, e => p.ids.Contains(e.Id))
                         ;
                 });
-        }
+        }        
 
 
         #endregion
@@ -93,7 +105,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
         #region protected
 
         /// <summary>
-        /// Условие отсутсвия <see cref="ProcessDbEntity{TId}.SelectLockTimeout"/>.
+        /// Условие отсутсвия <see cref="ProcessDbEntity{TId}.ReservationTimeout"/>.
         /// </summary>
         protected (
             IInMemoryCondition<TEntity, DateTimeOffset> Memory,
@@ -119,8 +131,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 );
 
             SelectLock = (
-                new DelegateInMemoryCondition<TEntity, DateTimeOffset>((e, p) => e.SelectLockTimeout < p),
-                new DelegateIQueryableCondition<TEntity, DateTimeOffset>((s, p) => s.Where(e => e.SelectLockTimeout < p))
+                new DelegateInMemoryCondition<TEntity, DateTimeOffset>((e, p) => e.ReservationTimeout < p),
+                new DelegateIQueryableCondition<TEntity, DateTimeOffset>((s, p) => s.Where(e => e.ReservationTimeout < p))
                 );
 
             AsyncExecute = (
@@ -185,6 +197,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                             .ApplayQueryCondition(AsyncExecute.Query)
                             .ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations))
                             .ApplayQueryCondition(SelectLock.Query, p.now)
+                            .Where(e => !p.reserverProcessIds.Contains(e.Id))
                             .OrderByDescending(e => e.Priority);
 
                         return s;
@@ -211,7 +224,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                         e.Status == ProcessStatusEnum.WaitEvent // 1) Процесс в статусе ожидания.
                         && !e.StoppedByError
                         && e.RetryCount == null // 2) Процесс не в ошибке.
-                        && e.SelectLockTimeout < timeout) // 3) Процесс давно не брался в обработку.                        
+                        && e.ReservationTimeout < timeout) // 3) Процесс давно не брался в обработку.                        
                     )
                 );
         }        

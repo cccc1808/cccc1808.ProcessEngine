@@ -6,13 +6,13 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.ClassifierModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Services;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services;
 
@@ -27,11 +27,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public OutboxTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -60,7 +62,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),                                
                             (
@@ -69,7 +71,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),                                
                             (
@@ -78,7 +80,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                                     "1",
                                     FixtureCollection.OutboxQueue,
                                     [],
-                                    JsonSerializer.SerializeToDocument(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }).RootElement.Clone(),
+                                    JsonHelper.ToJsonElement(new Message1Dto(){ BuisnessEntityId = Guid.NewGuid() }),
                                     -1)
                                 ),
                             ],
@@ -91,36 +93,23 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-                await triggerRunnern.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(FixtureCollection.TriggerQueue, default)).ShouldBeTrue();
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
-                var triggerRunnern = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
-
-                await triggerRunnern.DbWorkAsync(executeOne: true, default);
-                await triggerRunnern.DbWorkAsync(executeOne: true, default);
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var processRunner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await processRunner.RunAsync(oneCycle: true, default);
-                await processRunner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var processRunner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await processRunner.RunAsync(oneCycle: true, default);
-                await processRunner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
             }
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())

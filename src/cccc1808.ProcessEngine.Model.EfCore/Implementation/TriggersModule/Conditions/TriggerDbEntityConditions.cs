@@ -75,9 +75,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             .Where(
                                 e =>
                                     e.IsActivated
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
                                     && e.TimerDate < p.NowDate
-                                    && e.SelectLockTimeout < p.NowDate)
+                                    && e.ReservationTimeout < p.NowDate
+                                    && !p.reservedIds.Contains(e.Id))
                             .OrderByDescending(e => e.Priority);
 
                         return s;
@@ -94,9 +96,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             .Where(
                                 e =>
                                     e.IsActivated
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
                                     && e.TimerDate < p.NowDate
-                                    && e.SelectLockTimeout < p.NowDate)
+                                    && e.ReservationTimeout < p.NowDate
+                                    && !p.reservedIds.Contains(e.Id))
                             .OrderByDescending(e => e.Priority)
                             .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
                             ;
@@ -116,10 +120,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                 .Where(
                                     e =>
                                         e.IsActivated
+                                        && e.ChildTrigger_WaitDeliveryTimestamp == null
                                         && !e.IsCompleted
                                         && e.IsRangeHandler == p.IsRangeTrigger
                                         && e.TimerDate < p.NowDate
-                                        && e.SelectLockTimeout < p.NowDate)
+                                        && e.ReservationTimeout < p.NowDate
+                                        && !p.reservedIds.Contains(e.Id))
                                 .OrderByDescending(e => e.Priority)
                                 .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
                                 ;
@@ -130,10 +136,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                 .Where(
                                     e =>
                                         e.IsActivated
+                                        && e.ChildTrigger_WaitDeliveryTimestamp == null
                                         && !e.IsCompleted
                                         && e.IsRangeHandler == p.IsRangeTrigger
                                         && e.TimerDate < p.NowDate
-                                        && e.SelectLockTimeout < p.NowDate
+                                        && e.ReservationTimeout < p.NowDate
                                         // Отсутсвие записей о блокировке с неистекшей датой.
                                         && !p.DbContext.Set<TriggerLockDbEntity<TId>>()
                                             .Any(e2 => e2.Id.Equals(e.Id) && e2.LockDate < p.NowDate)
@@ -155,7 +162,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                             e =>
                                 e.IsActivated
                                 && !e.IsCompleted
-                                && e.TimerDate < p.NowDate);
+                                && e.ChildTrigger_WaitDeliveryTimestamp == null // Дочерний триггер не ждет ответа корневого.
+                                && e.TimerDate < p.NowDate
+                                && p.ids.Contains(e.Id));
 
                         return s;
                     })

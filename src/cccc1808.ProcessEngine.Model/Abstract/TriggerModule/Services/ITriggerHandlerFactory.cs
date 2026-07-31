@@ -13,5 +13,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
         ITriggerHandler GetHandler(
             IServiceProvider serviceProvider,
             string key);
+
+        bool TryGetHandler(
+            IServiceProvider serviceProvider,
+            string key,
+            out ITriggerHandler handler);
     }
 }

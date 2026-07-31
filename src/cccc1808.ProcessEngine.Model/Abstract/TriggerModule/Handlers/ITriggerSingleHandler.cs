@@ -11,7 +11,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers
     public interface ITriggerSingleHandler<TId> 
         : ITriggerHandler
     {
-        ValueTask<Result> HandleAsync(
+        ValueTask<ResultDto> HandleAsync(
             ITriggerComponent<TId> trigger, 
             CancellationToken cancellationToken);
     }

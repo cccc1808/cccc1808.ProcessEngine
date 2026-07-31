@@ -28,8 +28,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
         { get; }
 
         [Obsolete("1) Join на registrations, 2) Сортировка Priority")]
-        IQueryableCondition<T, TEntity, DbProcessingForSelectorParameters> DbProcessingForSelectorProjection<T>(IQueryable<T> _);
+        IQueryableCondition<T, TEntity, DbProcessingForSelectorParameters> DbProcessingForSelectorForProjection1<T>(IQueryable<T> _);
 
+        [Obsolete("1) Join на registrations, 2) Сортировка Priority")]
+        IQueryableCondition<T, TEntity, DbProcessingForSelectorParameters2> DbProcessingForSelectorForProjection2<T>(IQueryable<T> _);
 
         (
             object? no,
@@ -75,7 +77,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
         public readonly record struct DbProcessingForSelectorParameters(
             DateTimeOffset now,
             IEFDbContext dbContext, 
-            ICollection<ProcessRegistryDto> registrations);
+            ICollection<ProcessRegistryDto> registrations,
+            ICollection<TId> reserverProcessIds);
+
+        public readonly record struct DbProcessingForSelectorParameters2(
+            DateTimeOffset now,
+            bool isRangeExecution,
+            IEFDbContext dbContext,
+            ICollection<ProcessRegistryDto> registrations,
+            ICollection<TId> reservedProcessIds);
 
         public readonly record struct DbProcessingForHandlerParameters(
             IEFDbContext dbContext,

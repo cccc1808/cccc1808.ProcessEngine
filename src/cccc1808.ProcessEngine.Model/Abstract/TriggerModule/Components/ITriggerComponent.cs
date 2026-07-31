@@ -55,9 +55,24 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// </summary>
         string HandlerKey { get; }
 
-        DateTimeOffset SelectLockTimeout { get; set; }
+        DateTimeOffset ReservationTimeout { get; set; }
 
+        /// <summary>
+        /// Кастомное состояние триггера.
+        /// </summary>
         object State { get; }
+
+        /// <summary>
+        /// Смещение keyset пагинации.
+        /// (Пока что используется только страхующим триггером).
+        /// </summary>
+        TId? OffsetId { get; set; }
+
+        /// <summary>
+        /// <see cref="ITriggerComponent.IChildTriggerDto"/>.
+        /// Не null если триггер является дочерним.
+        /// </summary>
+        ITriggerComponent.IChildTriggerDto? ChildTrigger { get; }
 
         #region InMemory
 
@@ -103,6 +118,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Либо нужна специальаня реализация хендлера триггера, которая будет повторно проверять наличие необработанных сообщений для процесса перед пробуждением.
             /// </summary>
             SimpleStream,
+            SimpleStreamRoot,
 
             /// <summary>
             /// Стрим с отслеживанием смещения (по аналогии с kafka offset).
@@ -114,6 +130,24 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Если поступит сигнал с меньшим смещение, то сигнал будет утерян т.к. будет считаться, что процесс его уже обработал.
             /// </summary>
             OffsetStream,
+        }
+
+        public interface IChildTriggerDto
+        {
+            /// <summary>
+            /// Триггер нужно завершить после подтверждения доставки от корневого триггера.
+            /// </summary>
+            bool CompleteAfterDelivery { get; set; }
+
+            /// <summary>
+            /// Триггер нужно удалить после подтверждения доставки от корневого триггера.
+            /// </summary>
+            bool RemoveAftrerDelivery { get; set; }
+
+            /// <summary>
+            /// Заполнено - сигнал на корневой триггер отправлен, подтверждение не получено.
+            /// </summary>
+            long? WaitDeliveryTimestamp { get; set; }
         }
 
         public interface ICounterDto
@@ -137,6 +171,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Взводится при поступлении сигнала.
             /// </summary>
             long NewSignalCounter { get; set; }
+
+            /// <summary>
+            /// Является ли триггер корневым.
+            /// </summary>
+            bool IsRootTrigger { get; }
         }
 
         public interface IOffsetStreamDto
@@ -155,7 +194,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
             /// Наибольшее обработанное процессом смещение.
             /// </summary>
             public long ProcessedOffset { get; set; }
-        }
+        }        
 
         #endregion
     }

@@ -20,10 +20,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events
             ICollection<RaiseContainer> events,
             CancellationToken cancellationToken);
 
+        void ClearBuffer();
+
         public readonly record struct RaiseContainer(
             string EventQueue,
             TId ProcessId,
-            ITriggerEvent Event
-            );
+            ITriggerEvent Event);
     }
 }

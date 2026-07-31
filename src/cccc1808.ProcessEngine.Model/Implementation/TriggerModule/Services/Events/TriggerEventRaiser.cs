@@ -26,11 +26,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _triggerOptions = triggerOptions;
             _eventJsonSerializer = eventJsonSerializer;
         }
-
+        
         public async ValueTask RaiseAsync(
             ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events, 
             CancellationToken cancellationToken)
         {
+            if(!events.Any())
+            {
+                return;
+            }
+
             foreach (var elem in events.GroupBy(e => e.EventQueue))
             {
                 var producer = await _queueProviderFactory.GetProducerAsync(elem.Key, cancellationToken);
@@ -47,6 +52,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                         .ToArray(),
                     cancellationToken);
             }
+        }
+
+        public void ClearBuffer()
+        {
+            // Тут нет буфера.
         }
     }
 }

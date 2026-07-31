@@ -29,12 +29,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// Дополняет updatelock.
         /// Отмечает бронь записи, между select транзакций и транзакций выполнения.
         /// </summary>
-        public DateTimeOffset SelectLockTimeout { get; set; }
+        public DateTimeOffset ReservationTimeout { get; set; }
+
+        /// <summary>
+        /// Смещение keyset пагинации.
+        /// </summary>
+        public TId? OffsetId { get; set; }
 
         /// <summary>
         /// Таймер выполнения.
         /// </summary>
         public DateTimeOffset TimerDate { get; set; }
+
+        public bool? ChildTrigger_CompleteAfterDelivery { get; set; }
+
+        public bool? ChildTrigger_RemoveAftrerDelivery { get; set; }
+
+        public long? ChildTrigger_WaitDeliveryTimestamp { get; set; }
 
         /// <summary>
         /// Является ли хендлер триггера групповым.
@@ -107,11 +118,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             TId processId,
             bool? streamProcessIsWaiting,
             long? signalCounter1,
-            long? signalCounter2)
+            long? signalCounter2,
+            bool isChildTrigger,
+            TId? offsetId)
         {
             Id = id;
             Key = key;
-            SelectLockTimeout = selectLockTimeout;
+            ReservationTimeout = selectLockTimeout;
             TimerDate = timerDate;
             IsRangeHandler = isRangeHandler;
             HandlerKey = handlerKey;
@@ -120,6 +133,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             IsActivated = isActivated;
             IsCompleted = isCompleted;
             ProcessId = processId;
+            ChildTrigger_CompleteAfterDelivery = isChildTrigger ? false : null;
+            ChildTrigger_RemoveAftrerDelivery = isChildTrigger ? false : null;
+            OffsetId = offsetId;
 
             switch (kind)
             {
@@ -130,6 +146,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
                     }
 
                 case ITriggerComponent.TriggerKind.SimpleStream:
+                case ITriggerComponent.TriggerKind.SimpleStreamRoot:
                     {
                         StreamProcessIsWaiting = streamProcessIsWaiting.Value;
                         SignalCounter1 = signalCounter1.Value;
@@ -144,11 +161,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
                         break;
                     }
 
-                case ITriggerComponent.TriggerKind.Timer:                
+                case ITriggerComponent.TriggerKind.Timer:
                     break;
 
                 default: throw new NotImplementedException($"{Kind}.");
-            }            
+            }
         }
     }
 }
