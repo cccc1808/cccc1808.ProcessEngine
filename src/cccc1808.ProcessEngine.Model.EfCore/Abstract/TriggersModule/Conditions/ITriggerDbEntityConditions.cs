@@ -1,4 +1,5 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.ConditionModule;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
@@ -60,11 +61,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
 
 
         public readonly record struct DbProcessingForSelectorParameters(
-            DateTimeOffset NowDate);
+            DateTimeOffset NowDate,
+            ICollection<TId> reservedIds);
 
         public readonly record struct DbProcessingForSelectorParameters3(
+            IEFDbContext DbContext,
             DateTimeOffset NowDate,
-            bool IsRangeTrigger);
+            bool IsRangeTrigger,
+            ICollection<TId> reservedIds,
+            bool UseSelectLockTable);
 
         public readonly record struct DbProcessingForHandlerParameters(
             DateTimeOffset NowDate,

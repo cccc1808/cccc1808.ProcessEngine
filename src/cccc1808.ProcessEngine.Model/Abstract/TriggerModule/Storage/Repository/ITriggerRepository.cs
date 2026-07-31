@@ -35,7 +35,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken);
 
         Task SaveAsync(
-            ICollection<ITriggerComponent<TId>> triggers, 
+            ICollection<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken);
 
         Task<HashSet<TId>> CheckProcessWaitingAsync(

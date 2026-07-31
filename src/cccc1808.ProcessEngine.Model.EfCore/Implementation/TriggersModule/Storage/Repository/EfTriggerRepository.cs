@@ -10,6 +10,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -30,6 +31,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerSelectQuery<TId> _triggerSelectQuery;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
 
@@ -41,6 +43,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             IDateTimeProvider dateTimeProvider,
             ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerSelectQuery<TId> triggerSelectQuery,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
         {
@@ -49,6 +52,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
             _triggerSetter = triggerSetter;
+            _triggerSelectQuery = triggerSelectQuery;
+
             _triggerDbEntityConditions = triggerDbEntityConditions;
         }
 
@@ -112,8 +117,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         new ITriggerDbEntityConditions<TId>.DbProcessingForHandlerParameters(
                             now,
                             ids)
-                        ) // Для индекса.
-                    .Where(e => ids.Contains(e.Id))
+                        )
                     .ToArrayAsync(cancellationToken);
 
                 return data
@@ -170,7 +174,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             Set.AddRange(create);
         }
 
-        public async Task SaveAsync(ICollection<ITriggerComponent<TId>> triggers, CancellationToken cancellationToken)
+        public async Task SaveAsync(
+            ICollection<ITriggerComponent<TId>> triggers,
+            CancellationToken cancellationToken)
         {
             var forRemove = new List<TriggerDbEntity<TId>>();
             foreach (var elem in triggers)

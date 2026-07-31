@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -32,6 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IProcessRegistry _processRegistry;
+        private readonly IProcessReservationProvider<TId> _processReservation;
 
         private readonly IProcessDbEntityConditions<TId, TEntity> _processDbEntityConditions;
 
@@ -40,12 +42,14 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
             IProcessRegistry processRegistry,
+            IProcessReservationProvider<TId> processReservation,
             IProcessDbEntityConditions<TId, TEntity> processDbEntityConditions)
         {
             _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _processRegistry = processRegistry;
+            _processReservation = processReservation;
 
             _processDbEntityConditions = processDbEntityConditions;            
         }
@@ -81,6 +85,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             var now = _dateTimeProvider.UtcNow;
             var registrations = _processRegistry.All();
 
+            var reservedProcessIds = await _processReservation.GetReservedAsync(cancellationToken);
+
             if (state.IsRangePhase)
             {
                 //// Фаза обработки Range
@@ -111,7 +117,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             now, 
                             isRangeExecution: true, 
                             _dbContext,
-                            registrations)
+                            registrations,
+                            reservedProcessIds)
                         );
 
                     var data = await query
@@ -148,16 +155,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     return [];
                 }
 
-                if (state.Options.RangeTriggerSelectLock != TimeSpan.Zero)
+                // if (state.Options.RangeTriggerSelectLock != TimeSpan.Zero)
                 {
-                    await _dbContext.Set<TEntity>()
-                        .Where(e => result.Select(e => e.ProcessInstanceInfo.Id).Contains(e.Id))
-                        .ExecuteUpdateAsync(
-                            e => e.SetProperty(
-                                e => e.ReservationTimeout, 
-                                _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock
-                                ),
+                    var date = _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock;
+                    var reserved = await _processReservation.TryReserveAsync(
+                        result
+                            .Select(e => e.ProcessInstanceInfo.Id)
+                            .ToArray(),
+                        _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock,
                         cancellationToken);
+                    result = result
+                        .Where(e => reserved.Contains(e.ProcessInstanceInfo.Id))
+                        .ToArray();
                 }
 
                 state.IsRangePhase = false;
@@ -193,7 +202,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                             now,
                             isRangeExecution: false,
                             _dbContext, 
-                            registrations)
+                            registrations,
+                            reservedProcessIds)
                         );
                     var data = await query
                         .OrderByDescending(e => e.Process.Priority)
@@ -229,16 +239,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     return [];
                 }
 
-                if (state.Options.SingleTriggerSelectLock != TimeSpan.Zero)
+                // if (state.Options.SingleTriggerSelectLock != TimeSpan.Zero)
                 {
-                    await _dbContext.Set<TEntity>()
-                        .Where(e => result.Select(e => e.ProcessInstanceInfo.Id).Contains(e.Id))
-                        .ExecuteUpdateAsync(
-                            e => e.SetProperty(
-                                e => e.ReservationTimeout, 
-                                _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock
-                                ),
-                            cancellationToken);
+                    var date = _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock;
+                    var reserved = await _processReservation.TryReserveAsync(
+                        result
+                            .Select(e => e.ProcessInstanceInfo.Id)
+                            .ToArray(),
+                        _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock,
+                        cancellationToken);
+                    result = result
+                        .Where(e => reserved.Contains(e.ProcessInstanceInfo.Id))
+                        .ToArray();
                 }
 
                 state.IsRangePhase = true;

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
@@ -24,15 +25,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly ITriggerSetter<TId> _triggerSetter;
+        private readonly ITriggerReservationProvider<TId> _reservationProvider;
 
         public EFEmergencyTriggerHandlerQueries(
-            IEFDbContext dbContext, 
-            ILockQueryHintStore lockQueryHintStore, 
-            ITriggerSetter<TId> triggerSetter)
+            IEFDbContext dbContext,
+            ILockQueryHintStore lockQueryHintStore,
+            ITriggerSetter<TId> triggerSetter,
+            ITriggerReservationProvider<TId> reservationProvider)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _triggerSetter = triggerSetter;
+            _reservationProvider = reservationProvider;
         }
 
         public async Task<TId?> GetMinIdAsync(CancellationToken cancellationToken)
@@ -55,14 +59,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         {
             using (var _ = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
+                // var alreadyReseved = await _reservationProvider.GetReservedAsync(cancellationToken);
+
                 var data = await _dbContext.Set<TriggerDbEntity<TId>>()
                     .Where(e =>
                         !e.IsCompleted
                         && !e.IsActivated
                         && e.Kind != ITriggerComponent.TriggerKind.SimpleStreamRoot // Игнорируем корневые триггеры.
                         && e.IsRangeHandler // Триггеры обработчики только с таким типом.
-                        && e.SelectLockTimeout < timeout // Давно не брался в обработку.
+                        && e.ReservationTimeout < timeout // Давно не брался в обработку.
                         && !ignoreHandlers.Contains(e.HandlerKey)
+                        // && !alreadyReseved.Contains(e.Id)
                         )
                     .Take(batchSize)
                     .ToArrayAsync(cancellationToken);

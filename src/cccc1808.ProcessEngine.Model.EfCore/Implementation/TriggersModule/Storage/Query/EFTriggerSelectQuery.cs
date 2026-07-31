@@ -9,6 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
@@ -25,6 +26,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IEFDbContext _dbContext;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly ITriggerReservationProvider<TId> _triggerReservationProvider;
         private readonly ITriggerHandlerFactory<TId> _triggerHandlerFactory;
 
         private readonly ITriggerDbEntityConditions<TId> _triggerDbEntityConditions;
@@ -34,6 +36,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             IEFDbContext dbContext,
             IDateTimeProvider dateTimeProvider,
             ILockQueryHintStore lockQueryHintStore,
+            ITriggerReservationProvider<TId> triggerReservationProvider,
             ITriggerHandlerFactory<TId> triggerHandlerFactory,
 
             ITriggerDbEntityConditions<TId> triggerDbEntityConditions)
@@ -42,6 +45,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             _dbContext = dbContext;
             _dateTimeProvider = dateTimeProvider;
             _lockQueryHintStore = lockQueryHintStore;
+            _triggerReservationProvider = triggerReservationProvider;
             _triggerHandlerFactory = triggerHandlerFactory;
 
             _triggerDbEntityConditions = triggerDbEntityConditions;
@@ -74,6 +78,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return data;
         }
 
+
         /// <summary>
         /// Простая реализация (только batchSize).
         /// </summary>
@@ -93,7 +98,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ApplayQueryCondition(
                         _triggerDbEntityConditions.DbProcessingForSelector.Query,
                         new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters(
-                            now))
+                            now,
+                            reservedIds: await _triggerReservationProvider.GetReservedAsync(cancellationToken)))
                     .Take(state.Options.BatchSize)
                     .Select(e => new { e.Id, e.HandlerKey })
                     .ToArrayAsync(cancellationToken);
@@ -103,11 +109,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ToArray();
             }
 
-            if (state.Options.SelectLock != TimeSpan.Zero)
+            // if (state.Options.SelectLock != TimeSpan.Zero)
             {
-                await _dbContext.Set<TriggerDbEntity<TId>>()
-                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
-                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SelectLock), cancellationToken);
+                var reserved = await _triggerReservationProvider.TryReserveAsync(
+                    result.Select(e => e.Id).ToArray(),
+                    _dateTimeProvider.UtcNow + state.Options.SelectLock,
+                    cancellationToken
+                    );
+
+                result = result
+                    .Where(e => reserved.Contains(e.Id))
+                    .ToArray();                
             }            
 
             return result;
@@ -115,7 +127,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
         /// <summary>
         /// Реализация с учетом ограничения параллелизма.
-        /// Если все параллельные слоты заполнены, то нет смысла брать больше триггеров и держать <see cref="TriggerDbEntity{TId}.SelectLockTimeout"/> (пусть лучше триггеры возьмет другая нода).
+        /// Если все параллельные слоты заполнены, то нет смысла брать больше триггеров и держать <see cref="TriggerDbEntity{TId}.ReservationTimeout"/> (пусть лучше триггеры возьмет другая нода).
         /// Оринтирован на <see cref="ITriggerRangeHandler{TId}"/>.
         /// Минусы: избыточный updatelock на время проверки parallelLimit.
         /// </summary>
@@ -132,7 +144,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     .ApplayQueryCondition(
                         _triggerDbEntityConditions.DbProcessingForSelector2.Query,
                         new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters(
-                            now))
+                            now,
+                            reservedIds: await _triggerReservationProvider.GetReservedAsync(cancellationToken)))
                     .Take(state.Options.BatchSize)
                     .Select(e => new { e.Id, e.HandlerKey })
                     .ToArrayAsync(cancellationToken);
@@ -193,11 +206,17 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 }
             }
 
-            if (state.Options.SelectLock != TimeSpan.Zero)
+            // if (state.Options.SelectLock != TimeSpan.Zero)
             {
-                await _dbContext.Set<TriggerDbEntity<TId>>()
-                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
-                    .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SelectLock), cancellationToken);
+                var reseved = await _triggerReservationProvider.TryReserveAsync(
+                    result.Select(e => e.Id).ToArray(),
+                    _dateTimeProvider.UtcNow + state.Options.SelectLock,
+                    cancellationToken
+                    );
+
+                result = result
+                    .Where(e => reseved.Contains(e.Id))
+                    .ToList();
             }
 
             return result;
@@ -228,9 +247,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         .ApplayQueryCondition(
                             _triggerDbEntityConditions.DbProcessingForSelector3.Query,
                             new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3(
+                                _dbContext,
                                 now,
-                                IsRangeTrigger: true))
-                        .Where(e => e.IsRangeHandler)
+                                IsRangeTrigger: true,
+                                reservedIds: await _triggerReservationProvider.GetReservedAsync(cancellationToken),
+                                UseSelectLockTable: state.Options.UseSelectLockTable))
+    
                         .Take(state.Options.RangeTriggerBatchSize(state.ParallelSlots))
                         .Select(e => new { e.Id, e.HandlerKey })
                         .ToArrayAsync(cancellationToken);
@@ -242,6 +264,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
                 if (!result.Any())
                 {
+                    // Если пусто, то переключаемся на другую фазу.
                     state.PhaseCounter = 0;
                     state.IsRangePhase = false;
 
@@ -256,11 +279,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     return [];
                 }
 
-                if (state.Options.RangeTriggerSelectLock != TimeSpan.Zero)
+                // if (state.Options.RangeTriggerSelectLock != TimeSpan.Zero)
                 {
-                    await _dbContext.Set<TriggerDbEntity<TId>>()
-                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
-                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock), cancellationToken);
+                    var reserved = await _triggerReservationProvider.TryReserveAsync(
+                        result.Select(e => e.Id).ToArray(),
+                         _dateTimeProvider.UtcNow + state.Options.RangeTriggerSelectLock,
+                        cancellationToken);
+
+                    result = result
+                        .Where(e => reserved.Contains(e.Id))
+                        .ToArray();
                 }
 
                 if (state.PhaseCounter == state.Options.StepInRangePhase)
@@ -287,8 +315,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         .ApplayQueryCondition(
                             _triggerDbEntityConditions.DbProcessingForSelector3.Query,
                             new ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3(
+                                _dbContext,
                                 now,
-                                IsRangeTrigger: false))
+                                IsRangeTrigger: false,
+                                reservedIds: await _triggerReservationProvider.GetReservedAsync(cancellationToken),
+                                UseSelectLockTable: state.Options.UseSelectLockTable))
                         .Take(state.Options.SingleTriggerBatchSize(state.ParallelSlots))
                         .Select(e => new { e.Id, e.HandlerKey })
                         .ToArrayAsync(cancellationToken);                    
@@ -300,6 +331,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
                 if (!result.Any())
                 {
+                    // Если пусто, то переключаемся на другую фазу.
                     state.PhaseCounter = 0;
                     state.IsRangePhase = true;
 
@@ -314,11 +346,16 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                     return [];
                 }
 
-                if (state.Options.SingleTriggerSelectLock != TimeSpan.Zero)
+                // if (state.Options.SingleTriggerSelectLock != TimeSpan.Zero)
                 {
-                    await _dbContext.Set<TriggerDbEntity<TId>>()
-                        .Where(e => result.Select(e => e.Id).Contains(e.Id))
-                        .ExecuteUpdateAsync(e => e.SetProperty(e => e.SelectLockTimeout, _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock), cancellationToken);
+                    var reserved = await _triggerReservationProvider.TryReserveAsync(
+                        result.Select(e => e.Id).ToArray(),
+                         _dateTimeProvider.UtcNow + state.Options.SingleTriggerSelectLock,
+                        cancellationToken);
+
+                    result = result
+                        .Where(e => reserved.Contains(e.Id))
+                        .ToArray();
                 }
 
                 state.PhaseCounter = 0;
@@ -395,6 +432,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 = (freeSlots) => freeSlots > 1 
                 ? freeSlots / 2
                 : 0;
+
+            public bool UseSelectLockTable { get; set; }
         }
 
         public class State3 : ITriggerSelectQuery<TId>.IContextState

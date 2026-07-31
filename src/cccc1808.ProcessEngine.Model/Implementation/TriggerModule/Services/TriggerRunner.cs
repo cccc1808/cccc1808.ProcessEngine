@@ -16,6 +16,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
@@ -505,10 +506,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             }
                             );
 
-                        if ((trigger.SelectLockTimeout - now) >= emergencyOptions.LostTriggerTimeout)
+                        if ((trigger.ReservationTimeout - now) >= emergencyOptions.LostTriggerTimeout)
                         {
                             // Обновляем select lock timeout, чтобы обозначить, что на триггер поступают события.
-                            triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
+                            triggerSetter.StandartSetter.SetReservationTimeout(trigger, now);
                         }
 
                         //if (
@@ -609,6 +610,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
 
                     var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, handlerKey);
@@ -661,6 +663,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);
+
+                        await triggerReservationProvider.UnreserveAsync(
+                            triggers.Select(e => e.Id).ToArray(), 
+                            fromRunner: true,
+                            cancellationToken);
+
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
@@ -674,6 +682,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
+                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
 
@@ -696,6 +705,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync([trigger], cancellationToken);
+
+                        await triggerReservationProvider.UnreserveAsync(
+                            [trigger.Id],
+                            fromRunner: true,
+                            cancellationToken);
+
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
@@ -891,7 +906,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 = TimeSpan.FromSeconds(5);
 
             /// <summary>
-            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.SelectLockTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
+            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.ReservationTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
             /// т.к. он зарезирвирован на выполнение текущей нодой (сбрасываеься при выполнении обработки).
             /// </summary>
             public TimeSpan DbExecuteSelectLockTimeout { get; set; }

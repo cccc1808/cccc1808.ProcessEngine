@@ -124,6 +124,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                     )
                     .AddIsolationServices()
                     .AddParallelLimitProcessRunner()
+                    .AddEFProcessReservationService()
                     .AddWakeupServices(
                         [new WakeupRegistryDto(new ProcessRegistryDto(new ProcessTypeDto(3,1), 1), WakeupStateEnum.CheckWakeupWithLock, typeof(ParentCheckWakeupHandler))],
                         []
@@ -133,11 +134,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
+                    .AddEFTriggerReservationServices()
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto(
                             new EFTriggerSelectQuery<Guid>.Options3()
                             {
                                 SingleTriggerBatchSize = (_) => 1,
+                                UseSelectLockTable = true,
                             })
                         {
                             DbExecuteParallelismLimit = 1,

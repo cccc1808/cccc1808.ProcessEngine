@@ -107,7 +107,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters
 
             void SetTimer(ITriggerComponent<TId> trigger, in TimerDto value);
 
-            void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value);
+            void SetReservationTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value);
 
             void ForRemove(ITriggerComponent<TId> trigger, bool value);
 
