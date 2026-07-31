@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
@@ -44,33 +44,27 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
 
         public async Task RunSubAsync(CancellationToken cancellationToken)
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
                     await _processReservationProvider.InitAsync(cancellationToken);
 
                     var connection = await _redisConnectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
-                    var subscribe = await connection.SubscribeAsync(_reservationOptions.ChannelName, cancellationToken);
+                    await using var subscribe = await connection.SubscribeAsync(_reservationOptions.ChannelName, cancellationToken);
 
-                    await foreach (var elem in subscribe.WithCancellation(cancellationToken))
+                    await foreach (var elem in subscribe.ChannelMessages.WithCancellation(cancellationToken))
                     {
                         var messageJson = JsonDocument.Parse((string)elem.Message);
                         var message = messageJson.Deserialize<ReservationMessageDto<TId>>();
 
-                        switch (message.IsReserveOrUnreserve)
+                        if (message.IsReserveOrUnreserve)
                         {
-                            case true:
-                                {
-                                    _reservationState.Reserve(message.ProcessId, message.Timeout.Value);
-                                    break;
-                                }
-
-                            case false:
-                                {
-                                    _reservationState.Unreserve(message.ProcessId);
-                                    break;
-                                }
+                            _reservationState.Reserve(message.ProcessId, message.Timeout!.Value);
+                        }
+                        else
+                        {
+                            _reservationState.Unreserve(message.ProcessId);
                         }
                     }
                 }
@@ -81,7 +75,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
                         throw;
                     }
 
-                    // TODO: log;
+                    // TODO: log ex;
+
                     await Task.Delay(_options.PubSubTaskExceptionDelay, cancellationToken);
                 }
             }

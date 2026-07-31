@@ -5,13 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
-namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Providers
+namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Provider
 {
     public class EFProcessReservationProvider<TId, TEntity>
         : IProcessReservationProvider<TId>

@@ -29,8 +29,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage
             Func<TParam, ITransaction, TCommands> prepareHandller, 
             Func<TParam, TCommands, bool, TResult> executedHandler);
 
-        Task<ChannelMessageQueue> SubscribeAsync(string channel, CancellationToken cancellationToken);
+        Task<ISubscribeContainer> SubscribeAsync(string channel, CancellationToken cancellationToken);
 
         Task PubAsync(string channel, ICollection<JsonElement> messages, CancellationToken cancellationToken);
+
+        public interface ISubscribeContainer
+            : IAsyncDisposable
+        {
+            ChannelMessageQueue ChannelMessages { get; }
+        }
     }
 }

@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runn
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
@@ -38,7 +38,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Providers;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;

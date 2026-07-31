@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider
 {
     public class RedisProcessReservationProvider<TId>
         : IProcessReservationProvider<TId>

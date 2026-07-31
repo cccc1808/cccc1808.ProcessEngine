@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Providers
+namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
 {
     /// <summary>
     /// Управление резервированием процесса.
