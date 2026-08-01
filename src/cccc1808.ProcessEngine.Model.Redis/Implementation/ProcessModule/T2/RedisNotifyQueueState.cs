@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
 {
@@ -20,6 +21,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
         /// В порядке приоритета процессов.
         /// Key - процесс.
         /// Value - timestamp последнего события о поступлении сообщения.
+        /// // TODO: PERF: ImmutableSortedDictionary vs ConcurrentSortedDictionary.
         /// </summary>
         private OptimisticLockContainer<ImmutableSortedDictionary<ProcessRegistryDto, long>> QueueWithMessages { get; }
         /// <summary>

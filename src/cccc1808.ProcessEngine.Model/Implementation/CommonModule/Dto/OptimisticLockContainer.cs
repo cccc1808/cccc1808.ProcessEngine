@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
 {
     /// <summary>
-    /// CAS pattern.
+    /// CAS pattern (optimistic lock).
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">Immutable class.</typeparam>
     public class OptimisticLockContainer<T>
         where T : class
     {
@@ -44,6 +44,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
                     return newValueTyped;
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
             }
         }
 
@@ -67,6 +68,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
                 {
                     return newValueTyped;
                 }
+
+                cancellationToken.ThrowIfCancellationRequested();
             }
         }
     }

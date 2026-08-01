@@ -4,6 +4,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2;
 
 using StackExchange.Redis;
 
@@ -15,14 +16,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
         private readonly IRedisConnectionFactory _redisConnectionFactory;
         private readonly IRedisNotifyQueueState _state;
 
-        private readonly QOptionsDto<TId> _options;
+        private readonly OptionsDto<TId> _options;
 
         public RedisQueueNotificationRunner(
             IProcessRegistry processRegistry,
             IRedisConnectionFactory redisConnectionFactory,
             IRedisNotifyQueueState state,
 
-            QOptionsDto<TId> options)
+            OptionsDto<TId> options)
         {
             _processRegistry = processRegistry;
             _redisConnectionFactory = redisConnectionFactory;

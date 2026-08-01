@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T1;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
 {

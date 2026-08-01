@@ -30,6 +30,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider;
@@ -378,7 +379,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     .AddScoped<IRedisQueueNotificationRunner, RedisQueueNotificationRunner<Guid>>()
                     .AddScoped<IRedisReservationQueue<Guid>, RedisReservationQueue<Guid>>()
                     .AddSingleton(
-                        new QOptionsDto<Guid>() 
+                        new OptionsDto<Guid>() 
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,

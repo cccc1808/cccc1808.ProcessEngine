@@ -22,4 +22,8 @@
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Implementation\TriggerModule\T2\" />
+  </ItemGroup>
+
 </Project>
