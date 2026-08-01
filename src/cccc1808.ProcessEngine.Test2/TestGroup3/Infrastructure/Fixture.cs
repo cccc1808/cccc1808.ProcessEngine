@@ -134,7 +134,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
-                    .AddEFTriggerReservationServices()
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto(
                             new EFTriggerSelectQuery<Guid>.Options3()
@@ -144,8 +143,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
-                            DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            Executor_WaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
+                            Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {

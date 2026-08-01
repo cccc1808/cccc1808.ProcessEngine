@@ -328,7 +328,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                                 process.AddComponent<IStreamTriggerComponent>(
                                     new StreamTriggerComponent(
-                                        triggerOptions.TriggerEventQueues.Single().QueueName, 
+                                        triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, 
                                         [triggerKey])
                                     );
                             }
@@ -356,7 +356,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
                             [new ITriggerEventRaiser<Guid>.RaiseContainer(
-                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                                 component.ParentProcessId,
                                 new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
                                 )],

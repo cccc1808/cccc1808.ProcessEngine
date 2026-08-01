@@ -32,20 +32,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
             DbProcessingForSelector
         { get; }
 
-        public (
-            object? _, 
-            IQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters> Query) 
-            DbProcessingForSelector2
-        { get; }
-
-        public (
-            object? _, 
-            IQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3> Query
-            ) 
-            DbProcessingForSelector3
-        { get; }
-
-
+        /// <summary>
+        /// <see cref="cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Conditions.ITriggerComponentCondition{TId}"/>
+        /// </summary>
         public (
             object? _, 
             IQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForHandlerParameters> Query
@@ -77,60 +66,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                                     e.IsActivated
                                     && e.ChildTrigger_WaitDeliveryTimestamp == null
                                     && !e.IsCompleted
-                                    && e.TimerDate < p.NowDate
-                                    && e.ReservationTimeout < p.NowDate
-                                    && !p.reservedIds.Contains(e.Id))
-                            .OrderByDescending(e => e.Priority);
+                                    && e.TimerDate < p.TimerNowDate
+                                    
+                                    && e.HandlerKey == p.HandlerKey
+                                    && Comparer<TId>.Default.Compare(e.Id, p.IdKeysetOffset) > 0
+                                    //&& e.ReservationTimeout < p.NowDate
+                                    )
+                            .OrderByDescending(e => e.HandlerKey)
+                            .ThenBy(e => e.Id);
 
                         return s;
                     })
                 );
 
-            // Добавляет группировку по HandlerKey, что должно быть более оптимально для range триггеров.
-            DbProcessingForSelector2 = (
-                null,
-                new DelegateIQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters>(
-                    (s, p) =>
-                    {
-                        s = s
-                            .Where(
-                                e =>
-                                    e.IsActivated
-                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
-                                    && !e.IsCompleted
-                                    && e.TimerDate < p.NowDate
-                                    && e.ReservationTimeout < p.NowDate
-                                    && !p.reservedIds.Contains(e.Id))
-                            .OrderByDescending(e => e.Priority)
-                            .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
-                            ;
-
-                        return s;
-                    })
-                );
-
-            DbProcessingForSelector3 = (
-                null,
-                new DelegateIQueryableCondition<TriggerDbEntity<TId>, ITriggerDbEntityConditions<TId>.DbProcessingForSelectorParameters3>(
-                    (s, p) =>
-                    {
-                        s = s
-                            .Where(
-                                e =>
-                                    e.IsActivated
-                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
-                                    && !e.IsCompleted
-                                    && e.IsRangeHandler == p.IsRangeTrigger
-                                    && e.TimerDate < p.NowDate
-                                    && e.ReservationTimeout < p.NowDate
-                                    && !p.reservedIds.Contains(e.Id))
-                            .OrderByDescending(e => e.Priority)
-                            .ThenBy(e => e.HandlerKey) // группировка для range триггеров.
-                            ;
-
-                        return s;
-                    })
-                );
 
             DbProcessingForHandler = (
                 null,

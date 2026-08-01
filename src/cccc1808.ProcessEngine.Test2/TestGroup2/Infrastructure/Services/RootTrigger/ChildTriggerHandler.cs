@@ -73,7 +73,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTr
             return triggers.ToDictionary(
                 e => e.Key,
                 e => new ITriggerHandlerFacade<Guid>.RootEventInfoDto(
-                    _queueOptions.TriggerEventQueues.Single().QueueName,
+                    _queueOptions.Consumer_TriggerEventQueues.Single().QueueName,
                     processData[e.ProcessId].RootTriggerId.ToString())
                 );
         }

@@ -17,6 +17,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
@@ -43,7 +44,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Q
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Providers;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
@@ -59,6 +59,7 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
@@ -85,13 +86,12 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Servi
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T1;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
@@ -308,15 +308,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<ITriggerRepository<Guid>, EfTriggerRepository<Guid>>()
 
                 .AddScoped<ITriggerSetter<Guid>, TriggerSetter<Guid>>()
-                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerSetter, TriggerSetter<Guid>.OneOfTriggerSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerSetter, TriggerSetter<Guid>.OneOfTriggerSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IOneOfTriggerEventSetter, TriggerSetter<Guid>.OneOfTriggerEventSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IStandartSetter, TriggerSetter<Guid>.StandartSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IChildTriggerSetter, TriggerSetter<Guid>.ChildTriggerSetterImpl>()
-                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()                               
+                .AddScoped<ITriggerSetter<Guid>.ICounterSetter, TriggerSetter<Guid>.CounterSetterImpl>()
                 .AddScoped<ITriggerSetter<Guid>.IStreamSetter, TriggerSetter<Guid>.StreamSetterImpl>()
-                .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()                
+                .AddScoped<ITriggerSetter<Guid>.ISimpleStreamSetter, TriggerSetter<Guid>.SimpleStreamSetterImpl>()
                 .AddSingleton(
-                    new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto() 
+                    new TriggerSetter<Guid>.SimpleStreamSetterImpl.OptionsDto()
                     {
                         NoCounterOptimization = true,
                     }
@@ -329,6 +329,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<EmergencyTriggerHandler<Guid>.IQueries, EFEmergencyTriggerHandlerQueries<Guid>>()
                 .AddScoped<IRootTriggerQuery<Guid>, StubRootTriggerQuery<Guid>>()
 
+                .AddScoped<ITriggerComponentCondition<Guid>, TriggerComponentCondition<Guid>>()
                 .AddScoped<ITriggerDbEntityConditions<Guid>, TriggerDbEntityConditions<Guid>>()                
                 ;
 
@@ -341,39 +342,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             return services;
         }
 
-        public static IServiceCollection AddEFTriggerReservationServices(
-            this IServiceCollection services)
-        {
-            services
-                .AddScoped<ITriggerReservationProvider<Guid>, EFTriggerReservationProvider<Guid>>();
-            return services;
-        }
-
-        public static IServiceCollection AddRedisTriggerReservationServices(
-            this IServiceCollection services,
-            RedisTriggerReservationProvider<Guid>.OptionsDto options,
-            RedisTriggerReservationOptions reservationOptions,
-            RedisTriggerReservationRunner<Guid>.OptionsDto runnerOptions)
-        {
-            services
-                .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
-                .AddSingleton(options)
-                .AddSingleton(reservationOptions)
-                
-                .AddSingleton<ITriggerReservationState<Guid>, InmemoryTriggerReservationState<Guid>>()
-                
-                .AddScoped<ITriggerRedisReservationRunner, RedisTriggerReservationRunner<Guid>>()
-                .AddSingleton(runnerOptions)
-                ;
-            return services;
-        }
-
         public static IServiceCollection AddTriggerEngineServices(
             this IServiceCollection services,
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
-            TriggerOptions<Guid> triggerOptions)
+            TriggerOptions<Guid> triggerOptions,
+            TriggerQueueOptionsDto<Guid> triggerQueueOptions)
         {
             services
+                .AddSingleton<ITriggerRegistry, TriggerRegistry>()
+
                 .AddScoped<ITriggerRunner, TriggerRunner<Guid>>()
                 .AddSingleton(triggerServiceOptions)
 
@@ -398,6 +375,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 )
                 
                 .AddScoped< TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
+
+            services
+                .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
+
+                .AddScoped<ITriggerQueue<Guid>, RedisTriggerQueue<Guid>>()
+                .AddSingleton(triggerQueueOptions)
+                .AddSingleton<IRedisNotifyTriggerQueueState, RedisNotifyTriggerQueueState<Guid>>()
+                .AddScoped<IRedisTriggerQueueNotificationRunner, RedisTriggerQueueNotificationRunner<Guid>>()
+                ;
 
             return services;
         }

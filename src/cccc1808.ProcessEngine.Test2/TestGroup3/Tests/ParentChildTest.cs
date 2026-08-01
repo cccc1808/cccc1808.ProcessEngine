@@ -157,7 +157,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(
@@ -173,7 +173,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
-                await triggerService.DbWorkAsync(true, default);
+                await triggerService.RangeTriggerProcessingAsync(true, default);
 
                 //var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();

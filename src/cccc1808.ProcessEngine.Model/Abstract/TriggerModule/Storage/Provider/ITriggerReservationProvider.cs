@@ -9,15 +9,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
     public interface ITriggerReservationProvider<TId>
     {
         /// <summary>
-        /// Инициализация состояния.
-        /// </summary>
-        ValueTask InitAsync(CancellationToken cancellationToken);
-
-        /// <summary>
         /// Пытаемся зарезервировать триггер.
         /// </summary>
         /// <returns>Процессы, которые удалось зарезервировать.</returns>
         ValueTask<ISet<TId>> TryReserveAsync(
+            ICollection<TId> triggerIds,
+            DateTimeOffset date,
+            CancellationToken cancellationToken);
+
+        ValueTask ContinueReserveAsync(
             ICollection<TId> triggerIds,
             DateTimeOffset date,
             CancellationToken cancellationToken);
@@ -27,13 +27,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
         /// </summary>
         ValueTask UnreserveAsync(
             ICollection<TId> triggerIds,
-            bool fromRunner,
             CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Получить набор триггеров, которые зарезервированы всеми нодами (если провайдер поддерживает).
-        /// </summary>
-        ValueTask<ISet<TId>> GetReservedAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Отчистка окружения (!! только для тестов).

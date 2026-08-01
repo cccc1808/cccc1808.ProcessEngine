@@ -11,11 +11,13 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -29,7 +31,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
-    public class TriggerRunner<TId> : ITriggerRunner
+    public class TriggerRunner<TId> 
+        : ITriggerRunner
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
@@ -188,12 +191,16 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 Dictionary<string, bool> recheckProcessStatusBuffer,
                 CancellationToken cancellationToken)
             {
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
                 var emergencyOptions = serviceProvider.GetRequiredService<EmergencyTriggerHandler<TId>.OptionsDto>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                 var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
+                var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                var triggerHandlerFactory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
+                var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
@@ -201,6 +208,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var triggers = await repository.LoadTriggerForQueueConsumerAsync(
                         groupByTrigger.Keys,
                         cancellationToken);
+
+                    triggerQueueFacade.InitExecuteBufferCapacity(triggers.Count);
 
                     // Для stream триггера треюуется перепроверить статус процесса.
                     if (recheckProcessStatusBuffer.Any())
@@ -242,7 +251,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             trigger,
                             (
                                 eventTypeMismathErrorHandler, 
-                                triggerSetter, 
+                                triggerSetter,
+                                triggerQueueFacade,
                                 trigger,
                                 emergencyOptions,
                                 now,
@@ -257,7 +267,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.trigger, p.now, state),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.triggerQueueFacade, p.trigger, p.now, state),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>
@@ -512,6 +522,18 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             triggerSetter.StandartSetter.SetReservationTimeout(trigger, now);
                         }
 
+                        if (condition.NeedExecuteCondition.Check(
+                                trigger,
+                                new ITriggerComponentCondition<TId>.NeedExecuteParameters(
+                                    dateTimeProvider.UtcNow)))
+                        {
+                            triggerQueueFacade.TriggerContinueExecute(
+                                ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                                    trigger.Id,
+                                    triggerHandlerFactory.IsRangeHandler(serviceProvider, trigger.HandlerKey),
+                                    trigger.HandlerKey));
+                        }
+
                         //if (
                         //    trigger.NeedUpdate
                         //    && trigger.IsActivated
@@ -529,12 +551,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     }
 
                     await repository.SaveAsync(triggers.Values, cancellationToken);
+
+                    triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout);
+
                     await transaction.CommitAsync(cancellationToken);
                 }
             }
 
-            var runningTasks = new List<Task>(_options.TriggerEventQueues.Count);
-            foreach (var elem in _options.TriggerEventQueues)
+            var runningTasks = new List<Task>(_options.Consumer_TriggerEventQueues.Count);
+            foreach (var elem in _options.Consumer_TriggerEventQueues)
             {
                 var t = Task.Run(
                     async () => 
@@ -555,71 +580,160 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             await Task.WhenAll(runningTasks);
         }
 
-        public async Task DbWorkAsync(
-            bool executeOne,
-            CancellationToken cancellationToken)
+        public async Task DbSelectorAsync(bool executeOne, CancellationToken cancellationToken)
         {
-            static async Task<ICollection<ITriggerSelectQuery<TId>.SelectDto>> SelectAsync(
+            var triggerRegistry = _serviceProvider.GetRequiredService<ITriggerRegistry>();
+            var executeOneTriggered = false;
+            var tasks = new ConcurrentDictionary<Guid, Task>();
+            foreach (var elem in triggerRegistry.GetAll())
+            {
+                var id = Guid.NewGuid();
+                var selectTask = Task.Run(
+                    async () => 
+                    {
+                        while (true)
+                        {
+                            // TODO: обработка блокировок кластера. (резервирование типа хендлера на ноде).
+
+                            try
+                            {
+                                if (executeOne && executeOneTriggered)
+                                {
+                                    return;
+                                }
+
+                                using (var scope = _serviceProvider.CreateAsyncScope())
+                                {
+                                    var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
+                                    var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                    var query = scope.ServiceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
+                                    var triggerQueueFacade = scope.ServiceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+
+                                    var context = query.InitContext(_options.DbSelect_Options, elem.HandlerName);
+
+                                    while(true)
+                                    {
+                                        var selectData = await query.ExecuteAsync(context, cancellationToken);
+
+                                        if (!selectData.Any())
+                                        {
+                                            await Task.Delay(options.DbSelect_EmptyDelay, cancellationToken);
+                                            break;
+                                        }
+
+                                        var queueIsFull = await triggerQueueFacade.TriggerFromSelector(
+                                            selectData
+                                                .Select(e => ITriggerQueueFacade<TId>.TriggerDto.TriggerFromSelector(
+                                                    e.TriggerId,
+                                                    e.IsRangeHandler,
+                                                    e.HandlerKey)
+                                                )
+                                                .ToArray(),
+                                            reserveDate: selectData.First().IsRangeHandler 
+                                                ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
+                                                : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
+                                            cancellationToken
+                                            );
+
+                                        Interlocked.CompareExchange(ref executeOneTriggered, true, false);
+
+                                        if (queueIsFull)
+                                        {
+                                            await Task.Delay(options.DbSelect_QueueIsFullTimeout, cancellationToken);
+                                            break;
+                                        }
+                                    }
+                                }                                
+                            }
+                            catch (Exception ex)
+                            {
+                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                                {
+                                    throw;
+                                }
+
+                                if (executeOne)
+                                {
+                                    throw;
+                                }
+
+                                // TODO: log;
+
+                                await Task.Delay(_options.ExceptionDelay, cancellationToken);
+                            }
+                            finally
+                            {
+                                tasks.TryRemove(id, out _);
+                            }
+                        }                       
+                    }
+                    );
+
+                tasks.TryAdd(id, selectTask);
+            }
+
+            await Task.WhenAll(tasks.Values);
+        }
+
+        public async Task RangeTriggerProcessingAsync(bool executeOne, CancellationToken cancellationToken)
+        {
+            static async Task<ICollection<ITriggerQueue<TId>.MessageDto>> ConsumeAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
-                ITriggerSelectQuery<TId>.IContextState selectContext,
-                CancellationToken cancellationToken) 
+                CancellationToken cancellationToken)
             {
                 var options = serviceProvider.GetRequiredService<OptionsDto>();
-                var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
-                var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
-                var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
-                var selectQuery = serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
+                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueue<TId>>();
 
                 // Ждем освобождения хотя бы одного слота.
                 await parallelLimiter.WaitAsync(cancellationToken);
-                try 
+                try
                 {
-                    await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
-                    {
-                        selectContext.SetFreeSlots(parallelLimiter.CurrentCount);
-                        var result = await selectQuery.SelectForProcessingAsync(
-                            selectContext,
-                            cancellationToken);
+                    var freeSlots = parallelLimiter.CurrentCount;
 
-                        await transaction.CommitAsync(cancellationToken);
-                        return result;
-                    }
+                    var messages = await triggerQueue.ConsumeRangeTriggersAsync(
+                        batchLimit: freeSlots * options.TransactionUpdateLimit,
+                        uniqueHandlersLimit: freeSlots,
+                        options.RangeExecutor_ConsumeTimeout,
+                        cancellationToken);
+
+                    return messages;
                 }
                 finally
                 {
                     parallelLimiter.Release();
-                }                
+                }
             }
 
             static async Task ExecuteHandlerAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
                 ConcurrentDictionary<Guid, Task> tasks,
-                ICollection<ITriggerSelectQuery<TId>.SelectDto> selectData,
-                CancellationToken cancellationToken) 
+                ICollection<ITriggerQueue<TId>.MessageDto> selectData,
+                CancellationToken cancellationToken)
             {
                 static async Task ExecuteRangeHandlerAsync(
                     IServiceProvider serviceProvider,
                     string handlerKey,
-                    ITriggerSelectQuery<TId>.SelectDto[] group,
-                    CancellationToken cancellationToken) 
+                    ITriggerQueue<TId>.MessageDto[] group,
+                    CancellationToken cancellationToken)
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
                     var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
-                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
+                    var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                    var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
 
                     var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, handlerKey);
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
                         var triggers = await repository.LoadForHandlerAsync(
-                            group.Select(e => e.Id).ToArray(),
-                            waitLockTimeout: options.DbExecuteWaitTriggerLockTimeout,
+                            group.Select(e => e.TriggerId).ToArray(),
+                            waitLockTimeout: options.Executor_WaitTriggerLockTimeout,
                             cancellationToken);
                         if (!triggers.Any())
                         {
@@ -627,7 +741,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
 
                         var result = await handler.CheckAsync(
-                            triggers, 
+                            triggers,
                             isEmergencyTrigger: false,
                             cancellationToken);
 
@@ -641,13 +755,29 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             {
                                 triggerSetter.StandartSetter.SetTriggerResult(elem, elemResult.Result);
                             }
-                            else 
+                            else
                             {
                                 triggerSetter.ChildTriggerSetter.SetTriggerResult(
-                                    elem, 
-                                    childTriggerState, 
+                                    elem,
+                                    childTriggerState,
                                     elemResult.Result,
                                     triggerSetter.ChildTriggerSetter.DateToTimestamp(now));
+                            }
+
+                            if (condition.NeedExecuteCondition.Check(
+                                elem, 
+                                new ITriggerComponentCondition<TId>.NeedExecuteParameters(
+                                    dateTimeProvider.UtcNow)))
+                            {
+                                triggerQueueFacade.TriggerContinueExecute(
+                                    ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                                        elem.Id,
+                                        IsRangeTrigger: true, 
+                                        elem.HandlerKey));
+                            }
+                            else 
+                            {
+                                triggerQueueFacade.TriggerExecuted(elem.Id);
                             }
 
                             if (elemResult.NeedExecute)
@@ -664,52 +794,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);
 
-                        await triggerReservationProvider.UnreserveAsync(
-                            triggers.Select(e => e.Id).ToArray(), 
-                            fromRunner: true,
-                            cancellationToken);
-
-                        await transaction.CommitAsync(cancellationToken);
-                    }
-                }
-
-                static async Task ExecuteSinglehandlerAsync(
-                    IServiceProvider serviceProvider,
-                    ITriggerSelectQuery<TId>.SelectDto triggerInfo,
-                    CancellationToken cancellationToken) 
-                {
-                    var options = serviceProvider.GetRequiredService<OptionsDto>();
-                    var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
-                    var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
-                    var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
-                    var triggerReservationProvider = serviceProvider.GetRequiredService<ITriggerReservationProvider<TId>>();
-                    var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
-                    var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
-
-                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(serviceProvider, triggerInfo.HandlerKey);
-
-                    await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
-                    {
-                        var trigger = (await repository.LoadForHandlerAsync(
-                            [triggerInfo.Id],
-                            waitLockTimeout: options.DbExecuteWaitTriggerLockTimeout,
-                            cancellationToken))
-                            .FirstOrDefault();
-                        if (trigger is null)
-                        {
-                            return;
-                        }
-
-                        var result = await handler.HandleAsync(trigger, cancellationToken);
-                        triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
-
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync([trigger], cancellationToken);
-
-                        await triggerReservationProvider.UnreserveAsync(
-                            [trigger.Id],
-                            fromRunner: true,
-                            cancellationToken);
+                        triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout);
 
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -753,36 +838,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     }
                                 });
                             tasks.TryAdd(id, task);
-                        }                        
-                    }
-                    else if (handler is ITriggerSingleHandler<TId> singleHandler)
-                    {
-                        foreach (var elem in group)
-                        {
-                            await parallelLimiter.WaitAsync();
-                            var id = Guid.NewGuid();
-
-                            var task = Task.Run(
-                                async () =>
-                                {
-                                    try
-                                    {
-                                        await using (var scope = serviceProvider.CreateAsyncScope())
-                                        {
-                                            await ExecuteSinglehandlerAsync(
-                                                scope.ServiceProvider,
-                                                elem,
-                                                cancellationToken
-                                                );
-                                        }
-                                    }
-                                    finally
-                                    {
-                                        tasks.TryRemove(id, out _);
-                                        parallelLimiter.Release();
-                                    }
-                                });
-                            tasks.TryAdd(id, task);
                         }
                     }
                     else
@@ -793,45 +848,41 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             }
 
             var options = _serviceProvider.GetRequiredService<OptionsDto>();
-            var TriggerSelectQuery = _serviceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
 
             using var parallelLimiter = new SemaphoreSlim(
-                options.DbExecuteParallelismLimit 
-                + 1 // на SelectAsync
+                options.RangeExecutor_ExecuteParallelismLimit 
+                + 1 // На ожидание consumer на освобождение слота
                 );
             var tasks = new ConcurrentDictionary<Guid, Task>();
 
-            var selectContext = TriggerSelectQuery.BuildContext(options.SelectOptions);
             while (true)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    break;                    
+                    break;
                 }
 
                 try
                 {
-                    ICollection<ITriggerSelectQuery<TId>.SelectDto> selectData;
+                    ICollection<ITriggerQueue<TId>.MessageDto> selectData;
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        selectData = await SelectAsync(
+                        selectData = await ConsumeAsync(
                             scope.ServiceProvider,
                             parallelLimiter,
-                            selectContext,
                             cancellationToken);
                     }
 
                     if (!selectData.Any())
                     {
-                        await Task.Delay(options.EmptySelectDelay, cancellationToken);
                         break;
                     }
 
                     await ExecuteHandlerAsync(
-                        _serviceProvider, 
+                        _serviceProvider,
                         parallelLimiter,
                         tasks,
-                        selectData, 
+                        selectData,
                         cancellationToken);
                 }
                 catch (Exception ex)
@@ -869,6 +920,217 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             cancellationToken.ThrowIfCancellationRequested();
         }
 
+        public async Task SignleTriggerProcessingAsync(bool executeOne, CancellationToken cancellationToken)
+        {
+            static async Task<ICollection<ITriggerQueue<TId>.MessageDto>> ConsumeAsync(
+                IServiceProvider serviceProvider,
+                SemaphoreSlim parallelLimiter,
+                CancellationToken cancellationToken)
+            {
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
+
+                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueue<TId>>();
+
+                // Ждем освобождения хотя бы одного слота.
+                await parallelLimiter.WaitAsync(cancellationToken);
+                try
+                {
+                    var messages = await triggerQueue.ConsumeSignleTriggersAsync(
+                        parallelLimiter.CurrentCount,
+                        options.SingleExecutor_ConsumeTimeout,
+                        cancellationToken);
+                    return messages;
+                }
+                finally
+                {
+                    parallelLimiter.Release();
+                }
+            }
+
+            static async Task ExecuteHandlerAsync(
+                IServiceProvider serviceProvider,
+                SemaphoreSlim parallelLimiter,
+                ConcurrentDictionary<Guid, Task> tasks,
+                ICollection<ITriggerQueue<TId>.MessageDto> selectData,
+                CancellationToken cancellationToken)
+            {
+                static async Task ExecuteSinglehandlerAsync(
+                    IServiceProvider serviceProvider,
+                    ITriggerQueue<TId>.MessageDto triggerInfo,
+                    CancellationToken cancellationToken)
+                {
+                    var options = serviceProvider.GetRequiredService<OptionsDto>();
+                    var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
+                    var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
+                    var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
+                    var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                    var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
+                    var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
+                    var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
+
+                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(serviceProvider, triggerInfo.HandlerKey);
+
+                    await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
+                    {
+                        var trigger = (await repository.LoadForHandlerAsync(
+                            [triggerInfo.TriggerId],
+                            waitLockTimeout: options.Executor_WaitTriggerLockTimeout,
+                            cancellationToken))
+                            .FirstOrDefault();
+                        if (trigger is null)
+                        {
+                            return;
+                        }
+
+                        triggerQueueFacade.InitExecuteBufferCapacity(1);
+
+                        var result = await handler.HandleAsync(trigger, cancellationToken);
+                        triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
+
+                        if (condition.NeedExecuteCondition.Check(
+                                trigger,
+                                new ITriggerComponentCondition<TId>.NeedExecuteParameters(
+                                    dateTimeProvider.UtcNow)))
+                        {
+                            triggerQueueFacade.TriggerContinueExecute(
+                                ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                                    trigger.Id,
+                                    IsRangeTrigger: false,
+                                    HandlerKey: trigger.HandlerKey));
+                        }
+                        else
+                        {
+                            triggerQueueFacade.TriggerExecuted(trigger.Id);
+                        }
+                        
+                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        await repository.SaveAsync([trigger], cancellationToken);
+
+                        triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.SingleExecutor_ConsumeTimeout);
+
+                        await transaction.CommitAsync(cancellationToken);
+                    }
+                }
+
+                var options = serviceProvider.GetRequiredService<OptionsDto>();
+                var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
+                // Группировка по ключу (Info: точка агрегации):
+                // Если триггер групповой, то обработку будет одним батчем (одной транзакцией).
+                var groupByHandler = selectData.GroupBy(e => e.HandlerKey);
+
+                foreach (var group in groupByHandler)
+                {
+                    var handler = factory.GetHandler(serviceProvider, group.Key);
+                    
+                    if (handler is ITriggerSingleHandler<TId> singleHandler)
+                    {
+                        foreach (var elem in group)
+                        {
+                            await parallelLimiter.WaitAsync();
+                            var id = Guid.NewGuid();
+
+                            var task = Task.Run(
+                                async () =>
+                                {
+                                    try
+                                    {
+                                        await using (var scope = serviceProvider.CreateAsyncScope())
+                                        {
+                                            await ExecuteSinglehandlerAsync(
+                                                scope.ServiceProvider,
+                                                elem,
+                                                cancellationToken
+                                                );
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        tasks.TryRemove(id, out _);
+                                        parallelLimiter.Release();
+                                    }
+                                });
+                            tasks.TryAdd(id, task);
+                        }
+                    }
+                    else
+                    {
+                        // throw.
+                    }
+                }
+            }
+
+            var options = _serviceProvider.GetRequiredService<OptionsDto>();
+
+            using var parallelLimiter = new SemaphoreSlim(
+                options.SingleExecutor_ParallelismLimit
+                + 1 // На ожидание consumer на освобождение слота
+                );
+            var tasks = new ConcurrentDictionary<Guid, Task>();
+
+            while (true)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                try
+                {
+                    ICollection<ITriggerQueue<TId>.MessageDto> selectData;
+                    await using (var scope = _serviceProvider.CreateAsyncScope())
+                    {
+                        selectData = await ConsumeAsync(
+                            scope.ServiceProvider,
+                            parallelLimiter,
+                            cancellationToken);
+                    }
+
+                    if (!selectData.Any())
+                    {
+                        break;
+                    }
+
+                    await ExecuteHandlerAsync(
+                        _serviceProvider,
+                        parallelLimiter,
+                        tasks,
+                        selectData,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                    {
+                        throw;
+                    }
+
+                    // Log
+
+                    if (executeOne)
+                    {
+                        throw;
+                    }
+
+                    await Task.Delay(options.ExceptionDelay, cancellationToken);
+                }
+
+                if (executeOne)
+                {
+                    break;
+                }
+            }
+
+            try
+            {
+                await Task.WhenAll(tasks.Values);
+            }
+            catch
+            {
+                // Log
+            }
+            tasks.Clear();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
 
         public class OptionsDto
         {
@@ -876,52 +1138,51 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// Конфигурация очередей, используемых для передачи <see cref="ITriggerEvent"/>, которые будут обрабатываться текущим экземпляром.
             /// (Можно сделать несколько одередей с разными значениями буфера и задержки накопления события).
             /// </summary>
-            public List<QueueOptionsDto> TriggerEventQueues { get; set; }
-                = new List<QueueOptionsDto>(0);                 
+            public List<QueueOptionsDto> Consumer_TriggerEventQueues { get; set; }
+                = new List<QueueOptionsDto>(0);
+            
+            public int RangeExecutor_ExecuteParallelismLimit { get; set; }
 
-            public int DbExecuteParallelismLimit { get; set; }
-                = 10;
+            public TimeSpan RangeExecutor_ConsumeTimeout { get; set; }
 
-            public ITriggerSelectQuery<TId>.IOptions SelectOptions { get; set; }
+            public int SingleExecutor_ParallelismLimit { get; set; }
+
+            public TimeSpan SingleExecutor_ConsumeTimeout { get; set; }
+
+            public ITriggerSelectQuery<TId>.IOptions DbSelect_Options { get; set; }
 
             /// <summary>
             /// Ограничение на количетсво триггеров, обновляемое в одной транзакции.
             /// <see cref="QueueOptionsDto.QueueConsumeTriggersCountLimit"/>.
             /// </summary>
             public int TransactionUpdateLimit { get; set; }
-                = 100;
-
-            /// <summary>
-            /// Функция определения размера батча для выборки на обработку.
-            /// Параметр - количество свободных слотов (DbExecuteParallelismLimit - RunningTasksCount).
-            /// Если нода выполняет только долгие/<see cref="ITriggerSingleHandler{TId}"/>, то предпочтительнее (freeSlots) => freeSlots.
-            /// </summary>
-            public Func<int, int> DbExecuteBatchSize { get; set; }
-                = static (freeSlots) => Math.Min(freeSlots * 50, 100);
-
-            public TimeSpan EmptySelectDelay { get; set; } 
-                = TimeSpan.FromMilliseconds(100);
+                = 50;
 
             public TimeSpan ExceptionDelay { get; set; }
                 = TimeSpan.FromSeconds(5);
 
             /// <summary>
-            /// Блокировка, устанавливаемая на <see cref="ITriggerComponent{TId}.ReservationTimeout"/>, чтобы другие ноды не натыкались на этот триггер 
-            /// т.к. он зарезирвирован на выполнение текущей нодой (сбрасываеься при выполнении обработки).
-            /// </summary>
-            public TimeSpan DbExecuteSelectLockTimeout { get; set; }
-                = TimeSpan.FromSeconds(30);
-
-            /// <summary>
             /// Время ожидания попытки получить блокировку на триггер.
             /// (Конкурецнтя с consumer).
             /// </summary>
-            public TimeSpan DbExecuteWaitTriggerLockTimeout { get; set; }
+            public TimeSpan Executor_WaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
+
+            public TimeSpan DbSelect_EmptyDelay { get; set; }
+                = TimeSpan.FromSeconds(1);
+
+            public TimeSpan DbSelect_QueueIsFullTimeout { get; set; }
+                = TimeSpan.FromSeconds(3);
+
+            public TimeSpan DbSelect_RangeReservationTimeout { get; set; }
+                = TimeSpan.FromSeconds(10);
+
+            public TimeSpan DbSelect_SingleReservationTimeout { get; set; }
+                = TimeSpan.FromSeconds(60);
 
             public OptionsDto(ITriggerSelectQuery<TId>.IOptions selectOptions)
             {
-                SelectOptions = selectOptions;
+                DbSelect_Options = selectOptions;
             }
         }
 

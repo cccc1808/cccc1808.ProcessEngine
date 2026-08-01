@@ -206,19 +206,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     )
                     // .AddEFTriggerReservationServices()
 
-                    .AddRedisTriggerReservationServices(
-                        new RedisTriggerReservationProvider<Guid>.OptionsDto() 
-                        {
-                            KeyToStringHandler = (e) => e.ToString(),
-                            StringToKeyHandler = (e) => Guid.Parse(e),
-                        },
-                        new RedisTriggerReservationOptions()
-                        { 
-                            ConnectionName = FixtureCollection.RedisConnectionName,
-                            DbId = FixtureCollection.RedisDb,
-                        },
-                        new RedisTriggerReservationRunner<Guid>.OptionsDto()
-                    )
+                    //.AddRedisTriggerReservationServices(
+                    //    new RedisTriggerReservationProvider<Guid>.OptionsDto() 
+                    //    {
+                    //        KeyToStringHandler = (e) => e.ToString(),
+                    //        StringToKeyHandler = (e) => Guid.Parse(e),
+                    //    },
+                    //    new RedisTriggerReservationOptions()
+                    //    { 
+                    //        ConnectionName = FixtureCollection.RedisConnectionName,
+                    //        DbId = FixtureCollection.RedisDb,
+                    //    },
+                    //    new RedisTriggerReservationRunner<Guid>.OptionsDto()
+                    //)
 
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
@@ -233,16 +233,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto(
-                            new EFTriggerSelectQuery<Guid>.Options3()
+                            new EFTriggerSelectQuery<Guid>.OptionsDto()
                             {
-                                SingleTriggerBatchSize = (_) => 1,
+                                BatchSize = 1,
+                                StartOffset = Guid.Empty,
                             }
                             ) 
                         {
-                            DbExecuteParallelismLimit = 1,
-                            DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
-                            DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            RangeExecutor_ExecuteParallelismLimit = 1,
+                            SingleExecutor_ParallelismLimit = 1,
+                            DbSelect_RangeReservationTimeout = TimeSpan.FromSeconds(30),
+                            Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
@@ -363,9 +364,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
 
                     // Reservation
                     {
-                        var triggerReservationProvider = scope.ServiceProvider.GetRequiredService<ITriggerReservationProvider<Guid>>();
-                        await triggerReservationProvider.ClearAsync();
-
                         var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<Guid>>();
                         await processReservationProvider.ClearAsync();
                     }

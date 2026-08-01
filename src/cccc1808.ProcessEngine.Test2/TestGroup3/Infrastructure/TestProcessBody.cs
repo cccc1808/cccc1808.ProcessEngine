@@ -144,7 +144,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             // Оповещаем родительский процесс о завершении дочернего процесса.
                             await triggerEventRaiser.RaiseAsync(
                                 [new ITriggerEventRaiser<Guid>.RaiseContainer(
-                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                                 component.ParentProcessId,
                                 new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
                                 )],

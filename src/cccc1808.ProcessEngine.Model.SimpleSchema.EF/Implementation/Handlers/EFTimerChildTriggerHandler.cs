@@ -70,7 +70,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
             return triggers.ToDictionary(
                 e => e.Key,
                 e => new ITriggerHandlerFacade<TId>.RootEventInfoDto(
-                    _queueOptions.TriggerEventQueues.Single().QueueName,
+                    _queueOptions.Consumer_TriggerEventQueues.Single().QueueName,
                     processData[e.ProcessId].RootTriggerKey.ToString())
                 );
         }

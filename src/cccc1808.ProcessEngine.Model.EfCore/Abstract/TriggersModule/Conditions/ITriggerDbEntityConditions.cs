@@ -29,26 +29,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
             DbProcessingForSelector { get; }
 
         /// <summary>
-        /// Для выборки DbWorker. selector
-        /// </summary>
-        (
-            object? _,
-            IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForSelectorParameters> Query
-            )
-            DbProcessingForSelector2
-        { get; }
-
-        /// <summary>
-        /// Для выборки DbWorker. selector
-        /// </summary>
-        (
-            object? _,
-            IQueryableCondition<TriggerDbEntity<TId>, DbProcessingForSelectorParameters3> Query
-            )
-            DbProcessingForSelector3
-        { get; }
-
-        /// <summary>
         /// Для выборки DbWorker. handler executor.
         /// </summary>
         (
@@ -60,13 +40,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions
 
 
         public readonly record struct DbProcessingForSelectorParameters(
-            DateTimeOffset NowDate,
-            ICollection<TId> reservedIds);
-
-        public readonly record struct DbProcessingForSelectorParameters3(
-            DateTimeOffset NowDate,
-            bool IsRangeTrigger,
-            ICollection<TId> reservedIds);
+            TId IdKeysetOffset,
+            DateTimeOffset TimerNowDate,
+            string HandlerKey);
 
         public readonly record struct DbProcessingForHandlerParameters(
             DateTimeOffset NowDate,

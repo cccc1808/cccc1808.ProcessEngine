@@ -162,8 +162,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             DbExecuteParallelismLimit = 1,
                             DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
-                            DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>() 
+                            Executor_WaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
+                            Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>() 
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {

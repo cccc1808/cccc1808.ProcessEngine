@@ -58,7 +58,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
 
             await triggerRunner.ConsumerWorkAsync(executeOne: true, default);
-            (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
+            (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 events
                     .Select(
                         e => new ITriggerEventRaiser<Guid>.RaiseContainer(
-                            triggerOptions.TriggerEventQueues.Single().QueueName,
+                            triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                             processId,
                             e
                             )
