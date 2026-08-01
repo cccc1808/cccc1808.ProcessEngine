@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
 {
     public class InmemoryProcessReservationState<TId> 
         : IProcessReservationState<TId>

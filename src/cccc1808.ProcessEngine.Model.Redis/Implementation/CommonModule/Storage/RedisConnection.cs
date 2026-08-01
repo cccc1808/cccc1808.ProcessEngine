@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
@@ -123,7 +124,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
             }           
         }
 
-        public Task PubAsync(
+        public async Task PubAsync(
             string channel, 
             ICollection<JsonElement> messages, 
             CancellationToken cancellationToken)
@@ -141,7 +142,31 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
                 tasks.Add(t);
             }
 
-            return Task.WhenAll(tasks);
+            await Task.WhenAll(tasks);
+        }
+
+        public async Task PubAsync(
+            KeyValuePair<string, JsonElement[]>[] messages, 
+            CancellationToken cancellation)
+        {
+            var subsriber = _connectionMultiplexer.GetSubscriber();
+
+            var tasks = new List<Task>(messages[0].Value.Length);
+            foreach (var elem in messages)
+            {
+                var channel = new RedisChannel(
+                    elem.Key,
+                    RedisChannel.PatternMode.Literal
+                    );
+
+                foreach (var elem2 in elem.Value)
+                {
+                    var t = subsriber.PublishAsync(channel, elem2.GetRawText());
+                    tasks.Add(t);
+                }
+            }
+
+            await Task.WhenAll(tasks);
         }
 
         #endregion

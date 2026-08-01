@@ -27,7 +27,8 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -306,6 +307,59 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         e => e.ProcessId.ShouldBe(Guid.Empty),
                         e => e.IsReserveOrUnreserve.ShouldBeFalse()
                         );
+            }
+        }
+
+        [Fact(Timeout = FixtureCollection.TestTimeout)]
+        public async Task RedisQueueTestAsync()
+        {
+            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+            {
+                var message = new IRedisReservationQueue<Guid>.MessageDto(
+                    new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
+                    Guid.Empty);
+
+                var state = scope.ServiceProvider.GetRequiredService<IRedisNotifyQueueState>();
+                var queueProvider = scope.ServiceProvider.GetRequiredService<IRedisReservationQueue<Guid>>();
+                var runner = scope.ServiceProvider.GetRequiredService<IRedisQueueNotificationRunner>();
+
+                {
+                    var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
+                    consumeResult.ShouldBeEmpty();
+
+                    state.GetQueueWithMessages().ShouldBeEmpty();
+                    var waitTask = await state.AllQueueEmptySleepAsync(default);
+                    waitTask.IsCompleted.ShouldBeFalse();
+                }
+
+                {
+                    var runnerTask = runner.RunAsync(one: true, default);
+
+                    {
+                        var produceResult = await queueProvider.ProduceAsync([message], default);
+                        produceResult.ShouldBeEmpty();
+                    }
+
+                    {
+                        await runnerTask;
+
+                        state.GetQueueWithMessages().ShouldNotBeEmpty();
+                        var waitTask = await state.AllQueueEmptySleepAsync(default);
+                        waitTask.IsCompleted.ShouldBeTrue();
+                    }
+                }
+
+                {
+                    var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
+                    consumeResult.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+                        e => e.Registry.ProcessType.ShouldBe(message.Registry.ProcessType),
+                        e => e.Registry.ProcessType.ProcessVersion.ShouldBe(message.Registry.ProcessType.ProcessVersion),
+                        e => e.ProcessId.ShouldBe(message.ProcessId));
+
+                    state.GetQueueWithMessages().ShouldBeEmpty();
+                    var waitTask = await state.AllQueueEmptySleepAsync(default);
+                    waitTask.IsCompleted.ShouldBeFalse();
+                }
             }
         }
 

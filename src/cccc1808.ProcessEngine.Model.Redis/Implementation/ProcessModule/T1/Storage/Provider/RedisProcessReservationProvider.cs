@@ -14,7 +14,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider
 {
     public class RedisProcessReservationProvider<TId>
         : IProcessReservationProvider<TId>

@@ -31,8 +31,9 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
@@ -269,6 +270,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new ProcessRegistryDto(new ProcessTypeDto(5, 1), 1)
                     );
 
+                RedisNotificationQueue(services);
+
                 // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
                 services.AddScoped<IProcessRunner>(
                     s => new ParallelLimitProcessRunner<Guid>(
@@ -366,6 +369,35 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         await processReservationProvider.ClearAsync();
                     }
                 }
+            }
+
+            private static IServiceCollection RedisNotificationQueue(IServiceCollection services)
+            {
+                services
+                    .AddSingleton<IRedisNotifyQueueState, RedisNotifyQueueState>()
+                    .AddScoped<IRedisQueueNotificationRunner, RedisQueueNotificationRunner<Guid>>()
+                    .AddScoped<IRedisReservationQueue<Guid>, RedisReservationQueue<Guid>>()
+                    .AddSingleton(
+                        new QOptionsDto<Guid>() 
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            IdToString = (e) => e.ToString(),
+                            StringToId = (e) => Guid.Parse(e),
+                            ProcessToQueueSetNameFactory = (e) => $"{e.ProcessType.ProcessType}.{e.ProcessType.ProcessVersion}.{e.Priority}",
+                            QueueSetNameToProcessTypeFactory = (e) => 
+                            {
+                                var parts = e.Split('.');
+                                return new ProcessRegistryDto(
+                                    new ProcessTypeDto(long.Parse(parts[0]), int.Parse(parts[1])),
+                                    short.Parse(parts[2])
+                                    );
+                            },
+                            QueueChannelNameFactory = (e) => $"qc.{e.ProcessType.ProcessType}.{e.ProcessType.ProcessVersion}.{e.Priority}",                            
+                        }
+                        );
+
+                return services;
             }
 
             public async Task DisposeAsync()

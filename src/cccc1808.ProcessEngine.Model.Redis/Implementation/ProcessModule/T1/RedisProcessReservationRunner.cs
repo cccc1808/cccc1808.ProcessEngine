@@ -12,7 +12,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
 {
     public class RedisProcessReservationRunner<TId> : IRedisProcessReservationRunner
     {

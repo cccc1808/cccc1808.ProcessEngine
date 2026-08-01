@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
 {
     /// <summary>
     /// Опции резервирования процессов.

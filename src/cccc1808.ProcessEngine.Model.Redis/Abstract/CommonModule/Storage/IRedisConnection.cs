@@ -32,6 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage
         Task<ISubscribeContainer> SubscribeAsync(string channel, CancellationToken cancellationToken);
 
         Task PubAsync(string channel, ICollection<JsonElement> messages, CancellationToken cancellationToken);
+        Task PubAsync(KeyValuePair<string, JsonElement[]>[] messages, CancellationToken cancellation);
 
         public interface ISubscribeContainer
             : IAsyncDisposable
