@@ -583,89 +583,124 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         public async Task DbSelectorAsync(bool executeOne, CancellationToken cancellationToken)
         {
             var triggerRegistry = _serviceProvider.GetRequiredService<ITriggerRegistry>();
+
+            var parallelLimit = new SemaphoreSlim(_options.DbSelect_ParallilLimit);
+
             var executeOneTriggered = false;
             var tasks = new ConcurrentDictionary<Guid, Task>();
+
             foreach (var elem in triggerRegistry.GetAll())
             {
                 var id = Guid.NewGuid();
                 var selectTask = Task.Run(
                     async () => 
                     {
-                        while (true)
+                        try 
                         {
-                            // TODO: обработка блокировок кластера. (резервирование типа хендлера на ноде).
+                            TimeSpan? timeout = null;
 
-                            try
+                            while (true)
                             {
                                 if (executeOne && executeOneTriggered)
                                 {
                                     return;
                                 }
 
-                                using (var scope = _serviceProvider.CreateAsyncScope())
+                                if (timeout.HasValue)
                                 {
-                                    var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
-                                    var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
-                                    var query = scope.ServiceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
-                                    var triggerQueueFacade = scope.ServiceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                                    await Task.Delay(timeout.Value, cancellationToken);
+                                    timeout = null;
+                                }
 
-                                    var context = query.InitContext(_options.DbSelect_Options, elem.HandlerName);
+                                await parallelLimit.WaitAsync();
 
-                                    while(true)
+                                // TODO: обработка блокировок кластера. (резервирование типа хендлера на ноде).
+
+                                try
+                                {
+                                    using (var scope = _serviceProvider.CreateAsyncScope())
                                     {
-                                        var selectData = await query.ExecuteAsync(context, cancellationToken);
+                                        var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
+                                        var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                        var query = scope.ServiceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
+                                        var triggerQueueFacade = scope.ServiceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
 
-                                        if (!selectData.Any())
+                                        var context = query.InitContext(_options.DbSelect_Options, elem.HandlerName);
+
+                                        while (true)
                                         {
-                                            await Task.Delay(options.DbSelect_EmptyDelay, cancellationToken);
-                                            break;
-                                        }
+                                            var selectData = await query.ExecuteAsync(context, cancellationToken);
 
-                                        var queueIsFull = await triggerQueueFacade.TriggerFromSelector(
-                                            selectData
-                                                .Select(e => ITriggerQueueFacade<TId>.TriggerDto.TriggerFromSelector(
-                                                    e.TriggerId,
-                                                    e.IsRangeHandler,
-                                                    e.HandlerKey)
-                                                )
-                                                .ToArray(),
-                                            reserveDate: selectData.First().IsRangeHandler 
-                                                ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
-                                                : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
-                                            cancellationToken
-                                            );
+                                            if (!selectData.Any())
+                                            {
+                                                timeout = options.DbSelect_EmptyDelay;
+                                                break;
+                                            }
 
-                                        Interlocked.CompareExchange(ref executeOneTriggered, true, false);
+                                            var queueIsFull = await triggerQueueFacade.TriggerFromSelector(
+                                                selectData
+                                                    .Select(e => ITriggerQueueFacade<TId>.TriggerDto.TriggerFromSelector(
+                                                        e.TriggerId,
+                                                        e.IsRangeHandler,
+                                                        e.HandlerKey)
+                                                    )
+                                                    .ToArray(),
+                                                reserveDate: selectData.First().IsRangeHandler
+                                                    ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
+                                                    : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
+                                                cancellationToken
+                                                );
 
-                                        if (queueIsFull)
-                                        {
-                                            await Task.Delay(options.DbSelect_QueueIsFullTimeout, cancellationToken);
-                                            break;
+                                            Interlocked.CompareExchange(ref executeOneTriggered, true, false);
+
+                                            if (queueIsFull)
+                                            {
+                                                timeout = options.DbSelect_QueueIsFullTimeout;
+                                                break;
+                                            }
                                         }
                                     }
-                                }                                
-                            }
-                            catch (Exception ex)
-                            {
-                                if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
-                                {
-                                    throw;
                                 }
-
-                                if (executeOne)
+                                catch (Exception ex)
                                 {
-                                    throw;
+                                    if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
+                                    {
+                                        throw;
+                                    }
+
+                                    if (executeOne)
+                                    {
+                                        throw;
+                                    }
+
+                                    // TODO: log;
+
+                                    timeout = _options.ExceptionDelay;
                                 }
-
-                                // TODO: log;
-
-                                await Task.Delay(_options.ExceptionDelay, cancellationToken);
+                                finally
+                                {
+                                    parallelLimit.Release();                                    
+                                }
                             }
-                            finally
+                        }
+                        catch(Exception ex)
+                        {
+                            if (OperationCancelHelper.IsCancelException(ex, cancellationToken))
                             {
-                                tasks.TryRemove(id, out _);
+                                throw;
                             }
-                        }                       
+
+                            if (executeOne)
+                            {
+                                throw;
+                            }
+
+                            // TODO: log;
+                        }
+                        finally 
+                        {
+                            tasks.TryRemove(id, out _);
+                        }
                     }
                     );
 
@@ -677,13 +712,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public async Task RangeTriggerProcessingAsync(bool executeOne, CancellationToken cancellationToken)
         {
-            static async Task<ICollection<ITriggerQueue<TId>.MessageDto>> ConsumeAsync(
+            static async Task<ICollection<ITriggerQueueProvider<TId>.MessageDto>> ConsumeAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
                 CancellationToken cancellationToken)
             {
                 var options = serviceProvider.GetRequiredService<OptionsDto>();
-                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueue<TId>>();
+                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueueProvider<TId>>();
 
                 // Ждем освобождения хотя бы одного слота.
                 await parallelLimiter.WaitAsync(cancellationToken);
@@ -709,13 +744,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
                 ConcurrentDictionary<Guid, Task> tasks,
-                ICollection<ITriggerQueue<TId>.MessageDto> selectData,
+                ICollection<ITriggerQueueProvider<TId>.MessageDto> selectData,
                 CancellationToken cancellationToken)
             {
                 static async Task ExecuteRangeHandlerAsync(
                     IServiceProvider serviceProvider,
                     string handlerKey,
-                    ITriggerQueue<TId>.MessageDto[] group,
+                    ITriggerQueueProvider<TId>.MessageDto[] group,
                     CancellationToken cancellationToken)
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -864,7 +899,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 try
                 {
-                    ICollection<ITriggerQueue<TId>.MessageDto> selectData;
+                    ICollection<ITriggerQueueProvider<TId>.MessageDto> selectData;
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
                         selectData = await ConsumeAsync(
@@ -922,14 +957,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public async Task SignleTriggerProcessingAsync(bool executeOne, CancellationToken cancellationToken)
         {
-            static async Task<ICollection<ITriggerQueue<TId>.MessageDto>> ConsumeAsync(
+            static async Task<ICollection<ITriggerQueueProvider<TId>.MessageDto>> ConsumeAsync(
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
                 CancellationToken cancellationToken)
             {
                 var options = serviceProvider.GetRequiredService<OptionsDto>();
 
-                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueue<TId>>();
+                var triggerQueue = serviceProvider.GetRequiredService<ITriggerQueueProvider<TId>>();
 
                 // Ждем освобождения хотя бы одного слота.
                 await parallelLimiter.WaitAsync(cancellationToken);
@@ -951,12 +986,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 IServiceProvider serviceProvider,
                 SemaphoreSlim parallelLimiter,
                 ConcurrentDictionary<Guid, Task> tasks,
-                ICollection<ITriggerQueue<TId>.MessageDto> selectData,
+                ICollection<ITriggerQueueProvider<TId>.MessageDto> selectData,
                 CancellationToken cancellationToken)
             {
                 static async Task ExecuteSinglehandlerAsync(
                     IServiceProvider serviceProvider,
-                    ITriggerQueue<TId>.MessageDto triggerInfo,
+                    ITriggerQueueProvider<TId>.MessageDto triggerInfo,
                     CancellationToken cancellationToken)
                 {
                     var options = serviceProvider.GetRequiredService<OptionsDto>();
@@ -1076,7 +1111,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                 try
                 {
-                    ICollection<ITriggerQueue<TId>.MessageDto> selectData;
+                    ICollection<ITriggerQueueProvider<TId>.MessageDto> selectData;
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
                         selectData = await ConsumeAsync(
@@ -1140,16 +1175,20 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             /// </summary>
             public List<QueueOptionsDto> Consumer_TriggerEventQueues { get; set; }
                 = new List<QueueOptionsDto>(0);
-            
+
             public int RangeExecutor_ExecuteParallelismLimit { get; set; }
+                = 20;
 
             public TimeSpan RangeExecutor_ConsumeTimeout { get; set; }
+                = TimeSpan.FromSeconds(0.1);
 
             public int SingleExecutor_ParallelismLimit { get; set; }
+                = 3;
 
             public TimeSpan SingleExecutor_ConsumeTimeout { get; set; }
+                = TimeSpan.FromSeconds(0.5);
 
-            public ITriggerSelectQuery<TId>.IOptions DbSelect_Options { get; set; }
+            public required ITriggerSelectQuery<TId>.IOptions DbSelect_Options { get; set; }
 
             /// <summary>
             /// Ограничение на количетсво триггеров, обновляемое в одной транзакции.
@@ -1168,6 +1207,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             public TimeSpan Executor_WaitTriggerLockTimeout { get; set; }
                 = TimeSpan.FromSeconds(5);
 
+            public int DbSelect_ParallilLimit { get; set; }
+                = 2;
+
             public TimeSpan DbSelect_EmptyDelay { get; set; }
                 = TimeSpan.FromSeconds(1);
 
@@ -1179,11 +1221,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public TimeSpan DbSelect_SingleReservationTimeout { get; set; }
                 = TimeSpan.FromSeconds(60);
-
-            public OptionsDto(ITriggerSelectQuery<TId>.IOptions selectOptions)
-            {
-                DbSelect_Options = selectOptions;
-            }
         }
 
         public class QueueOptionsDto 

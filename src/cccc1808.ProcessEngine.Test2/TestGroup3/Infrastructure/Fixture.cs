@@ -20,7 +20,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Q
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
-using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Limiter;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
@@ -29,17 +28,21 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 
 using Confluent.Kafka;
 
-using DotNet.Testcontainers.Configurations;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 
 using Xunit.Sdk;
 
@@ -51,11 +54,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
         public const string Name = "FixtureCollection 3";
         public const int RangeConst = 1000;
 
+        private static string RedisConnectionName { get; } = "1";
+
+        private static int RedisDb { get; } = -1;
+
         public class Fixture : IAsyncLifetime
         {           
             private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;
 
             private KafkaContainer KafkaContainer { get; set; } = null!;
+
+            private RedisContainer RedisContainer { get; set; } = null!;
 
             public ServiceProvider ServiceProvider { get; private set; } = null!;
 
@@ -70,12 +79,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
 
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
+
+                    var redisBuilder = new RedisBuilder("redis:7.4");
+                    RedisContainer = redisBuilder.Build();
                 }
                 
                 var startTasks = new Task[] 
                 {
                     PostgreSqlContainer.StartAsync(),
-                    KafkaContainer.StartAsync()
+                    KafkaContainer.StartAsync(),
+                    RedisContainer.StartAsync(),
                 };
                 await Task.WhenAll(startTasks);
 
@@ -122,6 +135,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             (_) => 1
                             )
                     )
+                    .AddRedis(
+                        new RedisConnectionFactory.OptionsDto()
+                        {
+                            ConnectionConfigrations = new Dictionary<string, (string ConnectionString, TimeSpan PiplineTimeout)>()
+                            {
+                                [FixtureCollection.RedisConnectionName] = new($"localhost:{RedisContainer.GetMappedPublicPort()}", TimeSpan.FromSeconds(10))
+                            }
+                        }
+                    )
                     .AddIsolationServices()
                     .AddParallelLimitProcessRunner()
                     .AddEFProcessReservationService()
@@ -135,15 +157,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
                     )
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto(
-                            new EFTriggerSelectQuery<Guid>.Options3()
-                            {
-                                SingleTriggerBatchSize = (_) => 1,
-                            })
+                        new TriggerRunner<Guid>.OptionsDto()
                         {
-                            DbExecuteParallelismLimit = 1,
-                            DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
-                            Executor_WaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
+                            DbSelect_Options = new EFTriggerSelectQuery<Guid>.OptionsDto()
+                            {
+                                BatchSize = 1,
+                                StartOffset = Guid.Empty,
+                            },
+
+                            RangeExecutor_ExecuteParallelismLimit = 1,
+                            SingleExecutor_ParallelismLimit = 1,
+
                             Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
@@ -157,6 +181,30 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                         new TriggerOptions<Guid>() 
                         {
                             PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
+                        },
+                        new RedisTriggerQueueOptionsDto<Guid>()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            IdToString = (e) => e.ToString(),
+                            StringToId = (e) => Guid.Parse(e),
+                            HandlerToQueueSetNameFactory = (e) => $"trigger_queue{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
+                            QueueSetNameToHandlerFactory = (e) =>
+                            {
+                                var parts = e.Split(NameConst.NamePartsSplitChar);
+                                return new IRedisNotifyTriggerQueueState.KeyDto(parts[1], short.Parse(parts[2]));
+                            },
+                            QueueChannelNameFactory = (e) => $"trigger_queue_channel{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
+                        },
+                        new RedisTriggerReservationOptions()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                        },
+                        new RedisTriggerReservationProvider<Guid>.OptionsDto()
+                        {
+                            KeyToStringHandler = (e) => e.ToString(),
+                            StringToKeyHandler = (e) => Guid.Parse(e),
                         }
                         )
                     .AddProcessServices(
@@ -256,7 +304,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                 await Task.WhenAll(
                     [
                     PostgreSqlContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
-                    KafkaContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
+                    KafkaContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
+                    RedisContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
                     ]
                     );
             }

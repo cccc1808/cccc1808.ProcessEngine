@@ -3,7 +3,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
 {
-    public class TriggerQueueOptionsDto<TId>
+    public class RedisTriggerQueueOptionsDto<TId>
     {
         public required string ConnectionName { get; set; }
 
@@ -12,7 +12,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
         public required Func<IRedisNotifyTriggerQueueState.KeyDto, string> QueueChannelNameFactory { get; set; }
 
         /// <summary>
-        /// Ограничение размера очереди по <see cref="ProcessRegistryDto"/>.
+        /// Ограничение размера очереди по HandlerKey.
         /// TODO: можно сделать функцией от типа процесса, чтобы можно было сделать разные значения.
         /// </summary>
         public int QueueSizeLimit { get; set; }

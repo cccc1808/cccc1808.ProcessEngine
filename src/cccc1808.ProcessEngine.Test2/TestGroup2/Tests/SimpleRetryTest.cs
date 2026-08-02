@@ -113,7 +113,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -172,7 +173,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             }
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();

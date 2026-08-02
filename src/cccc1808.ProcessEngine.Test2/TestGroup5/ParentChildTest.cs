@@ -145,11 +145,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 4) Обрабатываем триггеры. Родительский процесс должен пробудится.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);                
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);                
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var process = processes.Single(e => e.Id == processId);

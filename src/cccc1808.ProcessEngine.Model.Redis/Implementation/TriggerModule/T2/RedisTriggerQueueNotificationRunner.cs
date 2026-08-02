@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
         private readonly IRedisNotifyTriggerQueueState _state;
         private readonly ITriggerHandlerFactory<TId> _triggerHandlerFactory;
 
-        private readonly TriggerQueueOptionsDto<TId> _options;
+        private readonly RedisTriggerQueueOptionsDto<TId> _options;
 
         public RedisTriggerQueueNotificationRunner(
             IServiceProvider serviceProvider,
@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             IRedisNotifyTriggerQueueState state,
             ITriggerHandlerFactory<TId> triggerHandlerFactory,
 
-            TriggerQueueOptionsDto<TId> options)
+            RedisTriggerQueueOptionsDto<TId> options)
         {
             _serviceProvider = serviceProvider;
             _triggerRegistry = triggerRegistry;

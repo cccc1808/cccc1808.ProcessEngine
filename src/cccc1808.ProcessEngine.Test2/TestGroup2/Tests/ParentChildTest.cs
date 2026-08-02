@@ -170,7 +170,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // События по счетчику CounterTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 // assert.
                 {
@@ -188,7 +188,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 // assert.
                 {

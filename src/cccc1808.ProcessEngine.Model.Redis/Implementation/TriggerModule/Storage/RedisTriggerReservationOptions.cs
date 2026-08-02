@@ -14,8 +14,5 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule
         public required string ConnectionName { get; set; }
 
         public required int DbId { get; set; }
-
-        public string ChannelName { get; set; }
-            = "trigger_reserved";
     }
 }

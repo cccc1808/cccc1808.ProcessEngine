@@ -22,6 +22,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -63,6 +64,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
 using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
@@ -90,6 +92,7 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
@@ -346,7 +349,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services,
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
             TriggerOptions<Guid> triggerOptions,
-            TriggerQueueOptionsDto<Guid> triggerQueueOptions)
+            RedisTriggerQueueOptionsDto<Guid> triggerQueueOptions,
+            RedisTriggerReservationOptions triggerReservationOptions,
+            RedisTriggerReservationProvider<Guid>.OptionsDto triggerReservationOptions2)
         {
             services
                 .AddSingleton<ITriggerRegistry, TriggerRegistry>()
@@ -369,20 +374,23 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddSingleton(
                     new TriggerEventOutboxRunner<Guid>.OptionsDto() 
                     { 
-                        NoDecoratorEventRaiserFactory = static s => s.GetRequiredService<TriggerEventRaiser<Guid>>(),
-                        
+                        NoDecoratorEventRaiserFactory = static s => s.GetRequiredService<TriggerEventRaiser<Guid>>(),                        
                     }
                 )
                 
-                .AddScoped< TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
+                .AddScoped<TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
 
             services
                 .AddScoped<ITriggerReservationProvider<Guid>, RedisTriggerReservationProvider<Guid>>()
+                .AddSingleton(triggerReservationOptions)
+                .AddSingleton(triggerReservationOptions2)
 
-                .AddScoped<ITriggerQueue<Guid>, RedisTriggerQueue<Guid>>()
+                .AddScoped<ITriggerQueueProvider<Guid>, RedisTriggerQueueProvider<Guid>>()
                 .AddSingleton(triggerQueueOptions)
                 .AddSingleton<IRedisNotifyTriggerQueueState, RedisNotifyTriggerQueueState<Guid>>()
                 .AddScoped<IRedisTriggerQueueNotificationRunner, RedisTriggerQueueNotificationRunner<Guid>>()
+
+                .AddScoped<ITriggerQueueFacade<Guid>, TriggerQueueFacade<Guid>>()
                 ;
 
             return services;

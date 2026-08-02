@@ -1,4 +1,6 @@
-﻿namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
+﻿using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
+
+namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
     public interface ITriggerRunner
     {
@@ -10,21 +12,24 @@
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Выполнение range триггеров из очереди.
+        /// Выполнение range триггеров из очереди. 
+        /// <see cref="ITriggerQueueProvider{TId}.ConsumeRangeTriggersAsync(int, int, TimeSpan, CancellationToken)"/>
         /// </summary>
         Task RangeTriggerProcessingAsync(
             bool executeOne,
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Выполнение single триггеров из очереди>
+        /// Выполнение single триггеров из очереди.
+        /// <see cref="ITriggerQueueProvider{TId}.ConsumeSignleTriggersAsync(int, TimeSpan, CancellationToken)(int, int, TimeSpan, CancellationToken)"/>
         /// </summary>
         Task SignleTriggerProcessingAsync(
             bool executeOne,
             CancellationToken cancellationToken);
 
         /// <summary>
-        /// Выбора триггеров из БД в очередь на выполнение.
+        /// Выборка триггеров из БД в очередь на выполнение.
+        /// <see cref="ITriggerQueueProvider{TId}.ProduceTriggersAsync(ICollection{ITriggerQueueProvider{TId}.MessageContainer}, CancellationToken)(int, TimeSpan, CancellationToken)(int, int, TimeSpan, CancellationToken)"/>
         /// </summary>
         Task DbSelectorAsync(
             bool executeOne,

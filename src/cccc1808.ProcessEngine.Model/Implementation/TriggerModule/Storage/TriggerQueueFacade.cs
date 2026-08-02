@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
     {
         private readonly ITransactionManager _transactionManager;
         private readonly ITriggerReservationProvider<TId> _triggerReservationProvider;
-        private readonly ITriggerQueue<TId> _triggerQueue;
+        private readonly ITriggerQueueProvider<TId> _triggerQueue;
 
         private readonly List<ITriggerQueueFacade<TId>.TriggerDto> _triggerToExecuteBuffer;
         private readonly List<ITriggerQueueFacade<TId>.TriggerDto> _triggerContinueRunBuffer;
@@ -29,7 +29,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public TriggerQueueFacade(
             ITransactionManager transactionManager,
             ITriggerReservationProvider<TId> triggerReservationProvider,
-            ITriggerQueue<TId> triggerQueue)
+            ITriggerQueueProvider<TId> triggerQueue)
         {
             _transactionManager = transactionManager;
             _triggerReservationProvider = triggerReservationProvider;
@@ -72,13 +72,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         {
             var reserveResult = await _triggerReservationProvider.TryReserveAsync(
                 triggers.Select(e => e.GetId()).ToArray(),
-                default,
+                reserveDate,
                 cancellationToken);
-            return await _triggerQueue.ProduceActivatedTriggerAsync(
+            return await _triggerQueue.ProduceTriggersAsync(
                 triggers
                     .Where(e => reserveResult.Contains(e.GetId()))
-                    .Select(e => new ITriggerQueue<TId>.MessageContainer(
-                        new ITriggerQueue<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                    .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
+                        new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                         isRangeTrigger: e.IsRangeTrigger)
                     )
                     .ToArray(),
@@ -116,10 +116,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     _triggerToExecuteBuffer.Select(e => e.GetId()).ToArray(),
                     ContinueRunReserveDate.Value,
                     cancellationToken);
-                await _triggerQueue.ProduceActivatedTriggerAsync(
+                await _triggerQueue.ProduceTriggersAsync(
                     _triggerToExecuteBuffer
-                        .Select(e => new ITriggerQueue<TId>.MessageContainer(
-                            new ITriggerQueue<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                        .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
+                            new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),
@@ -132,10 +132,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     _triggerContinueRunBuffer.Select(e => e.GetId()).ToArray(),
                     ContinueRunReserveDate.Value, 
                     cancellationToken);
-                await _triggerQueue.ProduceActivatedTriggerAsync(
+                await _triggerQueue.ProduceTriggersAsync(
                     _triggerContinueRunBuffer
-                        .Select(e => new ITriggerQueue<TId>.MessageContainer(
-                            new ITriggerQueue<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                        .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
+                            new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),

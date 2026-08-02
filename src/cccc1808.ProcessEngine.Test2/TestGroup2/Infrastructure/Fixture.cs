@@ -31,13 +31,14 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
@@ -156,13 +157,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             (_) => 1
                             )
                     )
-
                     .AddRedis(
                         new RedisConnectionFactory.OptionsDto() 
                         { 
                             ConnectionConfigrations = new Dictionary<string, (string ConnectionString, TimeSpan PiplineTimeout)>() 
                             {
-                                ["1"] = new ($"localhost:{RedisContainer.GetMappedPublicPort()}", TimeSpan.FromSeconds(10))
+                                [FixtureCollection.RedisConnectionName] = new ($"localhost:{RedisContainer.GetMappedPublicPort()}", TimeSpan.FromSeconds(10))
                             }
                         }
                     )
@@ -232,17 +232,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto(
-                            new EFTriggerSelectQuery<Guid>.OptionsDto()
+                        new TriggerRunner<Guid>.OptionsDto() 
+                        {
+                            DbSelect_Options = new EFTriggerSelectQuery<Guid>.OptionsDto()
                             {
                                 BatchSize = 1,
                                 StartOffset = Guid.Empty,
-                            }
-                            ) 
-                        {
+                            },
+
                             RangeExecutor_ExecuteParallelismLimit = 1,
                             SingleExecutor_ParallelismLimit = 1,
-                            DbSelect_RangeReservationTimeout = TimeSpan.FromSeconds(30),
+
                             Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
@@ -256,6 +256,30 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         new TriggerOptions<Guid>() 
                         {
                             PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
+                        },
+                        new RedisTriggerQueueOptionsDto<Guid>() 
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            IdToString = (e) => e.ToString(),
+                            StringToId = (e) => Guid.Parse(e),
+                            HandlerToQueueSetNameFactory = (e) => $"trigger_queue{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
+                            QueueSetNameToHandlerFactory = (e) => 
+                            {
+                                var parts = e.Split(NameConst.NamePartsSplitChar);
+                                return new IRedisNotifyTriggerQueueState.KeyDto(parts[1], short.Parse(parts[2]));
+                            },
+                            QueueChannelNameFactory = (e) => $"trigger_queue_channel{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
+                        },
+                        new RedisTriggerReservationOptions()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                        },
+                        new RedisTriggerReservationProvider<Guid>.OptionsDto() 
+                        {
+                            KeyToStringHandler = (e) => e.ToString(),
+                            StringToKeyHandler = (e) => Guid.Parse(e),
                         }
                         )
 
@@ -374,7 +398,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
             {
                 services
                     .AddSingleton<IRedisNotifyQueueState, RedisNotifyQueueState>()
-                    .AddScoped<IRedisQueueNotificationRunner, RedisQueueNotificationRunner<Guid>>()
+                    .AddScoped<IRedisProcessQueueNotificationRunner, RedisQueueNotificationRunner<Guid>>()
                     .AddScoped<IRedisReservationQueue<Guid>, RedisReservationQueue<Guid>>()
                     .AddSingleton(
                         new OptionsDto<Guid>() 
@@ -406,7 +430,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                 await Task.WhenAll(
                     [
                     PostgreSqlContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
-                    KafkaContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
+                    KafkaContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
+                    RedisContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
                     ]
                     );
             }

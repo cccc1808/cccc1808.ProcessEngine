@@ -46,6 +46,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
         [Fact(Timeout = FixtureCollection.TestTimeout)]
         public async Task Test()
         {
+            // 1) Публекуем сообщения (создаются процессы и триггеры).
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
@@ -91,27 +92,32 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                 }
             }
 
+            // 2) Триггер получает сигнал с сообщениях.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
             }
 
+            // 3) Триггер пробуждает процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                // await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
             }
 
+            // 4) Процесс отправляет сообщения.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
             }
 
+            // 5) Процесс отправляет сообщения.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
             }
 
+            // 6) Считываем сообщения, отправленные через outbox.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();

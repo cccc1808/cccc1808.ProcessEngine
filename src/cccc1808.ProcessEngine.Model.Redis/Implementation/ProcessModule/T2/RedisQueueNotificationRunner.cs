@@ -10,7 +10,7 @@ using StackExchange.Redis;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
 {
-    public class RedisQueueNotificationRunner<TId> : IRedisQueueNotificationRunner
+    public class RedisQueueNotificationRunner<TId> : IRedisProcessQueueNotificationRunner
     {
         private readonly IProcessRegistry _processRegistry;
         private readonly IRedisConnectionFactory _redisConnectionFactory;

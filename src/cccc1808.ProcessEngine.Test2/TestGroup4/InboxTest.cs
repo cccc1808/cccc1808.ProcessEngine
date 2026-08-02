@@ -109,7 +109,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("3", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 watches["3"].Stop();
             }
@@ -118,7 +118,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("4", Stopwatch.StartNew());
 
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 watches["4"].Stop();
             }
@@ -200,7 +200,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("9", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 watches["9"].Stop();
             }
@@ -209,7 +209,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("10", Stopwatch.StartNew());
 
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 watches["10"].Stop();
             }

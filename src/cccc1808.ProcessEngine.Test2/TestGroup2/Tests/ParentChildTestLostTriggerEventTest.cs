@@ -90,9 +90,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 testState.StepRange = Handler;
             }
 
-            // Запуск родительского процесса - порожление дочерних процессов.
+            // 1) Запуск родительского процесса - порождение дочерних процессов.
             Guid childProcessId;
-            // string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
@@ -121,7 +120,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 }
             }
 
-            // Выполнение дочерних процессов - порождение необработанных событий.
+            // 2) Выполнение дочерних процессов (событие завершение теряется).
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
@@ -148,11 +147,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 }
             }
 
-            // Создаем экстренный триггер для проверки его работы.
+            // 3) Создаем экстренный триггер для проверки его работы.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+                var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();              
 
                 // Создаем имитационный триггер (чтобы его увидел EmergencyTriggerHandler).
                 await triggerRepository.CreateTriggerAsync(
@@ -182,30 +181,22 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 await dbContext.SaveChangesAsync(default);
             }
 
-            // Выполнение триггера - пробуждение родительского процесса.
+            // 4) Выполнение триггера - пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false, range: false);
 
                 {
                     var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
+                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
+
                     triggers.ShouldSatisfyAllConditions(
                         e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
                             // e => e.Key.ShouldBe(parentTriggerKey),
                             e => e.SignalCounter1.ShouldBeNull(),
                             e => e.IsActivated.ShouldBeTrue(),
                             e => e.IsCompleted.ShouldBeFalse()));
-                }
-            }
-
-            // Обработка триггера.
-            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
-            {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
-
-                {
-                    var allProceses = await _testService.LoadProcessAsync(scope.ServiceProvider);
-                    var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);
 
                     allProceses.ShouldSatisfyAllConditions(
                         e => e.Length.ShouldBe(2),
@@ -215,17 +206,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                          e => e.Single(e => e.Id == processId).ShouldSatisfyAllConditions(
                             e => e.Status.ShouldBe(ProcessStatusEnum.AsyncExecute))
                         );
-
-                    //triggers.ShouldSatisfyAllConditions(
-                    //    e => e.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                    //        // e => e.Key.ShouldBe(parentTriggerKey),
-                    //        e => e.Counter.ShouldBe(0),
-                    //        e => e.IsActivated.ShouldBeFalse(),
-                    //        e => e.IsCompleted.ShouldBeTrue()));
                 }
             }
 
-            // Завершение родительского процесса.
+            // 5) Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);

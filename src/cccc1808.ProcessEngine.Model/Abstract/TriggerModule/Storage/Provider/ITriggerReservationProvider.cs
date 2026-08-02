@@ -4,8 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
+
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
 {
+    /// <summary>
+    /// Резервирование триггеров.
+    /// Используется для ситуации, когда триггер был взят в обработку из очереди 
+    /// (чтобы db selector <see cref="ITriggerRunner.DbSelectorAsync(bool, CancellationToken)"/> не помещал его в очередь повторно).
+    /// </summary>
     public interface ITriggerReservationProvider<TId>
     {
         /// <summary>

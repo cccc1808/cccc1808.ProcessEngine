@@ -7,9 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
 
 using StackExchange.Redis;
 
@@ -43,7 +41,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_reservationOptions.DbId);
 
-            // 1) InsertIfNotExists в redis.
+            // InsertIfNotExists в redis.
             var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>(triggerIds.Count);
             var piplineTasks = new List<Task>(triggerIds.Count + 1);
             foreach (var elem in triggerIds)
@@ -67,29 +65,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
             await connection.WaitPiplineWithTimeoutAsync(piplineTasks, cancellationToken);
 
-            // 2) Публикуем событие для других нод.
             var result = new HashSet<TId>(insertResult.Count);
-            var pubMessages = new List<JsonElement>(insertResult.Count);
             foreach (var elem in insertResult)
             {
                 if (elem.Value.Result.Result)
                 {
                     result.Add(elem.Key);
-                    pubMessages.Add(
-                        JsonHelper.ToJsonElement(
-                            new ReservationMessageDto<TId>(
-                                elem.Key,
-                                date,
-                                IsReserveOrUnreserve: true)
-                            )
-                        );
                 }
             }
-
-            await connection.PubAsync(
-                _reservationOptions.ChannelName,
-                pubMessages,
-                cancellationToken);
 
             return result;
         }
@@ -125,31 +108,12 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_reservationOptions.DbId);
 
-            // 1) Удаляем из redis.
+            // Удаляем из redis.
             await db.HashDeleteAsync(
                 _options.HashKey,
                 triggerIds
                     .Select(e => new RedisValue(_options.KeyToStringHandler(e)))
                     .ToArray());
-
-            // 2) Публикуем событие для других нод.
-            var pubMessages = new List<JsonElement>(triggerIds.Count);
-            foreach (var elem in triggerIds)
-            {
-                pubMessages.Add(
-                    JsonHelper.ToJsonElement(
-                        new ReservationMessageDto<TId>(
-                            elem,
-                            null,
-                            IsReserveOrUnreserve: false)
-                        )
-                    );
-            }
-
-            await connection.PubAsync(
-                _reservationOptions.ChannelName,
-                pubMessages,
-                cancellationToken);
         }
 
         public async ValueTask ClearAsync()

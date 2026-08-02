@@ -126,15 +126,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                     e => e.CurrentTokenId.ShouldBe("2"));
             }
 
-            // 3) .1) Выполняем дочерний таймер триггер.
+            // 3)
+            // .1) Выполняем дочерний таймер триггер.
             // .2) Выполняем корневой триггер (событие и засыпании и событие об актвации от дочернего).
             // .3) Выполняем 2 токен схемы, процесс завершается.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 

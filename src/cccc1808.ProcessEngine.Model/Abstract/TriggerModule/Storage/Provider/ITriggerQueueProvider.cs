@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
 {
-    public interface ITriggerQueue<TId>
+    public interface ITriggerQueueProvider<TId>
     {
         Task<List<MessageDto>> ConsumeRangeTriggersAsync(
             int batchLimit,
@@ -15,11 +15,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
             CancellationToken cancellationToken);
 
         Task<List<MessageDto>> ConsumeSignleTriggersAsync(
-            int batchLimit,
+            int slotCount,
             TimeSpan timeout,
             CancellationToken cancellationToken);
 
-        Task<bool> ProduceActivatedTriggerAsync(
+        Task<bool> ProduceTriggersAsync(
             ICollection<MessageContainer> messages,
             CancellationToken cancellationToken);
 

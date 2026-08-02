@@ -19,19 +19,19 @@ using StackExchange.Redis;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
 {
-    public class RedisTriggerQueue<TId>
-        : ITriggerQueue<TId>
+    public class RedisTriggerQueueProvider<TId>
+        : ITriggerQueueProvider<TId>
     {
         private readonly IRedisConnectionFactory _redisConnectionFactory;
         private readonly IRedisNotifyTriggerQueueState _state;
 
-        private readonly TriggerQueueOptionsDto<TId> _options;
+        private readonly RedisTriggerQueueOptionsDto<TId> _options;
 
-        public RedisTriggerQueue(
+        public RedisTriggerQueueProvider(
             IRedisConnectionFactory redisConnectionFactory,
             IRedisNotifyTriggerQueueState state,
 
-            TriggerQueueOptionsDto<TId> options)
+            RedisTriggerQueueOptionsDto<TId> options)
         {
             _redisConnectionFactory = redisConnectionFactory;
             _state = state;
@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             _options = options;
         }
 
-        public async Task<List<ITriggerQueue<TId>.MessageDto>> ConsumeRangeTriggersAsync(
+        public async Task<List<ITriggerQueueProvider<TId>.MessageDto>> ConsumeRangeTriggersAsync(
             int batchLimit,
             int uniqueHandlersLimit,
             TimeSpan timeout,            
@@ -48,7 +48,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             return await InnerConsumeAsync(_state.RangeTriggerState, batchLimit, uniqueHandlersLimit, timeout, cancellationToken);
         }
 
-        public async Task<List<ITriggerQueue<TId>.MessageDto>> ConsumeSignleTriggersAsync(
+        public async Task<List<ITriggerQueueProvider<TId>.MessageDto>> ConsumeSignleTriggersAsync(
             int batchLimit,
             TimeSpan timeout,
             CancellationToken cancellationToken)
@@ -56,8 +56,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             return await InnerConsumeAsync(_state.SignleTriggerState, batchLimit, null, timeout, cancellationToken);
         }
 
-        public async Task<bool> ProduceActivatedTriggerAsync(
-            ICollection<ITriggerQueue<TId>.MessageContainer> messages,
+        public async Task<bool> ProduceTriggersAsync(
+            ICollection<ITriggerQueueProvider<TId>.MessageContainer> messages,
+            CancellationToken cancellationToken)
+        {
+            return await InnerProduceAsync(messages, checkLimit: true, cancellationToken);
+        }
+
+        private async Task<bool> InnerProduceAsync(
+            ICollection<ITriggerQueueProvider<TId>.MessageContainer> messages,
+            bool checkLimit,
             CancellationToken cancellationToken)
         {
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
@@ -68,21 +76,24 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             var groups = messages.GroupBy(e => new IRedisNotifyTriggerQueueState.KeyDto(e.Message.HandlerKey, 0))
                 .ToDictionary(e => e.Key, e => e);
 
-            // 1) Проверка свободного места.
+            // 1) Проверка свободного места (не строгая).
             var pipline = new Dictionary<IRedisNotifyTriggerQueueState.KeyDto, Task<long>>(groups.Count);
-            foreach (var elem in groups)
-            {
-                var t = db.SortedSetLengthAsync(_options.HandlerToQueueSetNameFactory(elem.Key));
-                pipline.Add(elem.Key, t);
-            }
-            await connection.WaitPiplineWithTimeoutAsync(pipline.Values, cancellationToken);
-            foreach (var elem in pipline)
-            {
-                if (elem.Value.Result >= _options.QueueSizeLimit)
+            if (checkLimit)
+            {                
+                foreach (var elem in groups)
                 {
-                    // Очередь заполнена.
-                    isFull = true;
-                    groups.Remove(elem.Key);
+                    var t = db.SortedSetLengthAsync(_options.HandlerToQueueSetNameFactory(elem.Key));
+                    pipline.Add(elem.Key, t);
+                }
+                await connection.WaitPiplineWithTimeoutAsync(pipline.Values, cancellationToken);
+                foreach (var elem in pipline)
+                {
+                    if (elem.Value.Result >= _options.QueueSizeLimit)
+                    {
+                        // Очередь заполнена.
+                        isFull = true;
+                        groups.Remove(elem.Key);
+                    }
                 }
             }
 
@@ -117,24 +128,34 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             return isFull;
         }
 
-        private async Task<List<ITriggerQueue<TId>.MessageDto>> InnerConsumeAsync(
+        private async Task<List<ITriggerQueueProvider<TId>.MessageDto>> InnerConsumeAsync(
             IRedisNotifyTriggerQueueState.IHandler state,
             int batchSize,
             int? uniqueHandlersLimit,
             TimeSpan batchTimeout,
             CancellationToken cancellationToken)
         {
-            var buffer = new List<ITriggerQueue<TId>.MessageDto>(batchSize);
-            var uniqueHandlerSet = new HashSet<IRedisNotifyTriggerQueueState.KeyDto>(uniqueHandlersLimit ?? 0);
+            var buffer = new List<ITriggerQueueProvider<TId>.MessageDto>(batchSize);
+            // TODO: доработать под ситуацию, когда в один слот попало более element per slot limit.
+            var uniqueHandlerSet = new HashSet<string>(uniqueHandlersLimit ?? 0);
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
 
-
+            // Запускается не сразу, а после получения хотя бы одного сообщения.
+            // Пока пустой - висит на асинхронном ожидании waitNewMessages.
             var stopwatch = new Stopwatch();
 
-            while (buffer.Count < batchSize && stopwatch.Elapsed < batchTimeout)
+            while (true)
             {
+                if (
+                    buffer.Count >= batchSize
+                    || (stopwatch.IsRunning && stopwatch.Elapsed > batchTimeout)
+                    )
+                {
+                    break;
+                }
+
                 var queueWithMessages = state.GetQueueWithMessages();
 
                 {
@@ -211,9 +232,32 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         stopwatch.Start();
                     }
 
+                    // Ограничение уникальных хендлеров.
+                    if (uniqueHandlersLimit.HasValue && !uniqueHandlerSet.Contains(triggerTypeKey.HandlerName))
+                    {
+                        uniqueHandlerSet.Add(triggerTypeKey.HandlerName);
+                        if (uniqueHandlerSet.Count > uniqueHandlersLimit.Value)
+                        {
+                            // При превышении уникальных хенддлеров - возвращаем заявки в очередь.
+                            await InnerProduceAsync(
+                                consumedMessages.Entries
+                                    .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
+                                        new ITriggerQueueProvider<TId>.MessageDto(
+                                            _options.StringToId(e.Element),
+                                            triggerTypeKey.HandlerName),
+                                        isRangeTrigger: true // uniqueHandlersLimit только у Range.
+                                        ))
+                                    .ToArray(), 
+                                checkLimit: false,
+                                cancellationToken);
+
+                            return buffer;
+                        }
+                    }
+
                     buffer.AddRange(
                         consumedMessages.Entries
-                            .Select(e => new ITriggerQueue<TId>.MessageDto(_options.StringToId(e.Element), HandlerKey: triggerTypeKey.HandlerName))
+                            .Select(e => new ITriggerQueueProvider<TId>.MessageDto(_options.StringToId(e.Element), HandlerKey: triggerTypeKey.HandlerName))
                             .ToArray());
 
                     foreach (var elem in searchSets)
@@ -223,7 +267,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                             // Очередь пустая, считала другая нода.
                             state.QueueIsEmpty(elem.entry.Key, elem.entry.Value, cancellationToken);
                             continue;
-
                         }
 
                         // Их этой очереди мы считали элементы и она опустела.
@@ -231,27 +274,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         {
                             // Очередь из который читали опустела.
                             state.QueueIsEmpty(elem.entry.Key, elem.entry.Value, cancellationToken);
-
-                            if (uniqueHandlersLimit.HasValue && !uniqueHandlerSet.Contains(triggerTypeKey))
-                            {
-                                uniqueHandlerSet.Add(triggerTypeKey);
-                                if (uniqueHandlerSet.Count >= uniqueHandlersLimit.Value)
-                                {
-                                    return buffer;
-                                }
-                            }
                         }
 
                         break;
-                    }
-
-                    if (uniqueHandlersLimit.HasValue && !uniqueHandlerSet.Contains(triggerTypeKey))
-                    {
-                        uniqueHandlerSet.Add(triggerTypeKey);
-                        if (uniqueHandlerSet.Count > uniqueHandlersLimit.Value)
-                        {
-                            return buffer;
-                        }
                     }
                 }
             }

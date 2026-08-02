@@ -8,6 +8,10 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
 {
+    /// <summary>
+    /// Реестр зарегистрированных триггеров.
+    /// TODO: приоритет.
+    /// </summary>
     public interface ITriggerRegistry
     {
         IReadOnlyCollection<TriggerRegistryDto> GetAll();

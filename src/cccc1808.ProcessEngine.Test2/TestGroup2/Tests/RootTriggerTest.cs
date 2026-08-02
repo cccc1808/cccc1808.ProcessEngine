@@ -135,7 +135,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Триггеры получают оповещение об остановке процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 // assert.
                 {
@@ -176,7 +176,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 }
 
                 // 2) Считываем сигнал дочерним триггером.
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 // assert.
                 {
@@ -203,8 +203,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 5.1) Дочерний триггер передает сигнал на родительский триггер.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 // assert.
                 {
@@ -232,7 +232,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 5.2) Дочерний триггер получает подтверждение получения сигнала от корневого.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 var allProcessData = await _testService.LoadAsync<RootTriggerDbEntity>(scope.ServiceProvider);
                 var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider); ;
@@ -251,7 +251,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 6) root триггер запускает процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
 
                 // assert.
                 {
