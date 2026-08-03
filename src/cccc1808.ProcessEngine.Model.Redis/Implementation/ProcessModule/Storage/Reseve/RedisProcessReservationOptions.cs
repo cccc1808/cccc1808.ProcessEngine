@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve
 {
     /// <summary>
     /// Опции резервирования процессов.
@@ -14,8 +14,5 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1
         public required string ConnectionName { get; set; }
 
         public required int DbId { get; set; }
-
-        public string ChannelName { get; set; }
-             = "process_reserved";
     }
 }

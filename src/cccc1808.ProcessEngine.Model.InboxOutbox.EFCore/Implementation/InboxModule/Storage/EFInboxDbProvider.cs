@@ -235,10 +235,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
             foreach (var elem in processGroups)
             {
-                // Так как мы уже считали с блокировкой,
-                // то в конце текущей транзакции тожно сбросить ReservationTimeout, т.к. сессия работы была завершена.
-                // Не сбрасываем на min, потому что значение используется.
-                elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                 var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
@@ -334,7 +330,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 

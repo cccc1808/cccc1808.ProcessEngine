@@ -15,20 +15,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
         public TId Id { get; set; } = default!;
 
         public long ProcessTypeId { get; set; }
+
         public int ProcessVersion { get; set; }
+
         public short Priority { get; set; }
 
-        /// <summary>
-        /// Используется в <see cref="EFParallelLimitProcessSelectQuery{TId, TEntity}"/> для распределения между слотами параллельного выполнения.
-        /// TODO: не учитывается в индексах.
-        /// </summary>
-        public bool IsRangeExecution { get; set; }
-
-        /// <summary>
-        /// * Указывает нодам сервиса, что процес уже зарезирвирован нодой на выполнение (даже если на нем нет Updatelock).
-        /// * Индексируется (в отличии от updatelock).
-        /// </summary>
-        public DateTimeOffset ReservationTimeout { get; set; }
+        public DateTimeOffset LastAsyncExecuteDate { get; set; }
 
         #region Status
 
@@ -55,8 +47,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
             TId id, 
             long processTypeId, 
             int processVersion, 
-            short priority, 
-            DateTimeOffset selectLockTimeout, 
+            short priority,
             bool stoppedByError, 
             ProcessStatusEnum status, 
             short? retryCount)
@@ -65,7 +56,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
             ProcessTypeId = processTypeId;
             ProcessVersion = processVersion;
             Priority = priority;
-            ReservationTimeout = selectLockTimeout;
             StoppedByError = stoppedByError;
             Status = status;
             RetryCount = retryCount;

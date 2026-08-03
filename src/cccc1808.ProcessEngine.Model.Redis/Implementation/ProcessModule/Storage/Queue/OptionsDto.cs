@@ -1,6 +1,6 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
 {
     public class OptionsDto<TId>
     {

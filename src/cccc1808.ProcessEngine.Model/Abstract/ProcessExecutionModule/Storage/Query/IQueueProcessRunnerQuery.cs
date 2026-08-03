@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+
+namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Query
 {
-    public interface ITriggerSelectQuery<TId>
+    public interface IQueueProcessRunnerQuery<TId>
     {
-        IContext InitContext(IOptions options, string handlerKey);
+        IContext InitContext(IOptions options, ProcessRegistryDto processType);
 
         Task<ICollection<SelectResult>> ExecuteAsync(IContext context, CancellationToken cancellationToken);
 
@@ -20,14 +22,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
 
         }
 
-        public interface IContext 
+        public interface IContext
         {
-        
+
         }
 
         public readonly record struct SelectResult(
-            TId TriggerId,
-            string HandlerKey);
+            TId ProcessId,
+            ProcessTypeDto ProcessType,
+            short Priority);
 
         #endregion
     }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
@@ -124,10 +125,15 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
             }           
         }
 
+        public IRedisConnection.IPublishContainer GetChannelPublisher()
+        {
+            return new PublishContainer(
+                _connectionMultiplexer.GetSubscriber());
+        }
+
         public async Task PubAsync(
-            string channel, 
-            ICollection<JsonElement> messages, 
-            CancellationToken cancellationToken)
+            string channel,
+            RedisValue messages)
         {
             var subsriber = _connectionMultiplexer.GetSubscriber();
             var channe = new RedisChannel(
@@ -135,38 +141,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
                 RedisChannel.PatternMode.Literal
                 );
 
-            var tasks = new List<Task>(messages.Count);
-            foreach (var elem in messages)
-            {
-                var t = subsriber.PublishAsync(channe, elem.GetRawText());
-                tasks.Add(t);
-            }
-
-            await Task.WhenAll(tasks);
-        }
-
-        public async Task PubAsync(
-            KeyValuePair<string, JsonElement[]>[] messages, 
-            CancellationToken cancellation)
-        {
-            var subsriber = _connectionMultiplexer.GetSubscriber();
-
-            var tasks = new List<Task>(messages[0].Value.Length);
-            foreach (var elem in messages)
-            {
-                var channel = new RedisChannel(
-                    elem.Key,
-                    RedisChannel.PatternMode.Literal
-                    );
-
-                foreach (var elem2 in elem.Value)
-                {
-                    var t = subsriber.PublishAsync(channel, elem2.GetRawText());
-                    tasks.Add(t);
-                }
-            }
-
-            await Task.WhenAll(tasks);
+            await subsriber.PublishAsync(channe, messages);
         }
 
         #endregion
@@ -256,6 +231,24 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage
                     _subscribeLock.Release();
                     IsDisposed = true;
                 }
+            }
+        }
+
+        private class PublishContainer 
+            : IRedisConnection.IPublishContainer
+        {
+            private readonly ISubscriber _subscriber;
+
+            public PublishContainer(ISubscriber subscriber)
+            {
+                _subscriber = subscriber;
+            }
+
+            public async Task PubAsync(string channel, RedisValue message)
+            {
+                await _subscriber.PublishAsync(
+                    new RedisChannel(channel, RedisChannel.PatternMode.Literal),
+                    message);
             }
         }
 

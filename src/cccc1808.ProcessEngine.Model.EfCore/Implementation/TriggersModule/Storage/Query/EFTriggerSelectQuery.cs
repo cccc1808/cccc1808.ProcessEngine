@@ -49,24 +49,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         _dateTimeProvider.UtcNow,
                         typedContext.HandlerKey))
                 .Take(typedContext.Options.BatchSize)
-                .Select(
-                    e => new 
-                    {
-                        e.Id,
-                        e.IsRangeHandler,
-                        e.HandlerKey,
-                    }
-                    )
+                .Select(e => e.Id)
                 .ToArrayAsync(cancellationToken);
 
-            if (data.Any())
+            var result = new List<ITriggerSelectQuery<TId>.SelectResult>(data.Length);
+            foreach (var elem in data)
             {
-                typedContext.OffsetId = data.Last().Id;
+                result.Add(new ITriggerSelectQuery<TId>.SelectResult(
+                    elem,
+                    typedContext.HandlerKey));
+
+                if (Comparer<TId>.Default.Compare(elem, typedContext.OffsetId) > 0)
+                {
+                    typedContext.OffsetId = elem;
+                }
             }
 
-            return data
-                .Select(e => new ITriggerSelectQuery<TId>.SelectResult(e.Id, e.IsRangeHandler, e.HandlerKey))
-                .ToArray();
+            return result;
         }
 
         public ITriggerSelectQuery<TId>.IContext InitContext(

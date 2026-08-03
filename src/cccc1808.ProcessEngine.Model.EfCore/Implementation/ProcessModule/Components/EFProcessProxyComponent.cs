@@ -12,7 +12,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components
 {
-    public class EFProcessProxyComponent<TId> : IProcessComponent<TId>
+    public class EFProcessProxyComponent<TId> 
+        : IProcessComponent<TId>
     {
         public ProcessDbEntity<TId> ProcessDbEntity { get; }        
 
@@ -49,12 +50,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
         {
             get => ProcessDbEntity.RetryCount;
             set => ProcessDbEntity.RetryCount = value;
-        }       
-
-        public DateTimeOffset ReservationTimeout 
-        {
-            get => ProcessDbEntity.ReservationTimeout;
-            set => ProcessDbEntity.ReservationTimeout = value;
         }
 
         /// <summary>

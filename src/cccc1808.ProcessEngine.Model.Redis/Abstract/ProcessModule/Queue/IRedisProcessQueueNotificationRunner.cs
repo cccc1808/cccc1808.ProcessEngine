@@ -1,4 +1,4 @@
-﻿namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2
+﻿namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue
 {
     public interface IRedisProcessQueueNotificationRunner
     {

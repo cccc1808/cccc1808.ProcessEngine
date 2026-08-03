@@ -582,7 +582,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public async Task DbSelectorAsync(bool executeOne, CancellationToken cancellationToken)
         {
-            var triggerRegistry = _serviceProvider.GetRequiredService<ITriggerRegistry>();
+            var triggerRegistry = _serviceProvider.GetRequiredService<ITriggerRegistry>();            
 
             var parallelLimit = new SemaphoreSlim(_options.DbSelect_ParallilLimit);
 
@@ -591,6 +591,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             foreach (var elem in triggerRegistry.GetAll())
             {
+                bool isRange;
+                await using (var s = _serviceProvider.CreateAsyncScope())
+                {
+                    isRange = s.ServiceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>()
+                        .IsRangeHandler(s.ServiceProvider, elem.HandlerName);
+                }
+
                 var id = Guid.NewGuid();
                 var selectTask = Task.Run(
                     async () => 
@@ -641,11 +648,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 selectData
                                                     .Select(e => ITriggerQueueFacade<TId>.TriggerDto.TriggerFromSelector(
                                                         e.TriggerId,
-                                                        e.IsRangeHandler,
+                                                        isRange,
                                                         e.HandlerKey)
                                                     )
                                                     .ToArray(),
-                                                reserveDate: selectData.First().IsRangeHandler
+                                                reserveDate: isRange
                                                     ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
                                                     : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
                                                 cancellationToken

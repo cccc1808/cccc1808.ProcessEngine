@@ -244,7 +244,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         processTypeId: registry.Registry.ProcessType.ProcessType,
                                         processVersion: registry.Registry.ProcessType.ProcessVersion,
                                         priority: registry.Registry.Priority,
-                                        DateTimeOffset.MinValue,
                                         stoppedByError: false,
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
@@ -492,7 +491,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         processTypeId: registry.Registry.ProcessType.ProcessType,
                                         processVersion: registry.Registry.ProcessType.ProcessVersion,
                                         priority: registry.Registry.Priority,
-                                        DateTimeOffset.MinValue,
                                         stoppedByError: false,
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));

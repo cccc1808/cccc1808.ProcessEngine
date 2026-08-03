@@ -13,11 +13,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
     public interface IProcessReservationProvider<TId>
     {
         /// <summary>
-        /// Инициализация состояния.
-        /// </summary>
-        ValueTask InitAsync(CancellationToken cancellationToken);
-
-        /// <summary>
         /// Пытаемся зарезервировать процессы.
         /// </summary>
         /// <returns>Процессы, которые удалось зарезервировать.</returns>
@@ -32,11 +27,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
         ValueTask UnreserveAsync(
             ICollection<TId> processIds,
             CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Получить набор процессов, которын зарезервированы всеми нодами (если провайдер поддерживает).
-        /// </summary>
-        ValueTask<ISet<TId>> GetReservedAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Отчистка окружения (!! только для тестов).

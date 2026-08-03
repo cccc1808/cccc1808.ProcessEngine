@@ -209,7 +209,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                         var query = queryFactory(dbContext.Set<ProcessDbEntity<TId>>(), dbContext);
 
                         var data = await query
-                            .Where(e => e.Status == ProcessStatusEnum.WaitEvent && e.ReservationTimeout < timeout)
+                            .Where(e => e.Status == ProcessStatusEnum.WaitEvent && e.LastAsyncExecuteDate < timeout)
                             .Take(batchSize)
                             .Select(e => e.Id)
                             .ToArrayAsync(cancellationToken);

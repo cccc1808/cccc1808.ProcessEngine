@@ -19,8 +19,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessMod
     {
         protected override IndexBuilder<TProcess> DbProcessingForSelectorIndex(EntityTypeBuilder<TProcess> builder)
         {
-            return base.DbProcessingForSelectorIndex(builder)
-                .IncludeProperties(e => e.Id!);
+            return DbProcessingForSelectorIndex(builder);
         }
     }
 }

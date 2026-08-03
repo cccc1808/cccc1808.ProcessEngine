@@ -193,11 +193,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
                     foreach (var elem in data)
                     {
-                        // Так как мы уже считали с блокировкой,
-                        // то в конце текущей транзакции тожно сбросить SelectLock, т.к. сессия работы была завершена.
-                        // Не сбрасываем на min, потому что значение используется.
-                        elem.ReservationTimeout = _dateTimeProvider.UtcNow;
-
                         var container = new ProcessContainer<TId>(
                             new EFProcessProxyComponent<TId>(elem),
                             new AsyncSessionComponent(
@@ -299,7 +294,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             CancellationToken cancellationToken)
         {
             var processesDictionary = processes
-                .ToDictionary(e => e.Id, e => e);
+                .ToDictionary(
+                    e => e.Id, 
+                    e => 
+                    {
+                        ((EFProcessProxyComponent<TId>)e.Process).ProcessDbEntity.LastAsyncExecuteDate = _dateTimeProvider.UtcNow;
+                        return e;
+                    });
 
             var byTypeIndex = processes
                 .GroupBy(e => e.Process.Info.ProcessType)

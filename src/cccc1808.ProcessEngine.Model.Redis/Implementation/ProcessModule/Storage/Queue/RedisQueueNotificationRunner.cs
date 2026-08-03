@@ -4,24 +4,24 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
 {
     public class RedisQueueNotificationRunner<TId> : IRedisProcessQueueNotificationRunner
     {
         private readonly IProcessRegistry _processRegistry;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
-        private readonly IRedisNotifyQueueState _state;
+        private readonly IRedisNotifyProcessQueueState _state;
 
         private readonly OptionsDto<TId> _options;
 
         public RedisQueueNotificationRunner(
             IProcessRegistry processRegistry,
             IRedisConnectionFactory redisConnectionFactory,
-            IRedisNotifyQueueState state,
+            IRedisNotifyProcessQueueState state,
 
             OptionsDto<TId> options)
         {
@@ -80,10 +80,12 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
                 }
 
                 // 2) Считываем обновления по очередям.
-                var notifyBuffer = new List<ProcessRegistryDto>();
+                var rangeNotifyByffer = new List<ProcessRegistryDto>();
+                var singleNotifyBuffer = new List<ProcessRegistryDto>();
                 while (true)
                 {
-                    notifyBuffer.Clear();
+                    rangeNotifyByffer.Clear();
+                    singleNotifyBuffer.Clear();
 
                     // Ждем оповещения о поступлении сообщения в очередь.
                     await Task.WhenAny(waitBuffer);
@@ -92,7 +94,15 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
                     {
                         var key = elem.Key;
                         completeBuffer.TryRemove(elem.Key, out _);
-                        notifyBuffer.Add(key);
+
+                        if (!key.IsSignleExecuteProcess)
+                        {
+                            rangeNotifyByffer.Add(key);
+                        }
+                        else
+                        {
+                            singleNotifyBuffer.Add(key);
+                        }
 
                         var subscribe = subscribers[key];
 
@@ -109,7 +119,15 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T2
                     }
 
                     // Обновляем метаданные о поступлении нового сообщения.
-                    await _state.NewMessageInQueueAsync(notifyBuffer, cancellationToken);
+                    if (rangeNotifyByffer.Any())
+                    {
+                        await _state.RangeHandler.NewMessageInQueueAsync(rangeNotifyByffer, cancellationToken);
+                    }
+
+                    if (singleNotifyBuffer.Any())
+                    {
+                        await _state.SingleHandler.NewMessageInQueueAsync(singleNotifyBuffer, cancellationToken);
+                    }
 
                     if (one)
                     {

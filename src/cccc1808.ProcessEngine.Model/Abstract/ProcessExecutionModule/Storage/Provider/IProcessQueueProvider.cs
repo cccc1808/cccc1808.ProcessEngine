@@ -1,15 +1,21 @@
 ﻿using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.T2
+namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider
 {
-    public interface IRedisReservationQueue<TId>
+    public interface IProcessQueueProvider<TId>
     {
-        Task<List<MessageDto>> ConsumeAsync(
+        Task<List<MessageDto>> ConsumeRangeAsync(
+            int batchSize,
+            int uniqueLimit,
+            TimeSpan batchTimeout,
+            CancellationToken cancellationToken);
+
+        Task<List<MessageDto>> ConsumeSignleAsync(
             int batchSize,
             TimeSpan batchTimeout,
             CancellationToken cancellationToken);
 
-        Task<ICollection<MessageDto>> ProduceAsync(
+        Task<bool> ProduceAsync(
             ICollection<MessageDto> processes,
             CancellationToken cancellationToken);
 

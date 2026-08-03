@@ -96,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             // [MVCC Only]: т.к. тут чтение не конкурирует не с какими блокировками. Иначе подумать.
             var processData = await _dbContext.Set<ProcessDbEntity<TId>>()
                 .Where(e => triggerData.Select(e => e.ProcessId).Contains(e.Id))
-                .Select(e => new { e.Id, e.Status, e.ReservationTimeout })
+                .Select(e => new { e.Id, e.Status, e.LastAsyncExecuteDate })
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
             return triggerData.ToDictionary(
@@ -110,7 +110,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                             (ITriggerComponent<TId>)new EFTriggerProxyComponent<TId>(_triggerSetter, e),
                             ProcessDeleted: false,
                             ProcessStatus: process.Status,
-                            ReservationTimeout: process.ReservationTimeout
+                            ProcessLastAsyncExecuteDate: process.LastAsyncExecuteDate
                             );
                     }
                     else 
@@ -120,7 +120,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                             new EFTriggerProxyComponent<TId>(_triggerSetter, e),
                             ProcessDeleted: true,
                             ProcessStatus: null,
-                            ReservationTimeout: null
+                            ProcessLastAsyncExecuteDate: null
                             );
                     }
                 })
