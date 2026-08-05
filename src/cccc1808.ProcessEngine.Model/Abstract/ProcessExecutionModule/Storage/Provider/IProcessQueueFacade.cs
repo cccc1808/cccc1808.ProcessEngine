@@ -11,7 +11,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
 {
     public interface IProcessQueueFacade<TId>
     {
-        void InitExecuteBufferCapacity(int capacity);
+        void InitBufferCapacity(int capacity);
+
+        void SetReserveTimeout(TimeSpan reserveTimeout);
 
         /// <summary>
         /// * Процесс был создан.
@@ -33,9 +35,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
         /// Снимает резерв.
         /// </summary>
         /// <param name="id"></param>
-        void ProcessExecuted(TId id);
-
-        void SetContinueRunReserveDate(DateTimeOffset reserveDate);
+        void ProcessExecuted(TId id);        
 
         /// <summary>
         /// DbSelector выбрал процессы для запуска на выполнение.

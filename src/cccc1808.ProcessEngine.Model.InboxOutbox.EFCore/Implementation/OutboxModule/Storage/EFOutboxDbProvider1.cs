@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
@@ -232,10 +232,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
             foreach (var elem in processGroups)
             {
-                // Так как мы уже считали с блокировкой,
-                // то в конце текущей транзакции тожно сбросить ReservationTimeout, т.к. сессия работы была завершена.
-                // Не сбрасываем на min, потому что значение используется.
-                elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                 var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
@@ -330,7 +326,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 

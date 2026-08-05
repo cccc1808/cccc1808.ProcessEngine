@@ -25,9 +25,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         private readonly IChangeTrackerSnapshotCompensateService _changeTrackerSnapshotCompensateService;
         private bool _transactionRequired;        
 
-        public bool InScope
-            => CurrentScope.Value is not null;
-
         public EFIsolationService(
             ITransactionManager transactionManager,
             INoIsolationCompensateService noIsolationCompensateService,
@@ -282,7 +279,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         }
 
         public void RegisterManualCompensate(
-            Func<CancellationToken, ValueTask> compensateHandler)
+            object state,
+            Func<int, object, CancellationToken, ValueTask> compensateHandler)
         {
             if (CurrentScope.Value is null)
             {
@@ -290,7 +288,21 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             }
 
             CurrentScope.Value.RegisterManualCompensateHandler(
+                state,
                 compensateHandler);
+        }
+
+        public bool TryGetCurrentScopeInfo(out IIsolationService.InScopeInfo scopeInfo)
+        {
+            var currentScope = CurrentScope.Value;
+            if (currentScope is not null)
+            {
+                scopeInfo = new IIsolationService.InScopeInfo(currentScope.ScopeIndex);
+                return true;
+            }
+
+            scopeInfo = default;
+            return false;
         }
     }
 }

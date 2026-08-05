@@ -10,7 +10,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
 {
     public interface ITriggerQueueFacade<TId>
     {
-        void InitExecuteBufferCapacity(int capacity);
+        void InitBufferCapacity(int capacity);
+
+        void SetReserveTimeout(TimeSpan reserveTimeout);
 
         /// <summary>
         /// * Триггер был создан.
@@ -32,9 +34,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
         /// Снимает резерв.
         /// </summary>
         /// <param name="id"></param>
-        void TriggerExecuted(TId id);
-
-        void SetContinueRunReserveDate(DateTimeOffset reserveDate);
+        void TriggerExecuted(TId id);        
 
         /// <summary>
         /// DbSelector выбрал триггер для запуска на выполнение.

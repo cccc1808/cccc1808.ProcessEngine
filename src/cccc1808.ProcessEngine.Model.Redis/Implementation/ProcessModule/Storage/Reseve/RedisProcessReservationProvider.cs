@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 
 using StackExchange.Redis;
@@ -76,6 +76,35 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             return result;
         }
 
+        public async ValueTask ContinueReserveAsync(
+            ICollection<TId> processIds, 
+            DateTimeOffset date,
+            CancellationToken cancellationToken)
+        {
+            var connection = await _connectionFactory.GetAsync(_reservationOptions.ConnectionName, cancellationToken);
+            var db = connection.GetDatabase(_reservationOptions.DbId);
+
+            var keys = processIds
+                .Select(e => _options.KeyToStringHandler(e))
+                .ToArray();
+
+            var t1 = db.HashSetAsync(
+                _options.HashKey,
+                keys
+                    .Select(e => new HashEntry(e, date.UtcTicks))
+                    .ToArray()
+                );
+            var t2 = db.HashFieldExpireAsync(
+                _options.HashKey,
+                keys
+                    .Select(e => new RedisValue(e))
+                    .ToArray(),
+                date.UtcDateTime,
+                when: ExpireWhen.LessThanCurrentExpiry);
+
+            await connection.WaitPiplineWithTimeoutAsync([t1, t2], cancellationToken);
+        }
+
         public async ValueTask UnreserveAsync(
             ICollection<TId> processIds, 
             CancellationToken cancellationToken)
@@ -97,7 +126,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             var db = connection.GetDatabase(_reservationOptions.DbId);
 
             await db.KeyDeleteAsync(_options.HashKey);
-        }
+        }        
 
         public class OptionsDto 
         {

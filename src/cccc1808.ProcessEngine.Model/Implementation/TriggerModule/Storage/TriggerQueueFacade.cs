@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
@@ -14,55 +15,60 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
     public class TriggerQueueFacade<TId> 
         : ITriggerQueueFacade<TId>
     {
+        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITransactionManager _transactionManager;
         private readonly ITriggerReservationProvider<TId> _triggerReservationProvider;
         private readonly ITriggerQueueProvider<TId> _triggerQueue;
 
-        private readonly List<ITriggerQueueFacade<TId>.TriggerDto> _triggerToExecuteBuffer;
-        private readonly List<ITriggerQueueFacade<TId>.TriggerDto> _triggerContinueRunBuffer;
-        private readonly List<TId> _triggerExecutedBuffer;
+        private readonly IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto> _triggerToExecuteBuffer;
+        private readonly IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto> _triggerContinueRunBuffer;
+        private readonly IsolationContainer<TId> _triggerExecutedBuffer;
 
-        private DateTimeOffset? ContinueRunReserveDate { get; set; }
+        private TimeSpan ReserveTimeout { get; set; }
+            = TimeSpan.FromSeconds(30);
+
+        private int BufferCapactity { get; set; }
+            = 2;
 
         private bool IsRegistered;
 
         public TriggerQueueFacade(
+            IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
             ITriggerReservationProvider<TId> triggerReservationProvider,
             ITriggerQueueProvider<TId> triggerQueue)
         {
+            _dateTimeProvider = dateTimeProvider;
             _transactionManager = transactionManager;
             _triggerReservationProvider = triggerReservationProvider;
             _triggerQueue = triggerQueue;
 
-            _triggerToExecuteBuffer = new List<ITriggerQueueFacade<TId>.TriggerDto>(0);
-            _triggerContinueRunBuffer = new List<ITriggerQueueFacade<TId>.TriggerDto>(0);
-            _triggerExecutedBuffer = new List<TId>(0);
-            ContinueRunReserveDate = null;
+            _triggerToExecuteBuffer = new IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto>(0);
+            _triggerContinueRunBuffer = new IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto>(0);
+            _triggerExecutedBuffer = new IsolationContainer<TId>(0);
             IsRegistered = false;
         }
 
-        public void InitExecuteBufferCapacity(int capacity)
+        public void InitBufferCapacity(int capacity)
         {
-            _triggerContinueRunBuffer.Capacity = capacity;
-            _triggerExecutedBuffer.Capacity = capacity;
+            BufferCapactity = capacity;
         }
 
-        public void SetContinueRunReserveDate(DateTimeOffset reserveDate)
+        public void SetReserveTimeout(TimeSpan reserveTimeout)
         {
-            ContinueRunReserveDate = reserveDate;
+            ReserveTimeout = reserveTimeout;
         }
 
         public void TriggerContinueExecute(ITriggerQueueFacade<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
-            _triggerContinueRunBuffer.Add(trigger);
+            _triggerContinueRunBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
         }
 
         public void TriggerExecuted(TId id)
         {
             RegisterScopeHandler();
-            _triggerExecutedBuffer.Add(id);
+            _triggerExecutedBuffer.Add(IsolationContainer.TransactionIsolationIndex, id, BufferCapactity);
         }
 
         public async Task<bool> TriggerFromSelector(
@@ -88,7 +94,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public void TriggerToExecute(ITriggerQueueFacade<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
-            _triggerToExecuteBuffer.Add(trigger);
+            _triggerToExecuteBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
         }
 
         private void RegisterScopeHandler()
@@ -103,21 +109,30 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 throw new Exception("Transaction required.");
             }
 
-            transaction.AddAfterCommitHandler(ExecuteAsync, async (t) => { });
+            transaction.AddAfterCommitHandler(
+                this,
+                static async (s, t) => 
+                {
+                    var typedState = (TriggerQueueFacade<TId>)s;
+                    await typedState.ExecuteAsync(t);
+                }, 
+                static (_, _) => ValueTask.CompletedTask);
 
             IsRegistered = true;
         }
 
         private async ValueTask ExecuteAsync(CancellationToken cancellationToken)
         {
-            if (_triggerToExecuteBuffer.Any())
+            var timeout = _dateTimeProvider.UtcNow + ReserveTimeout;
+
+            if (_triggerToExecuteBuffer.All.Any())
             {
                 await _triggerReservationProvider.ContinueReserveAsync(
-                    _triggerToExecuteBuffer.Select(e => e.GetId()).ToArray(),
-                    ContinueRunReserveDate.Value,
+                    _triggerToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
+                    timeout,
                     cancellationToken);
                 await _triggerQueue.ProduceTriggersAsync(
-                    _triggerToExecuteBuffer
+                    _triggerToExecuteBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
                             new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
@@ -126,14 +141,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     cancellationToken);
             }
 
-            if (_triggerContinueRunBuffer.Any())
+            if (_triggerContinueRunBuffer.All.Any())
             {
                 await _triggerReservationProvider.ContinueReserveAsync(
-                    _triggerContinueRunBuffer.Select(e => e.GetId()).ToArray(),
-                    ContinueRunReserveDate.Value, 
+                    _triggerContinueRunBuffer.All.Select(e => e.GetId()).ToArray(),
+                    timeout, 
                     cancellationToken);
                 await _triggerQueue.ProduceTriggersAsync(
-                    _triggerContinueRunBuffer
+                    _triggerContinueRunBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
                             new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
@@ -142,9 +157,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     cancellationToken);
             }
 
-            if (_triggerExecutedBuffer.Any())
+            if (_triggerExecutedBuffer.All.Any())
             {
-                await _triggerReservationProvider.UnreserveAsync(_triggerExecutedBuffer, cancellationToken);
+                await _triggerReservationProvider.UnreserveAsync(_triggerExecutedBuffer.All.ToArray(), cancellationToken);
             }
         }
     }

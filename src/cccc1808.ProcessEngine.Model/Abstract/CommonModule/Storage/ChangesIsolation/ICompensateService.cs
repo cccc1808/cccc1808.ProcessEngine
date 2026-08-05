@@ -21,12 +21,15 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsol
         public interface ICompensateScope
             : IAsyncDisposable
         {
+            int ScopeIndex { get; }
+
             /// <summary>
             /// Зарегистрировать ручной хендлер компенсации.
             /// </summary>
             /// <param name="manualCompensateHandler"></param>
             void RegisterManualCompensateHandler(
-                Func<CancellationToken, ValueTask> manualCompensateHandler);
+                object state,
+                Func<int, object, CancellationToken, ValueTask> manualCompensateHandler);
 
             /// <summary>
             /// Подвердить изменения.

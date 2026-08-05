@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
+namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider
 {
     /// <summary>
     /// Управление резервированием процесса.
@@ -18,6 +18,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider
         /// <returns>Процессы, которые удалось зарезервировать.</returns>
         ValueTask<ISet<TId>> TryReserveAsync(
             ICollection<TId> processIds, 
+            DateTimeOffset date,
+            CancellationToken cancellationToken);
+
+        ValueTask ContinueReserveAsync(
+            ICollection<TId> processIds,
             DateTimeOffset date,
             CancellationToken cancellationToken);
 

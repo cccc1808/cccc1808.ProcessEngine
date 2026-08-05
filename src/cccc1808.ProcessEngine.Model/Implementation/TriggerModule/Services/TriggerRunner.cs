@@ -209,7 +209,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
-                    triggerQueueFacade.InitExecuteBufferCapacity(triggers.Count);
+                    triggerQueueFacade.InitBufferCapacity(triggers.Count);
+                    triggerQueueFacade.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
 
                     // Для stream триггера треюуется перепроверить статус процесса.
                     if (recheckProcessStatusBuffer.Any())
@@ -550,9 +551,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             cancellationToken);
                     }
 
-                    await repository.SaveAsync(triggers.Values, cancellationToken);
-
-                    triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout);
+                    await repository.SaveAsync(triggers.Values, cancellationToken);                    
 
                     await transaction.CommitAsync(cancellationToken);
                 }
@@ -782,6 +781,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
+                        triggerQueueFacade.InitBufferCapacity(triggers.Count);
+                        triggerQueueFacade.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
+
                         var result = await handler.CheckAsync(
                             triggers,
                             isEmergencyTrigger: false,
@@ -834,9 +836,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             );
 
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync(triggers, cancellationToken);
-
-                        triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout);
+                        await repository.SaveAsync(triggers, cancellationToken);                        
 
                         await transaction.CommitAsync(cancellationToken);
                     }
@@ -1024,7 +1024,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        triggerQueueFacade.InitExecuteBufferCapacity(1);
+                        triggerQueueFacade.InitBufferCapacity(1);
+                        triggerQueueFacade.SetReserveTimeout(options.SingleExecutor_ConsumeTimeout);
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
@@ -1046,9 +1047,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         }
                         
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync([trigger], cancellationToken);
-
-                        triggerQueueFacade.SetContinueRunReserveDate(dateTimeProvider.UtcNow + options.SingleExecutor_ConsumeTimeout);
+                        await repository.SaveAsync([trigger], cancellationToken);                        
 
                         await transaction.CommitAsync(cancellationToken);
                     }

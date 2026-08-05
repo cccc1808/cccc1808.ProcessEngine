@@ -31,8 +31,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
             /// (В случае отката транзакции или текущего savepoint, хендлер не будет вызван).
             /// </summary>
             void AddAfterCommitHandler(
-                Func<CancellationToken, ValueTask> commitHandler,
-                Func<CancellationToken, ValueTask> roolbackHandler);
+                object state,
+                Func<object, CancellationToken, ValueTask> commitHandler,
+                Func<object, CancellationToken, ValueTask> roolbackHandler);
         }
 
         public interface ISavepointContainer

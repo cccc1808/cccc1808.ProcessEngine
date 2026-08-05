@@ -111,7 +111,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
             public IDbContextTransaction Transaction { get; }
 
-            public readonly Dictionary<string, List<(Func<CancellationToken, ValueTask>, Func<CancellationToken, ValueTask>)>> _afterCommitHandlers;
+            public readonly Dictionary<string, List<(object state, Func<object, CancellationToken, ValueTask> commit, Func<object, CancellationToken, ValueTask> roolback)>> _afterCommitHandlers;
 
             public TransactionContainer(
                 EFTransactionManager unitOfWork,
@@ -121,7 +121,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 Transaction = transaction;
                 IsUsed = false;
                 IsDisposed = false;
-                _afterCommitHandlers = new Dictionary<string, List<(Func<CancellationToken, ValueTask>, Func<CancellationToken, ValueTask>)>>(2);
+                _afterCommitHandlers = new Dictionary<string, List<(object, Func<object, CancellationToken, ValueTask>, Func<object, CancellationToken, ValueTask>)>>(2);
             }
 
             public void NoAction()
@@ -167,7 +167,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 foreach (var elem in _afterCommitHandlers.Values.SelectMany(e => e))
                 {
-                    await elem.Item1(cancellationToken);
+                    await elem.commit(elem.state, cancellationToken);
                 }
                 _afterCommitHandlers.Clear();
             }
@@ -182,7 +182,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 await Transaction.RollbackAsync(cancellationToken);
                 foreach (var elem in _afterCommitHandlers.Values.SelectMany(e => e))
                 {
-                    await elem.Item2(cancellationToken);
+                    await elem.roolback(elem.state, cancellationToken);
                 }
                 _afterCommitHandlers.Clear();
 
@@ -209,18 +209,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             }
 
             public void AddAfterCommitHandler(
-                Func<CancellationToken, ValueTask> commitHandler,
-                Func<CancellationToken, ValueTask> rolbackHandler)
+                object state,
+                Func<object, CancellationToken, ValueTask> commitHandler,
+                Func<object, CancellationToken, ValueTask> rolbackHandler)
             {
                 var key = _transactionManager.CurrentSavepointContainer?.Name ?? "-1";
 
                 if (!_afterCommitHandlers.TryGetValue(key, out var savepointCollection))
                 {
-                    savepointCollection = new List<(Func<CancellationToken, ValueTask>, Func<CancellationToken, ValueTask>)>();
+                    savepointCollection = new List<(object, Func<object, CancellationToken, ValueTask>, Func<object, CancellationToken, ValueTask>)>();
                     _afterCommitHandlers.Add(key, savepointCollection);
                 }
 
-                savepointCollection.Add((commitHandler, rolbackHandler));
+                savepointCollection.Add((state, commitHandler, rolbackHandler));
             }
         }
 
@@ -265,7 +266,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
                 {
                     foreach (var elem in savepointCollection)
                     {
-                        await elem.Item2(cancellationToken);
+                        await elem.roolback(elem.state, cancellationToken);
                     }
                     _transactionContainer._afterCommitHandlers.Remove(Name);
                 }
