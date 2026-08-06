@@ -8,7 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
 {
-    public interface ITriggerQueueFacade<TId>
+    public interface ITriggerQueueContext<TId>
     {
         void InitBufferCapacity(int capacity);
 

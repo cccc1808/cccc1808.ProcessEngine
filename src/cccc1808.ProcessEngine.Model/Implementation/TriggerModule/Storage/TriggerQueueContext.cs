@@ -12,16 +12,16 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
 {
-    public class TriggerQueueFacade<TId> 
-        : ITriggerQueueFacade<TId>
+    public class TriggerQueueContext<TId> 
+        : ITriggerQueueContext<TId>
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITransactionManager _transactionManager;
         private readonly ITriggerReservationProvider<TId> _triggerReservationProvider;
         private readonly ITriggerQueueProvider<TId> _triggerQueue;
 
-        private readonly IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto> _triggerToExecuteBuffer;
-        private readonly IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto> _triggerContinueRunBuffer;
+        private readonly IsolationContainer<ITriggerQueueContext<TId>.TriggerDto> _triggerToExecuteBuffer;
+        private readonly IsolationContainer<ITriggerQueueContext<TId>.TriggerDto> _triggerContinueRunBuffer;
         private readonly IsolationContainer<TId> _triggerExecutedBuffer;
 
         private TimeSpan ReserveTimeout { get; set; }
@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
 
         private bool IsRegistered;
 
-        public TriggerQueueFacade(
+        public TriggerQueueContext(
             IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
             ITriggerReservationProvider<TId> triggerReservationProvider,
@@ -43,8 +43,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
             _triggerReservationProvider = triggerReservationProvider;
             _triggerQueue = triggerQueue;
 
-            _triggerToExecuteBuffer = new IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto>(0);
-            _triggerContinueRunBuffer = new IsolationContainer<ITriggerQueueFacade<TId>.TriggerDto>(0);
+            _triggerToExecuteBuffer = new IsolationContainer<ITriggerQueueContext<TId>.TriggerDto>(0);
+            _triggerContinueRunBuffer = new IsolationContainer<ITriggerQueueContext<TId>.TriggerDto>(0);
             _triggerExecutedBuffer = new IsolationContainer<TId>(0);
             IsRegistered = false;
         }
@@ -59,7 +59,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
             ReserveTimeout = reserveTimeout;
         }
 
-        public void TriggerContinueExecute(ITriggerQueueFacade<TId>.TriggerDto trigger)
+        public void TriggerContinueExecute(ITriggerQueueContext<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
             _triggerContinueRunBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
@@ -72,7 +72,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         }
 
         public async Task<bool> TriggerFromSelector(
-            ICollection<ITriggerQueueFacade<TId>.TriggerDto> triggers,
+            ICollection<ITriggerQueueContext<TId>.TriggerDto> triggers,
             DateTimeOffset reserveDate,
             CancellationToken cancellationToken)
         {
@@ -93,7 +93,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 );
         }
 
-        public void TriggerToExecute(ITriggerQueueFacade<TId>.TriggerDto trigger)
+        public void TriggerToExecute(ITriggerQueueContext<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
             _triggerToExecuteBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
@@ -115,7 +115,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 this,
                 static async (s, t) => 
                 {
-                    var typedState = (TriggerQueueFacade<TId>)s;
+                    var typedState = (TriggerQueueContext<TId>)s;
                     await typedState.ExecuteAsync(t);
                 }, 
                 static (_, _) => ValueTask.CompletedTask);

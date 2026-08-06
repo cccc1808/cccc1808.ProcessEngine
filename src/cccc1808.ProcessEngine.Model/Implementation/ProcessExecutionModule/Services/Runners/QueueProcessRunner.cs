@@ -353,7 +353,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                         var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
                                         var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                                         var query = scope.ServiceProvider.GetRequiredService<IQueueProcessRunnerQuery<TId>>();
-                                        var processQueueFacade = scope.ServiceProvider.GetRequiredService<IProcessQueueFacade<TId>>();
+                                        var processQueueContext = scope.ServiceProvider.GetRequiredService<IProcessQueueContext<TId>>();
 
                                         var context = query.InitContext(_options.DbSelect_Options, elem);
 
@@ -367,9 +367,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                                 break;
                                             }
 
-                                            var queueIsFull = await processQueueFacade.ProcessFromSelectorAsync(
+                                            var queueIsFull = await processQueueContext.ProcessFromSelectorAsync(
                                                 selectData
-                                                    .Select(e => IProcessQueueFacade<TId>.ProcessDto.ProcessFromSelector(
+                                                    .Select(e => IProcessQueueContext<TId>.ProcessDto.ProcessFromSelector(
                                                         e.ProcessId,
                                                         elem)
                                                     )

@@ -12,8 +12,8 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provi
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Provider
 {
-    public class ProcessQueueFacade<TId>
-        : IProcessQueueFacade<TId>
+    public class ProcessQueueContext<TId>
+        : IProcessQueueContext<TId>
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITransactionManager _transactionManager;
@@ -23,9 +23,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         private HashSet<int> _registeredScopes;
 
-        private IsolationContainer<IProcessQueueFacade<TId>.ProcessDto> _processToExecuteBuffer;
+        private IsolationContainer<IProcessQueueContext<TId>.ProcessDto> _processToExecuteBuffer;
 
-        private IsolationContainer<IProcessQueueFacade<TId>.ProcessDto> _processContinueExecuteBuffer;
+        private IsolationContainer<IProcessQueueContext<TId>.ProcessDto> _processContinueExecuteBuffer;
 
         private IsolationContainer<TId> _processExecutedBuffer;
 
@@ -37,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private int BufferCapactity { get; set; }
              = 5;
 
-        public ProcessQueueFacade(
+        public ProcessQueueContext(
             IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
             IIsolationService isolationService,
@@ -51,8 +51,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _processReservationProvider = processReservationProvider;
 
             _registeredScopes = new HashSet<int>(2);
-            _processToExecuteBuffer = new IsolationContainer<IProcessQueueFacade<TId>.ProcessDto>(2);
-            _processContinueExecuteBuffer = new IsolationContainer<IProcessQueueFacade<TId>.ProcessDto>(2);
+            _processToExecuteBuffer = new IsolationContainer<IProcessQueueContext<TId>.ProcessDto>(2);
+            _processContinueExecuteBuffer = new IsolationContainer<IProcessQueueContext<TId>.ProcessDto>(2);
             _processExecutedBuffer = new IsolationContainer<TId>(2);
         }
 
@@ -66,7 +66,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             ReserveTimeout = reserveTimeout;
         }
 
-        public void ProcessToExecute(IProcessQueueFacade<TId>.ProcessDto process)
+        public void ProcessToExecute(IProcessQueueContext<TId>.ProcessDto process)
         {
             RegisterScopeHandler();
 
@@ -76,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _processToExecuteBuffer.Add(scopeIndex, process, BufferCapactity);
         }
 
-        public void ProcessContinueExecute(IProcessQueueFacade<TId>.ProcessDto process)
+        public void ProcessContinueExecute(IProcessQueueContext<TId>.ProcessDto process)
         {
             RegisterScopeHandler();
 
@@ -97,7 +97,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         }
 
         public async Task<bool> ProcessFromSelectorAsync(
-            ICollection<IProcessQueueFacade<TId>.ProcessDto> ids, 
+            ICollection<IProcessQueueContext<TId>.ProcessDto> ids, 
             DateTimeOffset reserveDate, 
             CancellationToken cancellationToken)
         {
@@ -128,7 +128,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     this, 
                     static async (s, t) => 
                     {
-                        var typedState = (ProcessQueueFacade<TId>)s;
+                        var typedState = (ProcessQueueContext<TId>)s;
                         await typedState.ExecuteAsync(t);
 
                         typedState._registeredScopes.Clear();
@@ -151,7 +151,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     this,
                     static (scopeIndex, state, t) =>
                     {
-                        var typedState = (ProcessQueueFacade<TId>)state;
+                        var typedState = (ProcessQueueContext<TId>)state;
 
                         typedState._processToExecuteBuffer.ScopeCompensated(scopeIndex);
                         typedState._processContinueExecuteBuffer.ScopeCompensated(scopeIndex);

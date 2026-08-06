@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider
 {
-    public interface IProcessQueueFacade<TId>
+    public interface IProcessQueueContext<TId>
     {
         void InitBufferCapacity(int capacity);
 

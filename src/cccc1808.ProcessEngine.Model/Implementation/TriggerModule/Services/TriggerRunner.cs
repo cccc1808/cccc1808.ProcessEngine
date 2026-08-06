@@ -198,7 +198,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                 var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<TId>>();
-                var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                var triggerQueueContext = serviceProvider.GetRequiredService<ITriggerQueueContext<TId>>();
                 var triggerHandlerFactory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                 var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
 
@@ -209,8 +209,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
-                    triggerQueueFacade.InitBufferCapacity(triggers.Count);
-                    triggerQueueFacade.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
+                    triggerQueueContext.InitBufferCapacity(triggers.Count);
+                    triggerQueueContext.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
 
                     // Для stream триггера треюуется перепроверить статус процесса.
                     if (recheckProcessStatusBuffer.Any())
@@ -253,7 +253,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             (
                                 eventTypeMismathErrorHandler, 
                                 triggerSetter,
-                                triggerQueueFacade,
+                                triggerQueueContext,
                                 trigger,
                                 emergencyOptions,
                                 now,
@@ -528,8 +528,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 new ITriggerComponentCondition<TId>.NeedExecuteParameters(
                                     dateTimeProvider.UtcNow)))
                         {
-                            triggerQueueFacade.TriggerContinueExecute(
-                                ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                            triggerQueueContext.TriggerContinueExecute(
+                                ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                     trigger.Id,
                                     triggerHandlerFactory.IsRangeHandler(serviceProvider, trigger.HandlerKey),
                                     trigger.HandlerKey));
@@ -629,7 +629,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                         var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
                                         var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
                                         var query = scope.ServiceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
-                                        var triggerQueueFacade = scope.ServiceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                                        var triggerQueueContext = scope.ServiceProvider.GetRequiredService<ITriggerQueueContext<TId>>();
 
                                         var context = query.InitContext(_options.DbSelect_Options, elem.HandlerName);
 
@@ -643,9 +643,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 break;
                                             }
 
-                                            var queueIsFull = await triggerQueueFacade.TriggerFromSelector(
+                                            var queueIsFull = await triggerQueueContext.TriggerFromSelector(
                                                 selectData
-                                                    .Select(e => ITriggerQueueFacade<TId>.TriggerDto.TriggerFromSelector(
+                                                    .Select(e => ITriggerQueueContext<TId>.TriggerDto.TriggerFromSelector(
                                                         e.TriggerId,
                                                         isRange,
                                                         e.HandlerKey)
@@ -765,7 +765,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
-                    var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                    var triggerQueueContext = serviceProvider.GetRequiredService<ITriggerQueueContext<TId>>();
                     var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
 
                     var handler = (ITriggerRangeHandler<TId>)factory.GetHandler(serviceProvider, handlerKey);
@@ -781,8 +781,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        triggerQueueFacade.InitBufferCapacity(triggers.Count);
-                        triggerQueueFacade.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
+                        triggerQueueContext.InitBufferCapacity(triggers.Count);
+                        triggerQueueContext.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
 
                         var result = await handler.CheckAsync(
                             triggers,
@@ -813,15 +813,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 new ITriggerComponentCondition<TId>.NeedExecuteParameters(
                                     dateTimeProvider.UtcNow)))
                             {
-                                triggerQueueFacade.TriggerContinueExecute(
-                                    ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                                triggerQueueContext.TriggerContinueExecute(
+                                    ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                         elem.Id,
                                         IsRangeTrigger: true, 
                                         elem.HandlerKey));
                             }
                             else 
                             {
-                                triggerQueueFacade.TriggerExecuted(elem.Id);
+                                triggerQueueContext.TriggerExecuted(elem.Id);
                             }
 
                             if (elemResult.NeedExecute)
@@ -1005,7 +1005,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                     var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                     var repository = serviceProvider.GetRequiredService<ITriggerRepository<TId>>();
-                    var triggerQueueFacade = serviceProvider.GetRequiredService<ITriggerQueueFacade<TId>>();
+                    var triggerQueueContext = serviceProvider.GetRequiredService<ITriggerQueueContext<TId>>();
                     var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                     var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
@@ -1024,8 +1024,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        triggerQueueFacade.InitBufferCapacity(1);
-                        triggerQueueFacade.SetReserveTimeout(options.SingleExecutor_ConsumeTimeout);
+                        triggerQueueContext.InitBufferCapacity(1);
+                        triggerQueueContext.SetReserveTimeout(options.SingleExecutor_ConsumeTimeout);
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);
                         triggerSetter.StandartSetter.SetTriggerResult(trigger, result);
@@ -1035,15 +1035,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 new ITriggerComponentCondition<TId>.NeedExecuteParameters(
                                     dateTimeProvider.UtcNow)))
                         {
-                            triggerQueueFacade.TriggerContinueExecute(
-                                ITriggerQueueFacade<TId>.TriggerDto.TriggerContinueRun(
+                            triggerQueueContext.TriggerContinueExecute(
+                                ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                     trigger.Id,
                                     IsRangeTrigger: false,
                                     HandlerKey: trigger.HandlerKey));
                         }
                         else
                         {
-                            triggerQueueFacade.TriggerExecuted(trigger.Id);
+                            triggerQueueContext.TriggerExecuted(trigger.Id);
                         }
                         
                         // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
