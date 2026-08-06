@@ -39,6 +39,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
 
         public void Add(int scopeIndex, T elem, int createCapacity)
         {
+            // TODO: Доработк порядка в scope транзакции (0) (фазы: начало трназакции -> isolation scopes -> конец трназакции).
+
             // Если scope не инициализирован, то создаем буфер под него.
             if (_buffer.Count <= scopeIndex)
             {

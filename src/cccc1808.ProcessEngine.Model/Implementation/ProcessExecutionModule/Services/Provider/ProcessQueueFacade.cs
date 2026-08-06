@@ -109,6 +109,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 ids.Select(e => new IProcessQueueProvider<TId>.MessageDto(e.ProcessRegistry, e.GetId())).ToArray(),
                 cancellationToken);
 
+            if (isFull)
+            {
+                // TODO: (весь текущий файл) снимать резервирование не со всех, а только с неотправленных.
+                await _processReservationProvider.UnreserveAsync(
+                    ids.Select(e => e.GetId()).ToArray(),
+                    cancellationToken);
+            }
+
             return isFull;
         }
         
@@ -172,7 +180,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     _processToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
                     reserveTimeout,
                     cancellationToken);
-                await _processQueueProvider.ProduceAsync(
+                var isFull = await _processQueueProvider.ProduceAsync(
                     _processToExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
                             e.ProcessRegistry,
@@ -180,6 +188,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         )
                         .ToArray(),
                     cancellationToken);
+
+                if (isFull)
+                {
+                    await _processReservationProvider.UnreserveAsync(
+                        _processToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
+                        cancellationToken);
+                }
             }
 
             if (_processContinueExecuteBuffer.All.Any())
@@ -188,7 +203,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     _processContinueExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
                     reserveTimeout,
                     cancellationToken);
-                await _processQueueProvider.ProduceAsync(
+                var isFull = await _processQueueProvider.ProduceAsync(
                     _processContinueExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
                             e.ProcessRegistry,
@@ -196,6 +211,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         )
                         .ToArray(),
                     cancellationToken);
+
+                if (isFull)
+                {
+                    await _processReservationProvider.UnreserveAsync(
+                        _processContinueExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
+                        cancellationToken
+                        );
+                }
             }
 
             if (_processExecutedBuffer.All.Any())
