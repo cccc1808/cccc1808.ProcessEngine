@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
         /// Продление резерва и помещение в очередь.
         /// </summary>
         /// <param name="id"></param>
-        void ProcessContinueExecute(ProcessDto trigger);
+        void ProcessContinueExecute(ProcessDto process);
 
         /// <summary>
         /// Процесс был обработан и сейчас не выполняется.
@@ -56,7 +56,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
                 ? Id ?? throw new Exception()
                 : EfEntity.Id;
 
-            public static ProcessDto TriggerToExecute(
+            public static ProcessDto ProcessToExecute(
                 TId Id,
                 ProcessRegistryDto ProcessRegistry) => new ProcessDto(Id, null, ProcessRegistry);
 

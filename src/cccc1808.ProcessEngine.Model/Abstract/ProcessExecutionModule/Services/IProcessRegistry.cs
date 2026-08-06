@@ -11,5 +11,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services
     public interface IProcessRegistry
     {
         ICollection<ProcessRegistryDto> All();
+
+        ProcessRegistryDto Get(
+            ProcessTypeDto ProcessType,
+            short Priority);
     }
 }

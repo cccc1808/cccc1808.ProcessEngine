@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,6 +13,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
     public class ProcessRegistry
         : IProcessRegistry
     {
+        private readonly FrozenDictionary<(ProcessTypeDto, short), ProcessRegistryDto> _dictionary;
         private readonly ProcessRegistryDto[] _registrations;
 
         public ProcessRegistry(IEnumerable<ProcessRegistryDto> registrations)
@@ -25,11 +27,17 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             }
 
             _registrations = registrations.ToArray();
+            _dictionary = registrations.ToFrozenDictionary(e => (e.ProcessType, e .Priority), e => e);
         }
 
         public ICollection<ProcessRegistryDto> All()
         {
             return _registrations;
+        }
+
+        public ProcessRegistryDto Get(ProcessTypeDto ProcessType, short Priority)
+        {
+            return _dictionary[(ProcessType, Priority)];
         }
     }
 }
