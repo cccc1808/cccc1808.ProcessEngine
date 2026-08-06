@@ -11,6 +11,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 
@@ -55,14 +56,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             return await InnerConsumeAsync(_state.SignleTriggerState, batchLimit, null, timeout, cancellationToken);
         }
 
-        public async Task<bool> ProduceTriggersAsync(
+        public async Task<HashSet<TId>> ProduceTriggersAsync(
             ICollection<ITriggerQueueProvider<TId>.MessageContainer> messages,
             CancellationToken cancellationToken)
         {
             return await InnerProduceAsync(messages, checkLimit: true, cancellationToken);
         }
 
-        private async Task<bool> InnerProduceAsync(
+        private async Task<HashSet<TId>> InnerProduceAsync(
             ICollection<ITriggerQueueProvider<TId>.MessageContainer> messages,
             bool checkLimit,
             CancellationToken cancellationToken)
@@ -70,10 +71,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
 
-            var isFull = false;
+            var notSended = new HashSet<TId>(0);
 
             var groups = messages.GroupBy(e => new IRedisNotifyTriggerQueueState.KeyDto(e.Message.HandlerKey, 0))
-                .ToDictionary(e => e.Key, e => e);
+                .ToDictionary(e => e.Key, e => e.ToArray());
 
             // 1) Проверка свободного места (не строгая).
             var pipline = new List<Task>(groups.Count * 2);
@@ -94,7 +95,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         if (elem.Value.Result >= _options.QueueSizeLimit)
                         {
                             // Очередь заполнена.
-                            isFull = true;
+                            var notSendGroup = groups[elem.Key];
+                            notSended.AddRange(notSendGroup, static (m) => m.Message.TriggerId);
                             groups.Remove(elem.Key);
                         }
                     }
@@ -126,7 +128,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                 await connection.WaitPiplineWithTimeoutAsync(pipline, cancellationToken);
             }
 
-            return isFull;
+            return notSended;
         }
 
         private async Task<List<ITriggerQueueProvider<TId>.MessageDto>> InnerConsumeAsync(

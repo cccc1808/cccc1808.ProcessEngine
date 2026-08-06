@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
 
@@ -55,14 +56,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             return await InnerConsumeAsync(_state.SingleHandler, batchSize, null, batchTimeout, cancellationToken);
         }
 
-        public async Task<bool> ProduceAsync(
+        public async Task<HashSet<TId>> ProduceAsync(
             ICollection<IProcessQueueProvider<TId>.MessageDto> processes,
             CancellationToken cancellationToken)
         {
             return await InnerProduceAsync(processes, checkLimit: true, cancellationToken);
         }
 
-        private async Task<bool> InnerProduceAsync(
+        private async Task<HashSet<TId>> InnerProduceAsync(
             ICollection<IProcessQueueProvider<TId>.MessageDto> messages,
             bool checkLimit,
             CancellationToken cancellationToken)
@@ -70,10 +71,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
 
-            var isFull = false;
+            var notSended = new HashSet<TId>(0);
 
             var groups = messages.GroupBy(e => e.Registry)
-                .ToDictionary(e => e.Key, e => e);
+                .ToDictionary(e => e.Key, e => e.ToArray());
 
             // 1) Проверка свободного места (не строгая).
             var pipline = new List<Task>(groups.Count * 2);
@@ -94,7 +95,12 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         if (elem.Value.Result >= _options.QueueSizeLimit)
                         {
                             // Очередь заполнена.
-                            isFull = true;
+                            var notSendGroup = groups[elem.Key];
+
+                            notSended.AddRange(
+                                notSendGroup, 
+                                static (m) => m.ProcessId);
+
                             groups.Remove(elem.Key);
                         }
                     }
@@ -126,7 +132,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 await connection.WaitPiplineWithTimeoutAsync(pipline, cancellationToken);
             }
 
-            return isFull;
+            return notSended;
         }
 
         private async Task<List<IProcessQueueProvider<TId>.MessageDto>> InnerConsumeAsync(

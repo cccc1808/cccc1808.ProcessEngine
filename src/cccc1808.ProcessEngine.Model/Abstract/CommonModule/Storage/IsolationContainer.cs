@@ -54,7 +54,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
             // Если пустой, то выделяем память.
             if (store.Capacity == 0)
             {
-                store.Capacity = createCapacity;
+                store.EnsureCapacity(createCapacity);
             }
             store.Add(elem);
         }

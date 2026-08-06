@@ -80,7 +80,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 triggers.Select(e => e.GetId()).ToArray(),
                 reserveDate,
                 cancellationToken);
-            var isFull = await _triggerQueue.ProduceTriggersAsync(
+
+            return await ProduceAsync(
                 triggers
                     .Where(e => reserveResult.Contains(e.GetId()))
                     .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
@@ -88,16 +89,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                         isRangeTrigger: e.IsRangeTrigger)
                     )
                     .ToArray(),
-                cancellationToken);
-
-            if (isFull)
-            {
-                // TODO: (весь текущий файл) снимать резервирование не со всех, а только с неотправленных.
-                await _triggerReservationProvider.UnreserveAsync(
-                    _triggerToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
-                    cancellationToken);
-            }
-            return isFull;
+                cancellationToken
+                );
         }
 
         public void TriggerToExecute(ITriggerQueueFacade<TId>.TriggerDto trigger)
@@ -140,21 +133,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     _triggerToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
                     timeout,
                     cancellationToken);
-                var isFull = await _triggerQueue.ProduceTriggersAsync(
+                await ProduceAsync(
                     _triggerToExecuteBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
                             new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),
-                    cancellationToken);
-
-                if (isFull)
-                {
-                    await _triggerReservationProvider.UnreserveAsync(
-                        _triggerToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
-                        cancellationToken);
-                }
+                    cancellationToken
+                    );
             }
 
             if (_triggerContinueRunBuffer.All.Any())
@@ -163,27 +150,42 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                     _triggerContinueRunBuffer.All.Select(e => e.GetId()).ToArray(),
                     timeout, 
                     cancellationToken);
-                var isFull = await _triggerQueue.ProduceTriggersAsync(
+                await ProduceAsync(
                     _triggerContinueRunBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
                             new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),
-                    cancellationToken);
-
-                if (isFull)
-                {
-                    await _triggerReservationProvider.UnreserveAsync(
-                        _triggerToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
-                        cancellationToken);
-                }
+                    cancellationToken
+                    );
             }
 
             if (_triggerExecutedBuffer.All.Any())
             {
                 await _triggerReservationProvider.UnreserveAsync(_triggerExecutedBuffer.All.ToArray(), cancellationToken);
             }
+        }
+
+        private async ValueTask<bool> ProduceAsync(
+            ICollection<ITriggerQueueProvider<TId>.MessageContainer> messages,
+            CancellationToken cancellationToken)
+        {
+            var notSended = await _triggerQueue.ProduceTriggersAsync(
+                messages,
+                cancellationToken);
+
+            if (notSended.Any())
+            {
+                // Не отправлены из-за переполнения очерди - снимаем резервирование.
+                await _triggerReservationProvider.UnreserveAsync(
+                    notSended,
+                    cancellationToken);
+
+                return true;
+            }
+
+            return false;
         }
     }
 }

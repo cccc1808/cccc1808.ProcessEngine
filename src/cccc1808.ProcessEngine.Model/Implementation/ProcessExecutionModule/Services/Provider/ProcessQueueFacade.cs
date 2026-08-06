@@ -105,19 +105,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 ids.Select(e => e.GetId()).ToArray(),
                 reserveDate,
                 cancellationToken);
-            var isFull = await _processQueueProvider.ProduceAsync(
-                ids.Select(e => new IProcessQueueProvider<TId>.MessageDto(e.ProcessRegistry, e.GetId())).ToArray(),
-                cancellationToken);
-
-            if (isFull)
-            {
-                // TODO: (весь текущий файл) снимать резервирование не со всех, а только с неотправленных.
-                await _processReservationProvider.UnreserveAsync(
-                    ids.Select(e => e.GetId()).ToArray(),
-                    cancellationToken);
-            }
-
-            return isFull;
+            return await ProduceAsync(
+                ids
+                    .Where(e => reserveResult.Contains(e.GetId()))
+                    .Select(e => new IProcessQueueProvider<TId>.MessageDto(e.ProcessRegistry, e.GetId()))
+                    .ToArray(),
+                cancellationToken
+                );
         }
         
         private void RegisterScopeHandler()
@@ -180,7 +174,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     _processToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
                     reserveTimeout,
                     cancellationToken);
-                var isFull = await _processQueueProvider.ProduceAsync(
+
+                await ProduceAsync(
                     _processToExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
                             e.ProcessRegistry,
@@ -188,13 +183,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         )
                         .ToArray(),
                     cancellationToken);
-
-                if (isFull)
-                {
-                    await _processReservationProvider.UnreserveAsync(
-                        _processToExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
-                        cancellationToken);
-                }
             }
 
             if (_processContinueExecuteBuffer.All.Any())
@@ -203,7 +191,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     _processContinueExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
                     reserveTimeout,
                     cancellationToken);
-                var isFull = await _processQueueProvider.ProduceAsync(
+
+                await ProduceAsync(
                     _processContinueExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
                             e.ProcessRegistry,
@@ -211,14 +200,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                         )
                         .ToArray(),
                     cancellationToken);
-
-                if (isFull)
-                {
-                    await _processReservationProvider.UnreserveAsync(
-                        _processContinueExecuteBuffer.All.Select(e => e.GetId()).ToArray(),
-                        cancellationToken
-                        );
-                }
             }
 
             if (_processExecutedBuffer.All.Any())
@@ -227,6 +208,27 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     _processExecutedBuffer.All.ToArray(),
                     cancellationToken);
             }
-        }        
+        }
+
+        private async ValueTask<bool> ProduceAsync(
+            ICollection<IProcessQueueProvider<TId>.MessageDto> messages,
+            CancellationToken cancellationToken)
+        {
+            var notSended = await _processQueueProvider.ProduceAsync(
+                messages,
+                cancellationToken);
+
+            if (notSended.Any())
+            {
+                // Не отправлены из-за переполнения очерди - снимаем резервирование.
+                await _processReservationProvider.UnreserveAsync(
+                    notSended,
+                    cancellationToken);
+
+                return true;
+            }
+
+            return false;
+        }
     }
 }

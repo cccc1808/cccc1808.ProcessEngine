@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
             TimeSpan timeout,
             CancellationToken cancellationToken);
 
-        Task<bool> ProduceTriggersAsync(
+        Task<HashSet<TId>> ProduceTriggersAsync(
             ICollection<MessageContainer> messages,
             CancellationToken cancellationToken);
 

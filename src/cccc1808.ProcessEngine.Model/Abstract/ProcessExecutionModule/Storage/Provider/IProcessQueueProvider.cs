@@ -15,7 +15,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
             TimeSpan batchTimeout,
             CancellationToken cancellationToken);
 
-        Task<bool> ProduceAsync(
+        Task<HashSet<TId>> ProduceAsync(
             ICollection<MessageDto> processes,
             CancellationToken cancellationToken);
 
