@@ -268,7 +268,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 {
                                     p.triggerSetter.OneOfTriggerEventSetter.OneOf(
                                         elem,
-                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.triggerQueueFacade, p.trigger, p.now, state),
+                                        (p.eventTypeMismathErrorHandler, p.triggerSetter, p.triggerQueueContext, p.trigger, p.now, state),
                                         removeTriggerEventHandler: (_, p) =>
                                             p.triggerSetter.StandartSetter.ForRemove(p.trigger, true),
                                         counterTriggerEventHandler: static (typedEvent, p) =>
