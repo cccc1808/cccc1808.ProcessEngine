@@ -34,9 +34,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
         private bool TransactionIsRegistered { get; set; }
 
-        private int BufferCapactity { get; set; }
-             = 5;
-
         public ProcessQueueContext(
             IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
@@ -56,9 +53,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _processExecutedBuffer = new IsolationContainer<TId>(2);
         }
 
-        public void InitBufferCapacity(int capacity)
+        public void IncreseBufferCapacity(int value)
         {
-            BufferCapactity = capacity;
+            var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
+                ? scope.ScopeIndex
+                : IsolationContainer.TransactionIsolationIndex;
+
+            _processToExecuteBuffer.IncreseCapacity(scopeIndex, value);
+            _processContinueExecuteBuffer.IncreseCapacity(scopeIndex, value);
+            _processExecutedBuffer.IncreseCapacity(scopeIndex, value);
         }
 
         public void SetReserveTimeout(TimeSpan reserveTimeout)
@@ -73,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
                 ? scope.ScopeIndex
                 : IsolationContainer.TransactionIsolationIndex;
-            _processToExecuteBuffer.Add(scopeIndex, process, BufferCapactity);
+            _processToExecuteBuffer.Add(scopeIndex, process);
         }
 
         public void ProcessContinueExecute(IProcessQueueContext<TId>.ProcessDto process)
@@ -83,7 +86,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
                 ? scope.ScopeIndex
                 : IsolationContainer.TransactionIsolationIndex;
-            _processContinueExecuteBuffer.Add(scopeIndex, process, BufferCapactity);
+            _processContinueExecuteBuffer.Add(scopeIndex, process);
         }
 
         public void ProcessExecuted(TId id)
@@ -93,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
                 ? scope.ScopeIndex
                 : IsolationContainer.TransactionIsolationIndex;
-            _processExecutedBuffer.Add(scopeIndex, id, BufferCapactity);
+            _processExecutedBuffer.Add(scopeIndex, id);
         }
 
         public async Task<bool> ProcessFromSelectorAsync(
@@ -229,6 +232,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
 
             return false;
-        }
+        }        
     }
 }

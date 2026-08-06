@@ -427,7 +427,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     allProcesses.Data.Values.First().Process.Info.ProcessType, 
                     allProcesses.Data.Values.First().Process.Info.Priority);
 
-                _processQueueContext.InitBufferCapacity(allProcesses.Data.Count);
+                _processQueueContext.IncreseBufferCapacity(allProcesses.Data.Count);
                 // TODO: options.
                 _processQueueContext.SetReserveTimeout(first.IsSignleExecuteProcess ? TimeSpan.FromSeconds(30) : TimeSpan.FromSeconds(60));
                 foreach (var elem in allProcesses.Data.Values)

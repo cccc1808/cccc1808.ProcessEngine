@@ -37,50 +37,29 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
             _buffer = new List<List<T>>(scopeCapacity);
         }
 
-        public void Add(int scopeIndex, T elem, int createCapacity)
+        public void IncreseCapacity(int scopeIndex, int capacity)
+        {
+            var scopeBuffer = GetOrInitScopeBuffer(scopeIndex);
+            scopeBuffer.EnsureCapacity(scopeBuffer.Count + capacity);
+        }
+
+        public void Add(int scopeIndex, T elem)
         {
             // TODO: Доработк порядка в scope транзакции (0) (фазы: начало трназакции -> isolation scopes -> конец трназакции).
 
-            // Если scope не инициализирован, то создаем буфер под него.
-            if (_buffer.Count <= scopeIndex)
-            {
-                _buffer.AddRange(
-                    Enumerable.Repeat(false, (scopeIndex - _buffer.Count) + 1)
-                        .Select(_ => new List<T>(0))
-                        );
-            }
-
-            var store = _buffer[scopeIndex];
-            // Если пустой, то выделяем память.
-            if (store.Capacity == 0)
-            {
-                store.EnsureCapacity(createCapacity);
-            }
-            store.Add(elem);
+            var scopeBuffer = GetOrInitScopeBuffer(scopeIndex);
+            scopeBuffer.Add(elem);
         }
 
-        public void AddRange(int scopeIndex, ICollection<T> data, int createCapacity)
+        public void AddRange(int scopeIndex, ICollection<T> data)
         {
             // Если scope не инициализирован, то создаем буфер под него.
             //if (_buffer.Count == scopeIndex)
             //{
             //    _buffer.Add(new List<T>(0));
             //}
-            if (_buffer.Count <= scopeIndex)
-            {
-                _buffer.AddRange(
-                    Enumerable.Repeat(false, (scopeIndex - _buffer.Count) + 1)
-                        .Select(_ => new List<T>(0))
-                        );
-            }
-
-            var store = _buffer[scopeIndex];
-            // Если пустой, то выделяем память.
-            if (store.Capacity == 0)
-            {
-                store.Capacity = createCapacity;
-            }
-            store.AddRange(data);
+            var scopeBuffer = GetOrInitScopeBuffer(scopeIndex);
+            scopeBuffer.AddRange(data);
         }
 
         /// <summary>
@@ -101,6 +80,20 @@ namespace cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage
                 elem.Clear();
             }
             _buffer.Clear();
+        }
+
+        private List<T> GetOrInitScopeBuffer(int scopeIndex)
+        {
+            // Если scope не инициализирован, то создаем буфер под него.
+            if (_buffer.Count <= scopeIndex)
+            {
+                _buffer.AddRange(
+                    Enumerable.Repeat(false, (scopeIndex - _buffer.Count) + 1)
+                        .Select(_ => new List<T>(0))
+                        );
+            }
+
+            return _buffer[scopeIndex];
         }
     }
 }

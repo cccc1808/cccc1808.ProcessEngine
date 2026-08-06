@@ -198,7 +198,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                 return;
             }
 
-            _queueContext.InitBufferCapacity(processWithLock.Length);
+            _queueContext.IncreseBufferCapacity(processWithLock.Length);
             var firstKey = _processRegistry.Get(
                 new ProcessTypeDto(processWithLock[0].ProcessTypeId, processWithLock[0].ProcessVersion),
                 processWithLock[0].Priority);

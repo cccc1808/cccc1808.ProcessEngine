@@ -10,7 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
 {
     public interface ITriggerQueueContext<TId>
     {
-        void InitBufferCapacity(int capacity);
+        void IncreseBufferCapacity(int value);
 
         void SetReserveTimeout(TimeSpan reserveTimeout);
 

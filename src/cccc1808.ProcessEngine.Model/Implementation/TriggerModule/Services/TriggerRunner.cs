@@ -209,7 +209,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         groupByTrigger.Keys,
                         cancellationToken);
 
-                    triggerQueueContext.InitBufferCapacity(triggers.Count);
+                    triggerQueueContext.IncreseBufferCapacity(triggers.Count);
                     triggerQueueContext.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
 
                     // Для stream триггера треюуется перепроверить статус процесса.
@@ -781,7 +781,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        triggerQueueContext.InitBufferCapacity(triggers.Count);
+                        triggerQueueContext.IncreseBufferCapacity(triggers.Count);
                         triggerQueueContext.SetReserveTimeout(options.DbSelect_RangeReservationTimeout);
 
                         var result = await handler.CheckAsync(
@@ -1024,7 +1024,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             return;
                         }
 
-                        triggerQueueContext.InitBufferCapacity(1);
+                        triggerQueueContext.IncreseBufferCapacity(1);
                         triggerQueueContext.SetReserveTimeout(options.SingleExecutor_ConsumeTimeout);
 
                         var result = await handler.HandleAsync(trigger, cancellationToken);

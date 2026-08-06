@@ -27,9 +27,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         private TimeSpan ReserveTimeout { get; set; }
             = TimeSpan.FromSeconds(30);
 
-        private int BufferCapactity { get; set; }
-            = 2;
-
         private bool IsRegistered;
 
         public TriggerQueueContext(
@@ -49,9 +46,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
             IsRegistered = false;
         }
 
-        public void InitBufferCapacity(int capacity)
+        public void IncreseBufferCapacity(int value)
         {
-            BufferCapactity = capacity;
+            _triggerToExecuteBuffer.IncreseCapacity(IsolationContainer.TransactionIsolationIndex, value);
+            _triggerContinueRunBuffer.IncreseCapacity(IsolationContainer.TransactionIsolationIndex, value);
+            _triggerExecutedBuffer.IncreseCapacity(IsolationContainer.TransactionIsolationIndex, value);
         }
 
         public void SetReserveTimeout(TimeSpan reserveTimeout)
@@ -62,13 +61,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public void TriggerContinueExecute(ITriggerQueueContext<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
-            _triggerContinueRunBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
+            _triggerContinueRunBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger);
         }
 
         public void TriggerExecuted(TId id)
         {
             RegisterScopeHandler();
-            _triggerExecutedBuffer.Add(IsolationContainer.TransactionIsolationIndex, id, BufferCapactity);
+            _triggerExecutedBuffer.Add(IsolationContainer.TransactionIsolationIndex, id);
         }
 
         public async Task<bool> TriggerFromSelector(
@@ -96,7 +95,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public void TriggerToExecute(ITriggerQueueContext<TId>.TriggerDto trigger)
         {
             RegisterScopeHandler();
-            _triggerToExecuteBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger, BufferCapactity);
+            _triggerToExecuteBuffer.Add(IsolationContainer.TransactionIsolationIndex, trigger);
         }
 
         private void RegisterScopeHandler()
@@ -186,6 +185,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
             }
 
             return false;
-        }
+        }        
     }
 }

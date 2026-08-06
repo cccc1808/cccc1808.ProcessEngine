@@ -47,11 +47,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
 
             RegisterScopeHandler();
 
-            var scopeKey = _isolationService.TryGetCurrentScopeInfo(out var scope)
+            var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
                 ? scope.ScopeIndex
                 : IsolationContainer.TransactionIsolationIndex;
-            _sendBuffer.AddRange(scopeKey, events, events.Count);               
-
+            // _sendBuffer.EncreaseCapacity(ScopeIndex, events.Count);
+            _sendBuffer.AddRange(scopeIndex, events);
+            
             return ValueTask.CompletedTask;
         }
 
