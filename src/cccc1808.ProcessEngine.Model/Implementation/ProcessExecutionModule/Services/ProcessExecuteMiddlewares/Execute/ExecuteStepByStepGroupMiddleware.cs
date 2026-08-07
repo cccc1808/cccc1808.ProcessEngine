@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
@@ -39,7 +38,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly IServiceProvider _serviceProvider;
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IIsolationService _isolationService;
-        private readonly IProcessRegistry _processRegistry;
         private readonly IProcessSetter _processSetter;
         private readonly IWakeupService<TId> _wakeupService;
         private readonly IProcessQueueContext<TId> _processQueueContext;
@@ -52,7 +50,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IServiceProvider serviceProvider,
             IDateTimeProvider dateTimeProvider,
             IIsolationService isolationService,
-            IProcessRegistry processRegistry,
             IProcessSetter processSetter,
             IWakeupService<TId> wakeupService,
             IProcessQueueContext<TId> processQueueContext,
@@ -64,7 +61,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _serviceProvider = serviceProvider;
             _dateTimeProvider = dateTimeProvider;
             _isolationService = isolationService;
-            _processRegistry = processRegistry;
             _processSetter = processSetter;
             _wakeupService = wakeupService;
             _processQueueContext = processQueueContext;
@@ -423,13 +419,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
             //// 5) Обновление очереди и резервирования.
             {
-                var first = _processRegistry.Get(
-                    allProcesses.Data.Values.First().Process.Info.ProcessType, 
-                    allProcesses.Data.Values.First().Process.Info.Priority);
-
                 _processQueueContext.IncreseBufferCapacity(allProcesses.Data.Count);
                 // TODO: options.
-                _processQueueContext.SetReserveTimeout(first.IsSignleExecuteProcess ? TimeSpan.FromSeconds(30) : TimeSpan.FromSeconds(60));
+                _processQueueContext.SetReserveTimeout(
+                    allProcesses.Data.Values.First().Process.Info.Registry.Metadata.IsSignleExecuteProcess
+                    ? TimeSpan.FromSeconds(30) 
+                    : TimeSpan.FromSeconds(60));
                 foreach (var elem in allProcesses.Data.Values)
                 {
                     switch (elem.Process.Status)
@@ -440,7 +435,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 _processQueueContext.ProcessContinueExecute(
                                     IProcessQueueContext<TId>.ProcessDto.TriggerContinueRun(
                                         elem.Id,
-                                        _processRegistry.Get(elem.Process.Info.ProcessType, elem.Process.Info.Priority)
+                                        elem.Process.Info.Registry
                                         ));
                                 break;
                             }

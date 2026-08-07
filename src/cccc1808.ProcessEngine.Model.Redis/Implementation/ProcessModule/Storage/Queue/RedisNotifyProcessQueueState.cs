@@ -25,9 +25,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             var registries = processRegistry.All();
 
             RangeHandler = new Handler(
-                registries.Where(e => !e.IsSignleExecuteProcess).ToArray());
+                registries.Where(e => !e.Metadata.IsSignleExecuteProcess).ToArray());
             SingleHandler = new Handler(
-                registries.Where(e => e.IsSignleExecuteProcess).ToArray());
+                registries.Where(e => e.Metadata.IsSignleExecuteProcess).ToArray());
         }
 
         private class Handler : IRedisNotifyProcessQueueState.IHandler
@@ -130,7 +130,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
         {
             public int Compare(ProcessRegistryDto? x, ProcessRegistryDto? y)
             {
-                return Comparer<int>.Default.Compare(x.Priority, y.Priority);
+                return Comparer<int>.Default.Compare(x.Unique.Priority, y.Unique.Priority);
             }
         }
     }

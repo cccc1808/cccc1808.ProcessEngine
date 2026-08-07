@@ -9,7 +9,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
     /// <summary>
     /// Опции резервирования процессов.
     /// </summary>
-    public class RedisProcessReservationOptions
+    public class RedisProcessReserveOptions
     {
         public required string ConnectionName { get; set; }
 

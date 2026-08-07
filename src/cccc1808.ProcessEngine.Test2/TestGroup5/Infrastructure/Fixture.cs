@@ -8,6 +8,7 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
@@ -28,6 +29,8 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
@@ -172,8 +175,56 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
 
                     .AddIsolationServices()
 
-                    .AddParallelLimitProcessRunner()
-                    .AddEFProcessReservationService()
+                    // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
+                    .AddQueueProcessRunner(
+                        new QueueProcessRunner<Guid>.OptionsDto() 
+                        {
+                            DbSelect_Options = new EFQueueProcessRunnerQuery<Guid>.Options()
+                            {
+                                OffsetStartId = Guid.Empty,
+                            },
+                            DbSelect_ParallilLimit = 1,
+
+                            RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
+
+                            SingleExecute_MiddlewareFactory = (s) => new TransactionMiddleware<Guid>(
+                                s,
+                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                    s,
+                                    s.GetRequiredService<IDateTimeProvider>(),
+                                    s.GetRequiredService<IIsolationService>(),
+                                    s.GetRequiredService<IProcessSetter>(),
+                                    s.GetRequiredService<IWakeupService<Guid>>(),
+                                    s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<SchemaSingleProcessHandler<Guid>>()),
+                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                    ),
+                                s.GetRequiredService<ITransactionManager>()
+                                ),
+                            SingleExecute_ParallelismLimit = 1,
+                        })
+                    .AddRedisProcessQueueServices(
+                        new RedisProcessReseveProvider<Guid>.OptionsDto() 
+                        {
+                            HashKey = NameFactory.ProcessReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
+                        },
+                        new RedisProcessReserveOptions()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                        },
+                        new ProcessQueueOptionsDto<Guid>() 
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            IdToString = NameFactory.IdToString,
+                            StringToId = NameFactory.StringToId,
+                            ProcessToQueueSetNameFactory = (_, e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
+                            QueueSetNameToProcessTypeFactory = (s,e) => NameFactory.KeyToProcessType(s, e),
+                            QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.TriggerQueueChannel)
+                        })
 
                     .AddWakeupServices(
                         [],
@@ -228,25 +279,22 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            IdToString = (e) => e.ToString(),
-                            StringToId = (e) => Guid.Parse(e),
-                            HandlerToQueueSetNameFactory = (e) => $"trigger_queue{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
-                            QueueSetNameToHandlerFactory = (e) =>
-                            {
-                                var parts = e.Split(NameConst.NamePartsSplitChar);
-                                return new IRedisNotifyTriggerQueueState.KeyDto(parts[1], short.Parse(parts[2]));
-                            },
-                            QueueChannelNameFactory = (e) => $"trigger_queue_channel{NameConst.NamePartsSplitChar}{e.HandlerName}{NameConst.NamePartsSplitChar}{e.Priority}",
+                            IdToString = NameFactory.IdToString,
+                            StringToId = NameFactory.StringToId,
+                            HandlerToQueueSetNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueue),
+                            QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
+                            QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
                         new RedisTriggerReservationOptions()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
                         },
-                        new RedisTriggerReservationProvider<Guid>.OptionsDto()
+                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
                         {
-                            KeyToStringHandler = (e) => e.ToString(),
-                            StringToKeyHandler = (e) => Guid.Parse(e),
+                            HashKey = NameFactory.TriggerReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
                         }
                         )
 
@@ -256,10 +304,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = TimeSpan.FromSeconds(60),
                         },
-                        new ProcessRegistryDto(TestSchemaProcessHandler.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler2.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler51.ProcessType, 1),
-                        new ProcessRegistryDto(TestSchemaProcessHandler52.ProcessType, 1)
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler2.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler51.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler52.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true))
                     )
                     
                     .AddSchemaProcess(
@@ -287,39 +335,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
 
                 services.AddSingleton(
                     new ChildRegistrationDto(TestSchemaProcessHandler52.ProcessType));
-
-                // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
-                services.AddScoped<IProcessRunner>(
-                    s => new ParallelLimitProcessRunner<Guid>(
-                        s,
-                        new ParallelLimitProcessRunner<Guid>.OptionsDto(
-                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1()
-                            {
-                                RangeBatchSize = (e) => e,
-                                SingleBatchSize = (e) => e,
-                            },
-                            selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
-                            rangeMiddlewareFactory: (s) => throw new Exception(""),
-                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
-                                s,
-                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                                    s,
-                                    s.GetRequiredService<IDateTimeProvider>(),
-                                    s.GetRequiredService<IIsolationService>(),
-                                    s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeupService<Guid>>(),
-                                    (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<SchemaSingleProcessHandler<Guid>>()),
-                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                    ),
-                                s.GetRequiredService<ITransactionManager>()
-                                )
-                        )
-                        {
-                            ExceptionDelay = TimeSpan.Zero,
-                            DbExecuteParallelismLimit = 1,
-                        })
-                );
-
+                
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()
                     {

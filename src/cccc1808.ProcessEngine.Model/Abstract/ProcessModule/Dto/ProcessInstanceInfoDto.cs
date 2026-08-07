@@ -11,30 +11,12 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto
     /// </summary>
     public readonly record struct ProcessInstanceInfoDto<TId>(
         TId Id,
-        ProcessTypeDto ProcessType,
-        short Priority
-        )
+        ProcessRegistryDto Registry)
     {
-        /// <summary>
-        /// Для сортировки/группировки по критерию: (Priority, ProcessType.ProcessType, ProcessType.Version).
-        /// </summary>
-        public class PriorityComparer
-            : Comparer<ProcessInstanceInfoDto<TId>>
-        {
-            public override int Compare(ProcessInstanceInfoDto<TId> x, ProcessInstanceInfoDto<TId> y)
-            {
-                return Comparer<(short, long, int)>.Default.Compare(
-                    (x.Priority, x.ProcessType.ProcessType, x.ProcessType.ProcessVersion),
-                    (y.Priority, y.ProcessType.ProcessType, y.ProcessType.ProcessVersion)
-                    );
-            }
-        }
-
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                ProcessType.ProcessType,
-                ProcessType.ProcessVersion,
+                Registry.Unique.GetHashCode(),
                 Id);
         }
     }

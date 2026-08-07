@@ -137,6 +137,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
 
                         var joinData = p
                             .data
+                            .Select(e => e.Unique)
                             .Select(e => new { ProcessTypeId = e.ProcessType.ProcessType, e.ProcessType.ProcessVersion, e.Priority })
                             .ToArray();
                         var queryList = p.dbContext.QueryFromCollection(joinData);
@@ -161,9 +162,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                         s = s                            
                             .Where(
                                 e =>
-                                e.Priority == p.registration.Priority
-                                && e.ProcessTypeId == p.registration.ProcessType.ProcessType 
-                                && e.ProcessVersion == p.registration.ProcessType.ProcessVersion
+                                e.Priority == p.registration.Unique.Priority
+                                && e.ProcessTypeId == p.registration.Unique.ProcessType.ProcessType 
+                                && e.ProcessVersion == p.registration.Unique.ProcessType.ProcessVersion
                                 && Comparer<TId>.Default.Compare(e.Id, p.offsetId) > 0 // keyset
                                 )
                             .ApplayQueryCondition(AsyncExecute.Query)
@@ -183,7 +184,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                     {
                         s = s
                             .ApplayQueryCondition(AsyncExecute.QueryIds, p.ids)
-                            .ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations));
+                            //.ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations))
+                            ;
 
                         return s;
                     })

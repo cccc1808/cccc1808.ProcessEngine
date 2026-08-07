@@ -17,6 +17,7 @@ using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
 using Microsoft.EntityFrameworkCore;
@@ -200,12 +201,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
 
             _queueContext.IncreseBufferCapacity(processWithLock.Length);
             var firstKey = _processRegistry.Get(
-                new ProcessTypeDto(processWithLock[0].ProcessTypeId, processWithLock[0].ProcessVersion),
-                processWithLock[0].Priority);
+                processWithLock.First().ToProcessTypeUnique<TId, ProcessDbEntity<TId>>());
 
             // TODO: options.
             // TODO: Возможно нужен будет разный timeout, но пока так.
-            if (firstKey.IsSignleExecuteProcess)
+            if (firstKey.Metadata.IsSignleExecuteProcess)
             {
                 _queueContext.SetReserveTimeout(
                     TimeSpan.FromSeconds(30));
@@ -223,8 +223,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                     IProcessQueueContext<TId>.ProcessDto.ProcessToExecute(
                         elem.Id,
                         _processRegistry.Get(
-                            new ProcessTypeDto(elem.ProcessTypeId, elem.ProcessVersion),
-                            elem.Priority)
+                            elem.ToProcessTypeUnique<TId, ProcessDbEntity<TId>>())
                         )
                     );
             }

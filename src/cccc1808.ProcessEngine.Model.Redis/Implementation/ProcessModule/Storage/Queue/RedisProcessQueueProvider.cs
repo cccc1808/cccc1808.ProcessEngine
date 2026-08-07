@@ -22,17 +22,20 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
     public class RedisProcessQueueProvider<TId> 
         : IProcessQueueProvider<TId>
     {
+        private readonly IServiceProvider _serviceProvider;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
         private readonly IRedisNotifyProcessQueueState _state;
 
-        private readonly OptionsDto<TId> _options;        
+        private readonly ProcessQueueOptionsDto<TId> _options;        
 
         public RedisProcessQueueProvider(
+            IServiceProvider serviceProvider,
             IRedisConnectionFactory redisConnectionFactory,
             IRedisNotifyProcessQueueState state,
 
-            OptionsDto<TId> options)
+            ProcessQueueOptionsDto<TId> options)
         {
+            _serviceProvider = serviceProvider;
             _redisConnectionFactory = redisConnectionFactory;
             _state = state;
 
@@ -84,7 +87,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     var lenghtTasks = new Dictionary<ProcessRegistryDto, Task<long>>(groups.Count);
                     foreach (var elem in groups)
                     {
-                        var t = db.SortedSetLengthAsync(_options.ProcessToQueueSetNameFactory(elem.Key));
+                        var t = db.SortedSetLengthAsync(_options.ProcessToQueueSetNameFactory(_serviceProvider, elem.Key));
 
                         pipline.Add(t);
                         lenghtTasks.Add(elem.Key, t);
@@ -116,7 +119,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 {
                     // Публикуем сообщения.
                     var t1 = db.SortedSetUpdateAsync(
-                        _options.ProcessToQueueSetNameFactory(elem.Key),
+                        _options.ProcessToQueueSetNameFactory(_serviceProvider, elem.Key),
                         // TODO: score можно указывать на основе LastProcessedDate timestamp (чтобы элементы размещались в пордяке даты последней обработки).
                         elem.Value
                             .Select(e => new SortedSetEntry(_options.IdToString(e.ProcessId), score: -1))
@@ -199,7 +202,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         .Take(_options.SearchSetsPerQueryLimit)
                         .Select(e => (
                             entry: e,
-                            queueName: new RedisKey(_options.ProcessToQueueSetNameFactory(e.Key))
+                            queueName: new RedisKey(_options.ProcessToQueueSetNameFactory(_serviceProvider, e.Key))
                             )
                             )
                         .ToArray();
@@ -230,7 +233,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         continue;
                     }
 
-                    var processTypeKey = _options.QueueSetNameToProcessTypeFactory(consumedMessages.Key);
+                    var processTypeKey = _options.QueueSetNameToProcessTypeFactory(_serviceProvider, consumedMessages.Key);
 
                     if (!stopwatch.IsRunning)
                     {

@@ -29,7 +29,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 {
                     if (elem.WakeupState == WakeupStateEnum.NoWakeup)
                     {
-                        throw new ArgumentException($"Регистрация {elem.ProcessRegistry.ProcessType.ProcessType} не требуется.");
+                        throw new ArgumentException($"Регистрация {elem.Unique.ProcessType.ProcessType} не требуется.");
                     }
 
                     var typedHandler = (IWakeupCheckHandler<TId>)scope.ServiceProvider.GetRequiredService(elem.CheckWakeupHandlerType);
@@ -37,7 +37,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
             }
             
             _checkHandlers = registries.ToFrozenDictionary(
-                e => e.ProcessRegistry.ProcessType, 
+                e => e.Unique.ProcessType,
                 e => (e.WakeupState, e.CheckWakeupHandlerType));
         }
 

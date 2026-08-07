@@ -74,8 +74,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                 result.Add(
                     new IQueueProcessRunnerQuery<TId>.SelectResult(
                         elem, 
-                        typedContext.ProcessRegistry.ProcessType,
-                        typedContext.ProcessRegistry.Priority
+                        typedContext.ProcessRegistry.Unique.ProcessType,
+                        typedContext.ProcessRegistry.Unique.Priority
                         )
                     );
 
@@ -90,7 +90,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
 
         #region
 
-        private class Options 
+        public class Options 
             : IQueueProcessRunnerQuery<TId>.IOptions
         {
             public int BatchSize { get; set; } 

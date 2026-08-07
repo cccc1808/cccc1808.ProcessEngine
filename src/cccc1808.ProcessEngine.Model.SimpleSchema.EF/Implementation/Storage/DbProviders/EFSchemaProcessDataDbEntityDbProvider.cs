@@ -62,7 +62,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Db
 
             foreach (var elem in currentProcesses)
             {
-                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.ProcessType);
+                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.Registry.Unique.ProcessType);
 
                 var entity = dbData[elem.Id];
 
@@ -93,7 +93,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.Db
 
             foreach (var elem in currentProcesses)
             {
-                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.ProcessType);
+                var handler = _schemaService.GetProcessStateHandler(elem.Process.Info.Registry.Unique.ProcessType);
                 var component = (EFSchemaProcessComponentProxy<TId>)elem.GetComponent<ISchemaProcessComponent>();
 
                 component.Entity.CurrentTokenActionState = _actionStateSerializer.Serialize(component.AllActionStates());

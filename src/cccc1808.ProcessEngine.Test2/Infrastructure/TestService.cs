@@ -36,12 +36,18 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// <summary>
         /// Асинхронная обработка процессов.
         /// </summary>
-        public async Task RunProcessRunnerAsync(IServiceProvider serviceProvider)
+        public async Task RunProcessRunnerAsync(IServiceProvider serviceProvider, bool isSingle = true)
         {
-            var runner = serviceProvider.GetRequiredService<IProcessRunner>();
+            var runner = serviceProvider.GetRequiredService<IQueueProcessRunner>();
 
-            await runner.RunAsync(oneCycle: true, default);
-            await runner.WaitRunningTasksAsync(default);
+            if (isSingle)
+            {
+                await runner.RunSingleExecuteAsync(executeOne: true, default);
+            }
+            else 
+            {
+                await runner.RunRangeExecuteAsync(executeOne: true, default);
+            }
         }
 
         #endregion

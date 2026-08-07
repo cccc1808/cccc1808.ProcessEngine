@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
     /// Используется для ситуации, когда триггер был взят в обработку из очереди 
     /// (чтобы db selector <see cref="ITriggerRunner.DbSelectorAsync(bool, CancellationToken)"/> не помещал его в очередь повторно).
     /// </summary>
-    public interface ITriggerReservationProvider<TId>
+    public interface ITriggerReserveProvider<TId>
     {
         /// <summary>
         /// Пытаемся зарезервировать триггер.

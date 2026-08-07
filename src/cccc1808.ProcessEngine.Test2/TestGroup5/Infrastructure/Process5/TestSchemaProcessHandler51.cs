@@ -106,7 +106,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                     parameters.process.Id, 
                     isRangeTrigger: true, 
                     handlerKey: EFTimerChildTriggerHandler<Guid>.Name,
-                    priority: parameters.process.Process.Info.Priority,
+                    priority: parameters.process.Process.Info.Registry.Unique.Priority,
                     isActivated: false,
                     counter: processState.ChildProcessCount,
                     isChildTrigger: true), 
@@ -149,7 +149,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                                 TestSchemaProcessHandler52.ProcessType.ProcessType,
                                 TestSchemaProcessHandler52.ProcessType.ProcessVersion,
                                 1,
-                                DateTimeOffset.MinValue,
                                 false,
                                 ProcessStatusEnum.AsyncExecute,
                                 null

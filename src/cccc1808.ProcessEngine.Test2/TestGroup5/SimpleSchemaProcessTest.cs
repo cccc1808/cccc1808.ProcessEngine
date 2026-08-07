@@ -74,7 +74,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler.ProcessType.ProcessType,
                         TestSchemaProcessHandler.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -181,7 +180,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler2.ProcessType.ProcessType,
                         TestSchemaProcessHandler2.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -292,7 +290,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler4.ProcessType.ProcessType,
                         TestSchemaProcessHandler4.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.WaitEvent,
                         null

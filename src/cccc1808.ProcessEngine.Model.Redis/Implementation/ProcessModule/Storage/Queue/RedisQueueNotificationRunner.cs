@@ -10,20 +10,21 @@ using StackExchange.Redis;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
 {
-    public class RedisQueueNotificationRunner<TId> : IRedisProcessQueueNotificationRunner
+    public class RedisQueueNotificationRunner<TId>
+        : IRedisProcessQueueNotificationRunner
     {
         private readonly IProcessRegistry _processRegistry;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
         private readonly IRedisNotifyProcessQueueState _state;
 
-        private readonly OptionsDto<TId> _options;
+        private readonly ProcessQueueOptionsDto<TId> _options;
 
         public RedisQueueNotificationRunner(
             IProcessRegistry processRegistry,
             IRedisConnectionFactory redisConnectionFactory,
             IRedisNotifyProcessQueueState state,
 
-            OptionsDto<TId> options)
+            ProcessQueueOptionsDto<TId> options)
         {
             _processRegistry = processRegistry;
             _redisConnectionFactory = redisConnectionFactory;
@@ -95,7 +96,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         var key = elem.Key;
                         completeBuffer.TryRemove(elem.Key, out _);
 
-                        if (!key.IsSignleExecuteProcess)
+                        if (!key.Metadata.IsSignleExecuteProcess)
                         {
                             rangeNotifyByffer.Add(key);
                         }

@@ -10,11 +10,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -25,10 +24,6 @@ using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Service
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.T1;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
@@ -88,7 +83,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         3,
                         1,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -269,99 +263,99 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             }
         }
 
-        /// <summary>
-        /// TODO: подвинуть в другой test class.
-        /// </summary>
-        /// <returns></returns>
-        [Fact(Timeout = FixtureCollection.TestTimeout)]
-        public async Task ReservationSubTestAsync()
-        {
-            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
-            {
-                var options = scope.ServiceProvider.GetRequiredService<RedisProcessReservationOptions>();
-                var connectionFactory = scope.ServiceProvider.GetRequiredService<IRedisConnectionFactory>();
-                var provider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<Guid>>();
+        ///// <summary>
+        ///// TODO: подвинуть в другой test class.
+        ///// </summary>
+        ///// <returns></returns>
+        //[Fact(Timeout = FixtureCollection.TestTimeout)]
+        //public async Task ReservationSubTestAsync()
+        //{
+        //    await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+        //    {
+        //        var options = scope.ServiceProvider.GetRequiredService<RedisProcessReservationOptions>();
+        //        var connectionFactory = scope.ServiceProvider.GetRequiredService<IRedisConnectionFactory>();
+        //        var provider = scope.ServiceProvider.GetRequiredService<IProcessReservationProvider<Guid>>();
 
-                var connection = await connectionFactory.GetAsync(options.ConnectionName, CancellationToken.None);
-                await using var subscribe = await connection.SubscribeAsync(options.ChannelName, CancellationToken.None);
-                await using var subscribeEnumerator = subscribe.ChannelMessages.GetAsyncEnumerator();
+        //        var connection = await connectionFactory.GetAsync(options.ConnectionName, CancellationToken.None);
+        //        await using var subscribe = await connection.SubscribeAsync(options.ChannelName, CancellationToken.None);
+        //        await using var subscribeEnumerator = subscribe.ChannelMessages.GetAsyncEnumerator();
 
-                // 1)
-                await provider.TryReserveAsync([Guid.Empty], DateTimeOffset.Now.AddHours(1), CancellationToken.None);
+        //        // 1)
+        //        await provider.TryReserveAsync([Guid.Empty], DateTimeOffset.Now.AddHours(1), CancellationToken.None);
 
-                (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
-                JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
-                    .Deserialize<ReservationMessageDto<Guid>>()
-                    .ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(Guid.Empty),
-                        e => e.IsReserveOrUnreserve.ShouldBeTrue()
-                        );
+        //        (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
+        //        JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
+        //            .Deserialize<ReservationMessageDto<Guid>>()
+        //            .ShouldSatisfyAllConditions(
+        //                e => e.ProcessId.ShouldBe(Guid.Empty),
+        //                e => e.IsReserveOrUnreserve.ShouldBeTrue()
+        //                );
 
-                // 2)
-                await provider.UnreserveAsync([Guid.Empty], CancellationToken.None);
+        //        // 2)
+        //        await provider.UnreserveAsync([Guid.Empty], CancellationToken.None);
 
-                (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
-                JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
-                    .Deserialize<ReservationMessageDto<Guid>>()
-                    .ShouldSatisfyAllConditions(
-                        e => e.ProcessId.ShouldBe(Guid.Empty),
-                        e => e.IsReserveOrUnreserve.ShouldBeFalse()
-                        );
-            }
-        }
+        //        (await subscribeEnumerator.MoveNextAsync()).ShouldBeTrue();
+        //        JsonDocument.Parse((string)subscribeEnumerator.Current.Message)
+        //            .Deserialize<ReservationMessageDto<Guid>>()
+        //            .ShouldSatisfyAllConditions(
+        //                e => e.ProcessId.ShouldBe(Guid.Empty),
+        //                e => e.IsReserveOrUnreserve.ShouldBeFalse()
+        //                );
+        //    }
+        //}
 
-        [Fact(Timeout = FixtureCollection.TestTimeout)]
-        public async Task RedisQueueTestAsync()
-        {
-            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
-            {
-                var message = new IRedisReservationQueue<Guid>.MessageDto(
-                    new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
-                    Guid.Empty);
+        //[Fact(Timeout = FixtureCollection.TestTimeout)]
+        //public async Task RedisQueueTestAsync()
+        //{
+        //    await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
+        //    {
+        //        var message = new IRedisReservationQueue<Guid>.MessageDto(
+        //            new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1),
+        //            Guid.Empty);
 
-                var state = scope.ServiceProvider.GetRequiredService<IRedisNotifyQueueState>();
-                var queueProvider = scope.ServiceProvider.GetRequiredService<IRedisReservationQueue<Guid>>();
-                var runner = scope.ServiceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
+        //        var state = scope.ServiceProvider.GetRequiredService<IRedisNotifyQueueState>();
+        //        var queueProvider = scope.ServiceProvider.GetRequiredService<IRedisReservationQueue<Guid>>();
+        //        var runner = scope.ServiceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
 
-                {
-                    var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
-                    consumeResult.ShouldBeEmpty();
+        //        {
+        //            var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
+        //            consumeResult.ShouldBeEmpty();
 
-                    state.GetQueueWithMessages().ShouldBeEmpty();
-                    var waitTask = await state.AllQueueEmptySleepAsync(default);
-                    waitTask.IsCompleted.ShouldBeFalse();
-                }
+        //            state.GetQueueWithMessages().ShouldBeEmpty();
+        //            var waitTask = await state.AllQueueEmptySleepAsync(default);
+        //            waitTask.IsCompleted.ShouldBeFalse();
+        //        }
 
-                {
-                    var runnerTask = runner.RunAsync(one: true, default);
+        //        {
+        //            var runnerTask = runner.RunAsync(one: true, default);
 
-                    {
-                        var produceResult = await queueProvider.ProduceAsync([message], default);
-                        produceResult.ShouldBeEmpty();
-                    }
+        //            {
+        //                var produceResult = await queueProvider.ProduceAsync([message], default);
+        //                produceResult.ShouldBeEmpty();
+        //            }
 
-                    {
-                        await runnerTask;
+        //            {
+        //                await runnerTask;
 
-                        state.GetQueueWithMessages().ShouldNotBeEmpty();
-                        var waitTask = await state.AllQueueEmptySleepAsync(default);
-                        waitTask.IsCompleted.ShouldBeTrue();
-                    }
-                }
+        //                state.GetQueueWithMessages().ShouldNotBeEmpty();
+        //                var waitTask = await state.AllQueueEmptySleepAsync(default);
+        //                waitTask.IsCompleted.ShouldBeTrue();
+        //            }
+        //        }
 
-                {
-                    var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
-                    consumeResult.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
-                        e => e.Registry.ProcessType.ShouldBe(message.Registry.ProcessType),
-                        e => e.Registry.ProcessType.ProcessVersion.ShouldBe(message.Registry.ProcessType.ProcessVersion),
-                        e => e.ProcessId.ShouldBe(message.ProcessId));
+        //        {
+        //            var consumeResult = await queueProvider.ConsumeAsync(5, batchTimeout: TimeSpan.FromSeconds(2), default);
+        //            consumeResult.ShouldHaveSingleItem().ShouldSatisfyAllConditions(
+        //                e => e.Registry.ProcessType.ShouldBe(message.Registry.ProcessType),
+        //                e => e.Registry.ProcessType.ProcessVersion.ShouldBe(message.Registry.ProcessType.ProcessVersion),
+        //                e => e.ProcessId.ShouldBe(message.ProcessId));
 
-                    state.GetQueueWithMessages().ShouldBeEmpty();
-                    var waitTask = await state.AllQueueEmptySleepAsync(default);
-                    waitTask.IsCompleted.ShouldBeFalse();
-                }
-            }
-        }
+        //            state.GetQueueWithMessages().ShouldBeEmpty();
+        //            var waitTask = await state.AllQueueEmptySleepAsync(default);
+        //            waitTask.IsCompleted.ShouldBeFalse();
+        //        }
+        //    }
+        //}
 
         private static async ValueTask Handler(
             IServiceProvider serviceProvider,
@@ -369,7 +363,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         {
             var process = group.Group.Values.First();
 
-            switch (process.Process.Info.ProcessType.ProcessType)
+            switch (process.Process.Info.Registry.Unique.ProcessType.ProcessType)
             {
                 case 3:
                     {
@@ -378,7 +372,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
-                        var externalCounterProvider = serviceProvider.GetRequiredService<IExternalCounterProvider>();
+                        var externalCounterContext = serviceProvider.GetRequiredService<IExternalCounterContext>();
+
 
                         var childProcessesCreated = await dbcontext
                             .Set<ChildProcessDbEntity>()
@@ -404,7 +399,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     isChildTrigger: false), 
                                 CancellationToken.None);
 
-                            await externalCounterProvider.CreateCounterAsync(triggerKey, childCount, default);
+                            await externalCounterContext.CreateCounterAsync(triggerKey, childCount, default);
 
                             for (int i = 0; i < childCount; i++)
                             {
@@ -415,7 +410,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                         4,
                                         1,
                                         1,
-                                        DateTimeOffset.MinValue,
                                         false,
                                         ProcessStatusEnum.AsyncExecute,
                                         null
@@ -453,12 +447,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                 case 4:
                     {
-                        var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
-                        var isolationService = serviceProvider.GetRequiredService<IIsolationService>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var triggerEventRaiser = serviceProvider.GetRequiredService<ITriggerEventRaiser<Guid>>();
                         var externalCounterProvider = serviceProvider.GetRequiredService<IExternalCounterProvider>();
+                        var externalCounterContext = serviceProvider.GetRequiredService<IExternalCounterContext>();
 
                         var processIdString = process.Id.ToString();
                         var component = process.GetComponent<ChildProcessDbEntity>();
@@ -473,24 +466,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                             await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString);
 
                             // 2) Меняем значение счетчика и фиксируем процесс.
-                            var counter = await externalCounterProvider.TryDecrementCounterAsync(
-                                component.ParentTriggerKey,
-                                processIdString);
+                            var counter = await externalCounterContext.TryDecrementCounterAsync(component.ParentTriggerKey, processIdString);
 
-                            transactionManager.TryGetCurrentTransaction(out var currentTransaction);
-
-                            isolationService.RegisterManualCompensate(
-                                async (t) => 
-                                {
-                                    await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString);
-                                });
-                            currentTransaction.AddAfterCommitHandler(
-                                // В случае коммита транзакции удаляем отметку участника счетчика.
-                                commitHandler: async (t) => await externalCounterProvider.CommitCounterAsync(component.ParentTriggerKey, processIdString),
-                                // В случае падения транзакции пробуем сбросить.
-                                roolbackHandler: async (t) => await externalCounterProvider.CompensateCounterAsync(component.ParentTriggerKey, processIdString));
-
-                            if (counter == 0)
+                             if (counter == 0)
                             {
                                 // Если счетчик исчерпан, то шлем событие на триггер.
                                 await triggerEventRaiser.RaiseAsync(

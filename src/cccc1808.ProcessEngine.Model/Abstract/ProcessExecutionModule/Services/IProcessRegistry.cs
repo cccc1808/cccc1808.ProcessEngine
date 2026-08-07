@@ -13,7 +13,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services
         ICollection<ProcessRegistryDto> All();
 
         ProcessRegistryDto Get(
-            ProcessTypeDto ProcessType,
-            short Priority);
+            ProcessTypeUniqueDto processTypeUnique);
     }
 }

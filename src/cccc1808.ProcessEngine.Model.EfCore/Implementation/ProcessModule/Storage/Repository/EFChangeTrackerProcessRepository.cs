@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository;
@@ -17,6 +18,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
@@ -35,6 +37,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IIdGenerator<TId> _idGenerator;        
         private readonly IEnumerable<IProcessDbProvider<TId>> _processLoaders;
+        private readonly IProcessRegistry _processRegistry;
         private readonly IWakeupRegistry<TId> _wakeupRegistry;
         private readonly Options _options;
 
@@ -47,6 +50,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             IDateTimeProvider dateTimeProvider,
             IIdGenerator<TId> idGenerator,
             IEnumerable<IProcessDbProvider<TId>> processLoaders,
+            IProcessRegistry processRegistry,
             IWakeupRegistry<TId> wakeupRegistry,
             Options options,
 
@@ -58,6 +62,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             _dateTimeProvider = dateTimeProvider;
             _idGenerator = idGenerator;
             _processLoaders = processLoaders;
+            _processRegistry = processRegistry;
             _wakeupRegistry = wakeupRegistry;
             _options = options;
 
@@ -121,7 +126,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             CancellationToken cancellationToken)
         {
             var byTypeIndex = ids
-                .GroupBy(e => e.ProcessType)
+                .GroupBy(e => e.Registry.Unique.ProcessType)
                 .ToDictionary(
                     e => e.Key,
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
@@ -155,9 +160,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         .QueryFromCollection(notLoadedProcesses.Values.Select(
                             e => new
                             {
-                                ProcessTypeId = e.ProcessType.ProcessType,
-                                ProcessVersion = e.ProcessType.ProcessVersion,
-                                Priority = e.Priority,
+                                ProcessTypeId = e.Registry.Unique.ProcessType.ProcessType,
+                                ProcessVersion = e.Registry.Unique.ProcessType.ProcessVersion,
+                                Priority = e.Registry.Unique.Priority,
                                 Id = e.Id,
                             })
                         .ToArray());
@@ -194,7 +199,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     foreach (var elem in data)
                     {
                         var container = new ProcessContainer<TId>(
-                            new EFProcessProxyComponent<TId>(elem),
+                            new EFProcessProxyComponent<TId>(
+                                elem, 
+                                _processRegistry.Get(
+                                    elem.ToProcessTypeUnique<TId, TDbEntity>()
+                                    )
+                                ),
                             new AsyncSessionComponent(
                                 sessionId: Guid.Empty,
                                 isSessionFirstStep: true,
@@ -253,7 +263,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                         e =>
                         {
                             return (IProcessContainer<TId>)new ProcessContainer<TId>(
-                                new EFProcessProxyComponent<TId>(e),
+                                new EFProcessProxyComponent<TId>(
+                                    e,
+                                    _processRegistry.Get(
+                                        e.ToProcessTypeUnique<TId, TDbEntity>())
+                                    ),
                                 new AsyncSessionComponent(
                                     sessionId: Guid.Empty,
                                     isSessionFirstStep: true,
@@ -273,7 +287,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
             }
 
             var byTypeIndex = containers.Values
-                .GroupBy(e => e.Process.Info.ProcessType)
+                .GroupBy(e => e.Process.Info.Registry.Unique.ProcessType)
                 .ToDictionary(
                     e => e.Key,
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());
@@ -303,7 +317,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
                     });
 
             var byTypeIndex = processes
-                .GroupBy(e => e.Process.Info.ProcessType)
+                .GroupBy(e => e.Process.Info.Registry.Unique.ProcessType)
                 .ToDictionary(
                     e => e.Key,
                     e => (ICollection<TId>)e.Select(e => e.Id).ToArray());

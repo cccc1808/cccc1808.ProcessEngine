@@ -80,7 +80,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler51.ProcessType.ProcessType,
                         TestSchemaProcessHandler51.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null

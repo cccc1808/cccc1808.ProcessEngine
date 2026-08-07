@@ -68,7 +68,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
 
         public readonly record struct DbProcessingForHandlerParameters(
             IEFDbContext dbContext,
-            ICollection<ProcessRegistryDto> registrations,
+            ICollection<ProcessTypeUniqueDto> registrations,
             ICollection<TId> ids);
     }
 }

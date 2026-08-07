@@ -54,9 +54,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var testState = scope.ServiceProvider.GetRequiredService<TestProcessBody.TestState>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
-
-                await runner.BuildHandler();
 
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
                     new ProcessDbEntity<Guid>(
@@ -64,7 +61,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         2,
                         1,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null

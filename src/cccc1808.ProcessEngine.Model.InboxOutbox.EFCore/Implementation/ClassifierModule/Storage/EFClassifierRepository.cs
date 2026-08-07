@@ -241,9 +241,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
                                     new ProcessDbEntity<TId>(
                                         id: elem.Value.Entity.ProcessId,
-                                        processTypeId: registry.Registry.ProcessType.ProcessType,
-                                        processVersion: registry.Registry.ProcessType.ProcessVersion,
-                                        priority: registry.Registry.Priority,
+                                        processTypeId: registry.Unique.ProcessType.ProcessType,
+                                        processVersion: registry.Unique.ProcessType.ProcessVersion,
+                                        priority: registry.Unique.Priority,
                                         stoppedByError: false,
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));
@@ -488,9 +488,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                 dbContext.Set<ProcessDbEntity<TId>>().Add(
                                     new ProcessDbEntity<TId>(
                                         id: elem.Value.Entity.ProcessId,
-                                        processTypeId: registry.Registry.ProcessType.ProcessType,
-                                        processVersion: registry.Registry.ProcessType.ProcessVersion,
-                                        priority: registry.Registry.Priority,
+                                        processTypeId: registry.Unique.ProcessType.ProcessType,
+                                        processVersion: registry.Unique.ProcessType.ProcessVersion,
+                                        priority: registry.Unique.Priority,
                                         stoppedByError: false,
                                         status: ProcessStatusEnum.WaitEvent,
                                         retryCount: null));

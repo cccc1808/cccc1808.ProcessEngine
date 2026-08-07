@@ -76,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             processId: elem.Id,
                             isRangeTrigger: true,
                             handlerKey: NoWakeupRetryTriggerRangeHandler<Guid>.Name,
-                            priority: elem.Process.Info.Priority,
+                            priority: elem.Process.Info.Registry.Unique.Priority,
                             isActivated: true,
                             isChildTrigger: false
                             )

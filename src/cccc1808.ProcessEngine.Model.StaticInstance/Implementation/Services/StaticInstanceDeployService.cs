@@ -16,23 +16,17 @@ namespace cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services
 {
     public class StaticInstanceDeployService<TId> : IStaticInstanceDeployService
     {
-        private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IIdGenerator<TId> _idGenerator;
         private readonly IQueries _queries;
         private readonly IProcessRegistry _processRegistry;
         private readonly IStaticInstanceRegistry _registry;
         private readonly IStaticInstanceHandler<TId> _staticInstanceHandler;
 
         public StaticInstanceDeployService(
-            ILockQueryHintStore lockQueryHintStore, 
-            IIdGenerator<TId> idGenerator,
             IQueries queries,
             IProcessRegistry processRegistry,
             IStaticInstanceRegistry registry, 
             IStaticInstanceHandler<TId> staticInstanceHandler)
         {
-            _lockQueryHintStore = lockQueryHintStore;
-            _idGenerator = idGenerator;
             _queries = queries;
             _processRegistry = processRegistry;
             _registry = registry;
@@ -142,7 +136,9 @@ namespace cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services
         public void Validate()
         {
             var all = _registry.All();
-            var processes = _processRegistry.All().Select(e => e.ProcessType.ProcessType).ToHashSet();
+            var processes = _processRegistry.All()
+                .Select(e => e.Unique.ProcessType.ProcessType)
+                .ToHashSet();
 
             foreach (var elem in all)
             {

@@ -17,7 +17,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITransactionManager _transactionManager;
-        private readonly ITriggerReservationProvider<TId> _triggerReservationProvider;
+        private readonly ITriggerReserveProvider<TId> _triggerReservationProvider;
         private readonly ITriggerQueueProvider<TId> _triggerQueue;
 
         private readonly IsolationContainer<ITriggerQueueContext<TId>.TriggerDto> _triggerToExecuteBuffer;
@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public TriggerQueueContext(
             IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
-            ITriggerReservationProvider<TId> triggerReservationProvider,
+            ITriggerReserveProvider<TId> triggerReservationProvider,
             ITriggerQueueProvider<TId> triggerQueue)
         {
             _dateTimeProvider = dateTimeProvider;

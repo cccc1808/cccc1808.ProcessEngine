@@ -69,7 +69,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         3,
                         1,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -235,7 +234,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         {
             var process = group.Group.Values.First();
 
-            switch (process.Process.Info.ProcessType.ProcessType)
+            switch (process.Process.Info.Registry.Unique.ProcessType.ProcessType)
             {
                 case 3:
                     {
@@ -276,7 +275,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                         4,
                                         1,
                                         1,
-                                        DateTimeOffset.MinValue,
                                         false,
                                         ProcessStatusEnum.AsyncExecute,
                                         null

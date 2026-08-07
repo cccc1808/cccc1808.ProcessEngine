@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -19,7 +20,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners
 {
-    public class QueueProcessRunner<TId>
+    public class QueueProcessRunner<TId> 
+        : IQueueProcessRunner
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly OptionsDto _options;
@@ -33,7 +35,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         }
 
         public async Task RunRangeExecuteAsync(
-            bool executeOne, 
+            bool executeOne,
             CancellationToken cancellationToken)
         {
             static async Task<ICollection<IProcessQueueProvider<TId>.MessageDto>> ConsumeAsync(
@@ -68,7 +70,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 ICollection<IProcessQueueProvider<TId>.MessageDto> selectData,
                 CancellationToken cancellationToken)
             {
-                var groupByRange = selectData.GroupBy(e => (e.Registry.ProcessType, e.Registry.ProcessType.ProcessVersion));
+                var groupByRange = selectData.GroupBy(e => (e.Registry.Unique, e.Registry.Metadata.IsSignleExecuteProcess));
 
                 foreach (var group in groupByRange)
                 {
@@ -88,7 +90,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                         var handler = options.RangeExecute_MiddlewareFactory(serviceProvider);
 
                                         await handler.HandleRangeAsync(
-                                            [batch.Select(e => new ProcessInstanceInfoDto<TId>(e.ProcessId, e.Registry.ProcessType, e.Registry.Priority)).ToArray()],
+                                            [batch.Select(e => new ProcessInstanceInfoDto<TId>(e.ProcessId, e.Registry)).ToArray()],
                                             cancellationToken);
                                     }
                                 }
@@ -166,10 +168,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     }
                 }
             }
-            finally 
+            finally
             {
                 await Task.WhenAll(runningTasks.Values);
-            }            
+            }
         }
 
         public async Task RunSingleExecuteAsync(
@@ -224,7 +226,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     var handler = options.SingleExecute_MiddlewareFactory(serviceProvider);
 
                                     await handler.HandleRangeAsync(
-                                        [[new ProcessInstanceInfoDto<TId>(elem.ProcessId, elem.Registry.ProcessType, elem.Registry.Priority)]],
+                                        [[new ProcessInstanceInfoDto<TId>(elem.ProcessId, elem.Registry)]],
                                         cancellationToken);
                                 }
                             }
@@ -238,10 +240,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 }
             }
 
-             using var parallelLimiter = new SemaphoreSlim(
-                _options.SingleExecute_ParallelismLimit
-                + 1 // на ConsumeAsync
-                );
+            using var parallelLimiter = new SemaphoreSlim(
+               _options.SingleExecute_ParallelismLimit
+               + 1 // на ConsumeAsync
+               );
             var runningTasks = new ConcurrentDictionary<Guid, Task>();
 
             try
@@ -302,7 +304,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     }
                 }
             }
-            finally 
+            finally
             {
                 await Task.WhenAll(runningTasks.Values);
             }
@@ -374,7 +376,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                                         elem)
                                                     )
                                                     .ToArray(),
-                                                reserveDate: elem.IsSignleExecuteProcess
+                                                reserveDate: elem.Metadata.IsSignleExecuteProcess
                                                     ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
                                                     : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
                                                 cancellationToken

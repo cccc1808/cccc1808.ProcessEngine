@@ -13,7 +13,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
     public class ProcessRegistry
         : IProcessRegistry
     {
-        private readonly FrozenDictionary<(ProcessTypeDto, short), ProcessRegistryDto> _dictionary;
+        private readonly FrozenDictionary<ProcessTypeUniqueDto, ProcessRegistryDto> _dictionary;
         private readonly ProcessRegistryDto[] _registrations;
 
         public ProcessRegistry(IEnumerable<ProcessRegistryDto> registrations)
@@ -27,7 +27,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             }
 
             _registrations = registrations.ToArray();
-            _dictionary = registrations.ToFrozenDictionary(e => (e.ProcessType, e .Priority), e => e);
+            _dictionary = registrations.ToFrozenDictionary(e => e.Unique, e => e);
         }
 
         public ICollection<ProcessRegistryDto> All()
@@ -35,9 +35,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             return _registrations;
         }
 
-        public ProcessRegistryDto Get(ProcessTypeDto ProcessType, short Priority)
+        public ProcessRegistryDto Get(ProcessTypeUniqueDto processTypeUnique)
         {
-            return _dictionary[(ProcessType, Priority)];
+            return _dictionary[processTypeUnique];
         }
     }
 }
