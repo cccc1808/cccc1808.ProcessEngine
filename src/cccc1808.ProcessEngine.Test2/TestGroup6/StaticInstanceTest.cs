@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Services;
 using cccc1808.ProcessEngine.Model.StaticInstance.EF.Abstract.Entities;
 using cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;

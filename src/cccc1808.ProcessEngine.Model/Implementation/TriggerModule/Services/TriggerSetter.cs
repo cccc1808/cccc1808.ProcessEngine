@@ -366,11 +366,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 trigger.NeedRemove = value;
             }
 
-            public void SetSelectLockTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value)
+            public void SetReservationTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value)
             {
-                if (trigger.SelectLockTimeout != value)
+                if (trigger.ReservationTimeout != value)
                 {
-                    trigger.SelectLockTimeout = value;
+                    trigger.ReservationTimeout = value;
                     trigger.NeedUpdate = true;
                 }
             }
@@ -398,7 +398,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         SetCompleted(trigger, true);
                     }
 
-                    SetSelectLockTimeout(trigger, _dateTimeProvider.UtcNow);
+                    SetReservationTimeout(trigger, _dateTimeProvider.UtcNow);
                 }                
             }
         }

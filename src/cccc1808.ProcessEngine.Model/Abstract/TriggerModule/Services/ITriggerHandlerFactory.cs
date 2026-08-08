@@ -14,6 +14,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
             IServiceProvider serviceProvider,
             string key);
 
+        bool IsRangeHandler(
+            IServiceProvider serviceProvider,
+            string key);
+
         bool TryGetHandler(
             IServiceProvider serviceProvider,
             string key,

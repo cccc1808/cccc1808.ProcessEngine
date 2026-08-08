@@ -66,9 +66,9 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             CancellationToken cancellationToken)
         {
             var processData = process.GetComponent<ISchemaProcessComponent>();
-            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
-            var processStateHandler = _schemaService.GetProcessStateHandler(process.Process.Info.ProcessType);
-            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
+            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.Registry.Unique.ProcessType);
+            var processStateHandler = _schemaService.GetProcessStateHandler(process.Process.Info.Registry.Unique.ProcessType);
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.Registry.Unique.ProcessType, processData.CurrentTokenId, cancellationToken);
 
             // Отбираем только те действия, которые активированы на текущий момент.
             var forExecuting = token.Actions
@@ -142,8 +142,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
             CancellationToken cancellationToken)
         {
             var processData = process.GetComponent<ISchemaProcessComponent>();
-            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
-            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
+            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.Registry.Unique.ProcessType);
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.Registry.Unique.ProcessType, processData.CurrentTokenId, cancellationToken);
 
             var isAsyncExecutingStatus = process.Process.Status is ProcessStatusEnum.AsyncExecute;
             var action = token.GetAction(actionId);
@@ -208,8 +208,8 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                 string detail) => $"Ожидается активный токен и действие. {tokenId}. {actionId}. {detail}";
 
             var processData = process.GetComponent<ISchemaProcessComponent>();
-            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.ProcessType);
-            var token = await _schemaService.GetSchemaToken(process.Process.Info.ProcessType, processData.CurrentTokenId, cancellationToken);
+            var processHandler = _schemaService.GetProcessHandler(process.Process.Info.Registry.Unique.ProcessType);
+            var token = await _schemaService.GetSchemaToken(process.Process.Info.Registry.Unique.ProcessType, processData.CurrentTokenId, cancellationToken);
 
             if (tokenId != token.Id)
             {
@@ -513,8 +513,7 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Services
                             p.process.Id,
                             isRangeTrigger: true,
                             handlerKey: p.This._options.TimerTriggerHandler,
-                            priority:
-                            p.process.Process.Info.Priority,
+                            priority: p.process.Process.Info.Registry.Unique.Priority,
                             isActivated: true,
                             isChildTrigger: true),
                         t);

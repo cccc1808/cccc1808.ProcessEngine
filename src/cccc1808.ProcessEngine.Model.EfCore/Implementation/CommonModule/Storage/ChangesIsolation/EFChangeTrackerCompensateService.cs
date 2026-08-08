@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 
@@ -14,6 +15,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
     {
         private readonly IEFDbContext _dbContext;
 
+        private int ScopeIndex { get; set; }
+            = IsolationContainer.TransactionIsolationIndex + 1;
+
         public EFChangeTrackerCompensateService(IEFDbContext dbContext)
         {
             _dbContext = dbContext;
@@ -22,7 +26,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
         public ValueTask<ICompensateService.ICompensateScope> StartScopeAsync(
             CancellationToken cancellationToken)
         {
-            var scope = new Scope(_dbContext);
+            var scope = new Scope(_dbContext, ++ScopeIndex);
             return ValueTask.FromResult<ICompensateService.ICompensateScope>(scope);
         }
 
@@ -30,20 +34,26 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
             : ICompensateService.ICompensateScope
         {
             private readonly IEFDbContext _dbContext;
-            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
+            private readonly List<(object state, Func<int, object, CancellationToken, ValueTask> handler)> _manualCompensateHandlers;
 
-            private bool IsCommited { get; set; }            
+            private bool IsCommited { get; set; }
 
-            public Scope(IEFDbContext dbContext)
+            public int ScopeIndex { get; }
+
+            public Scope(
+                IEFDbContext dbContext,
+                int scopeId)
             {
                 _dbContext = dbContext;
-                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
+                _manualCompensateHandlers = new List<(object state, Func<int, object, CancellationToken, ValueTask> handler)>(5);
+                ScopeIndex = scopeId;
             }
 
             public void RegisterManualCompensateHandler(
-                Func<CancellationToken, ValueTask> manualCompensateHandler)
+                object state,
+                Func<int, object, CancellationToken, ValueTask> manualCompensateHandler)
             {
-                _manualCompensateHandlers.Add(manualCompensateHandler);
+                _manualCompensateHandlers.Add((state, manualCompensateHandler));
             }
 
             public ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -66,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storag
 
                 foreach (var elem in _manualCompensateHandlers)
                 {
-                    await elem(cancellationToken);
+                    await elem.handler(ScopeIndex, elem.state, cancellationToken);
                 }
 
                 _dbContext.DbContext.ChangeTracker.Clear();

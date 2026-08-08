@@ -27,18 +27,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
             ) DbProcessingForSelector
         { get; }
 
-        [Obsolete("1) Join на registrations, 2) Сортировка Priority")]
-        IQueryableCondition<T, TEntity, DbProcessingForSelectorParameters> DbProcessingForSelectorForProjection1<T>(IQueryable<T> _);
-
-        [Obsolete("1) Join на registrations, 2) Сортировка Priority")]
-        IQueryableCondition<T, TEntity, DbProcessingForSelectorParameters2> DbProcessingForSelectorForProjection2<T>(IQueryable<T> _);
-
-        (
-            object? no,
-            IQueryableCondition<TEntity, DbProcessingForHandlerParameters> Query
-            ) DbProcessingForHandler
-        { get; }
-
         [Obsolete("1) Join на registration и id.")]
         IQueryableCondition<T, TEntity, DbProcessingForHandlerParameters> DbProcessingForHandlerProjection<T>(
             IQueryable<T> source);
@@ -75,24 +63,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions
 
 
         public readonly record struct DbProcessingForSelectorParameters(
-            DateTimeOffset now,
-            IEFDbContext dbContext, 
-            ICollection<ProcessRegistryDto> registrations);
-
-        public readonly record struct DbProcessingForSelectorParameters2(
-            DateTimeOffset now,
-            bool isRangeExecution,
-            IEFDbContext dbContext,
-            ICollection<ProcessRegistryDto> registrations);
+            ProcessRegistryDto registration,
+            TId offsetId);
 
         public readonly record struct DbProcessingForHandlerParameters(
             IEFDbContext dbContext,
-            ICollection<ProcessRegistryDto> registrations,
+            ICollection<ProcessTypeUniqueDto> registrations,
             ICollection<TId> ids);
-
-        public interface IProjection
-        {
-
-        }
     }
 }

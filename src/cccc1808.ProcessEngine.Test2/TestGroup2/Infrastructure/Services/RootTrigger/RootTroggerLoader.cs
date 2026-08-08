@@ -50,7 +50,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTr
                 elem.AddComponent(data[elem.Id]);
                 elem.AddComponent<IStreamTriggerComponent>(
                     new StreamTriggerComponent(
-                        _triggerOptions.TriggerEventQueues.Single().QueueName,
+                        _triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                         []
                         )
                     );

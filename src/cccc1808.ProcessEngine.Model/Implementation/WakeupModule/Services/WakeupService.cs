@@ -19,6 +19,7 @@ using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Components;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
 {
+    [Obsolete]
     public class WakeupService<TId> 
         : IWakeupService<TId>
     {
@@ -158,7 +159,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 var checkGroups = context.WakeupWithoutLockData.Values
                     .Select(e => (
                         Element: e,
-                        Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.ProcessType)))
+                        Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.Registry.Unique.ProcessType)))
                     .GroupBy(e => e.Handler);
 
                 foreach (var elem in checkGroups)
@@ -222,7 +223,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services
                 var checkGroups = context.WakeupWithLockData.Values
                     .Select(e => (
                         Element: e,
-                        Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.ProcessType)))
+                        Handler: This._wakeupRegistry.GetCheckHandler(This._serviceProvider, e.Process.Process.Info.Registry.Unique.ProcessType)))
                     .GroupBy(e => e.Handler);
 
                 foreach (var elem in checkGroups)

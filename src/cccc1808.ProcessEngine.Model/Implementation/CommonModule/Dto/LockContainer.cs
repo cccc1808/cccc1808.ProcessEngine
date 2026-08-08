@@ -78,6 +78,74 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
                 cancellationToken
                 );
         }
+
+        public static async ValueTask<T> DoubleCheckPatternAsync<T, TParameter>(
+            this LockContainer<T> container,
+            TParameter parameter,
+            Func<TParameter, T, bool> checkAction,
+            Func<TParameter, T, CancellationToken, ValueTask<T>> valueFactory,
+            CancellationToken cancellationToken)
+        {
+            var checkResult = await container.Read(
+                (parameter, checkAction),
+                static (p, d, _) => ValueTask.FromResult(
+                    (Data: d, IsSuccess: p.checkAction(p.parameter, d))),
+                cancellationToken
+                );
+            if (checkResult.IsSuccess)
+            {
+                return checkResult.Data;
+            }
+
+            return await container.Write(
+                (parameter, checkAction, valueFactory),
+                static async (p, d, t) =>
+                {
+                    var checkResult = p.checkAction(p.parameter, d);
+                    if (!checkResult)
+                    {
+                        d = await p.valueFactory(p.parameter, d, t);
+                    }
+
+                    return d;
+                },
+                cancellationToken
+                );
+        }
+
+        public static async ValueTask<T> DoubleCheckPatternAsync<T, TParameter>(
+            this LockContainer<T> container,
+            TParameter parameter,
+            Func<TParameter, T, bool> checkAction,
+            Func<TParameter, T, T> valueFactory,
+            CancellationToken cancellationToken)
+        {
+            var checkResult = await container.Read(
+                (parameter, checkAction),
+                static (p, d, _) => ValueTask.FromResult(
+                    (Data: d, IsSuccess: p.checkAction(p.parameter, d))),
+                cancellationToken
+                );
+            if (checkResult.IsSuccess)
+            {
+                return checkResult.Data;
+            }
+
+            return await container.Write(
+                (parameter, checkAction, valueFactory),
+                static async (p, d, t) =>
+                {
+                    var checkResult = p.checkAction(p.parameter, d);
+                    if (!checkResult)
+                    {
+                        d = p.valueFactory(p.parameter, d);
+                    }
+
+                    return d;
+                },
+                cancellationToken
+                );
+        }
     }
 
     public class LockContainer<T> : IDisposable
@@ -91,7 +159,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
         public LockContainer()
         {
             _lock = new AsyncReaderWriterLock();
-        }       
+        }
+
+        public LockContainer(T data)
+        {
+            _lock = new AsyncReaderWriterLock();
+            Data = data;
+        }
 
         public async ValueTask<TResult> Read<TParameter, TResult>(
             TParameter parameter,

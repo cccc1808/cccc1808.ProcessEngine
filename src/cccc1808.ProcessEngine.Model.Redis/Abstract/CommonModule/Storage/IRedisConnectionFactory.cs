@@ -12,5 +12,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage
         ValueTask<IRedisConnection> GetAsync(
             string name,
             CancellationToken cancellationToken);
+
+        //// TODO: Disctonnect and failover strategy.
     }
 }

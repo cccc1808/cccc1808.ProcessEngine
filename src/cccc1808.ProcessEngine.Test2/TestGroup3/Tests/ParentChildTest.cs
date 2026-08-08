@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
@@ -14,8 +13,8 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
-using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
@@ -30,11 +29,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
         : IAsyncLifetime
     {
         private readonly FixtureCollection.Fixture _fixture;
+        private readonly TestService _testService;
 
         public ParentChildTest(
             FixtureCollection.Fixture fixture)
         {
             _fixture = fixture;
+            _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
         public Task InitializeAsync() => Task.CompletedTask;
@@ -44,7 +45,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await _fixture.CleanEnvironmentAsync();
         }
 
-        [Fact(Skip = "")]
+        [Fact(Skip = "Не используется. Требует доработки.")]
         public async Task Test1()
         {
             var idGenerator = _fixture.ServiceProvider.GetRequiredService<IIdGenerator<Guid>>();
@@ -60,7 +61,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                         3,
                         1,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -80,10 +80,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: true);
 
                 //var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
                 //var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
@@ -117,10 +117,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
                 // var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
@@ -157,7 +157,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();
 
                 await triggerService.ConsumerWorkAsync(executeOne: true, default);
-                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
+                (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 triggers.ShouldSatisfyAllConditions(
@@ -173,7 +173,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerService = scope.ServiceProvider.GetRequiredService<ITriggerRunner>();
 
-                await triggerService.DbWorkAsync(true, default);
+                await triggerService.RangeTriggerProcessingAsync(true, default);
 
                 //var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
                 var triggers = await dbContext.Set<TriggerDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
@@ -198,10 +198,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
-                var runner = scope.ServiceProvider.GetRequiredService<IProcessRunner>();
 
-                await runner.RunAsync(oneCycle: true, default);
-                await runner.WaitRunningTasksAsync(default);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider, 
+                    withProcessNotification: false);
 
                 // var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
 

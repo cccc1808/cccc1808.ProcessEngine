@@ -14,11 +14,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
     public class TriggerHandlerFactory<TId> : ITriggerHandlerFactory<TId>
     {
-        private readonly IReadOnlyDictionary<string, Type> _registrations;
+        private readonly ITriggerRegistry _triggerRegistryService;
 
         public TriggerHandlerFactory(
             IServiceProvider serviceProvider,
-            IEnumerable<TriggerRegistryDto> registrations)
+            IEnumerable<TriggerRegistryDto> registrations,
+            ITriggerRegistry triggerRegistryService)
         {
             // Проверяем регистрации.
             using (var scope = serviceProvider.CreateScope())
@@ -30,17 +31,23 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 }
             }
 
-            _registrations = registrations.ToDictionary(
-                e => e.Key, 
-                e => e.ImplementationType);
-        }        
+            //_registrations = registrations.ToDictionary(
+            //    e => e.Key,
+            //    e => e.ImplementationType);
+            _triggerRegistryService = triggerRegistryService;
+        }
 
         public ITriggerHandler GetHandler(
             IServiceProvider serviceProvider,
             string key)
         {
             return (ITriggerHandler)serviceProvider
-                .GetRequiredService(_registrations[key]);
+                .GetRequiredService(_triggerRegistryService.GetHandlerType(key));
+        }
+
+        public bool IsRangeHandler(IServiceProvider serviceProvider, string key)
+        {
+            return GetHandler(serviceProvider, key) is ITriggerRangeHandler<TId>;
         }
 
         public bool TryGetHandler(
@@ -48,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
             string key, 
             out ITriggerHandler handler)
         {
-            if (_registrations.TryGetValue(key, out var type))
+            if (_triggerRegistryService.TryGetHandlerType(key, out var type))
             {
                 handler = GetHandler(serviceProvider, key);
                 return true;

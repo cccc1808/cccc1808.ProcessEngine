@@ -40,7 +40,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure.Services
                 return;
             }
 
-            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Registry.ProcessType, out var ids))
+            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Unique.ProcessType, out var ids))
             {
                 return;
             }

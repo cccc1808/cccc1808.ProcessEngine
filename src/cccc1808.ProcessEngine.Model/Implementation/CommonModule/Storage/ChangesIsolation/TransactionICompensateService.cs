@@ -14,6 +14,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
     {
         private readonly ITransactionManager _transactionManager;
 
+        private int ScopeIndex { get; set; }
+            = IsolationContainer.TransactionIsolationIndex + 1;
+
         public TransactionCompensateService(ITransactionManager transactionManager)
         {
             _transactionManager = transactionManager;
@@ -23,25 +26,30 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
             CancellationToken cancellationToken)
         {
             var transaction = await _transactionManager.StartTransactionAsync(cancellationToken);
-            return new Scope(transaction);
+            return new Scope(transaction, ++ScopeIndex);
         }
 
         private class Scope : ICompensateService.ICompensateScope
         {
             private readonly ITransactionManager.ITransactionContainer _transaction;
-            private readonly List<Func<CancellationToken, ValueTask>> _manualCompensateHandlers;
+            private readonly List<(object state, Func<int, object, CancellationToken, ValueTask> handler)> _manualCompensateHandlers;
+
+            public int ScopeIndex { get; }
 
             public Scope(
-                ITransactionManager.ITransactionContainer transaction)
+                ITransactionManager.ITransactionContainer transaction,
+                int scopeId)
             {
                 _transaction = transaction;
-                _manualCompensateHandlers = new List<Func<CancellationToken, ValueTask>>(5);
+                _manualCompensateHandlers = new List<(object state, Func<int, object, CancellationToken, ValueTask> handler)>(5);
+                ScopeIndex = scopeId;
             }
 
             public void RegisterManualCompensateHandler(
-                Func<CancellationToken, ValueTask> manualCompensateHandler)
+                object state,
+                Func<int, object, CancellationToken, ValueTask> manualCompensateHandler)
             {
-                _manualCompensateHandlers.Add(manualCompensateHandler);
+                _manualCompensateHandlers.Add((state, manualCompensateHandler));
             }
 
             public async ValueTask CommitAsync(CancellationToken cancellationToken)
@@ -53,7 +61,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.Chang
             {
                 foreach (var elem in _manualCompensateHandlers)
                 {
-                    await elem(cancellationToken);
+                    await elem.handler(ScopeIndex, elem.state, cancellationToken);
                 }
 
                 await _transaction.RollbackAsync(cancellationToken);                

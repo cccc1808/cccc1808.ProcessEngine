@@ -7,6 +7,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services
     /// Используется для гарантированного пробуджения.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
+    [Obsolete]
     public interface IWakeupService<TId>
     {
         /// <summary>

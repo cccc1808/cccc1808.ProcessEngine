@@ -48,7 +48,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
         {
             foreach (var process in group.Group.Values)
             {
-                switch (process.Process.Info.ProcessType.ProcessType)
+                switch (process.Process.Info.Registry.Unique.ProcessType.ProcessType)
                 {
                     case 1:
                         {
@@ -106,7 +106,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                                             4,
                                             1,
                                             1,
-                                            DateTimeOffset.MinValue,
                                             false,
                                             ProcessStatusEnum.AsyncExecute,
                                             null
@@ -144,7 +143,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             // Оповещаем родительский процесс о завершении дочернего процесса.
                             await triggerEventRaiser.RaiseAsync(
                                 [new ITriggerEventRaiser<Guid>.RaiseContainer(
-                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                                 component.ParentProcessId,
                                 new CounterTriggerEvent(component.ParentTriggerKey, value: -1)
                                 )],

@@ -20,7 +20,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         public virtual void Configure(EntityTypeBuilder<TProcess> builder)
         {
             DbProcessingForSelectorIndex(builder);
-            DbProcessingForSelectorHandlerIndex(builder);
             AsyncExecuteIndex(builder);
             WaitEventIndex(builder);
             MaybeStoppedByTriggerEventLoosedIndex(builder);
@@ -32,17 +31,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         /// <returns></returns>
         protected virtual IndexBuilder<TProcess> DbProcessingForSelectorIndex(EntityTypeBuilder<TProcess> builder)
         {
-            return builder.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.ReservationTimeout })
-                .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
-        }
-
-        /// <summary>
-        /// <see cref="IProcessDbEntityConditions{TId, TEntity}.DbProcessingForHandler"/>
-        /// </summary>
-        /// <returns></returns>
-        protected virtual IndexBuilder<TProcess> DbProcessingForSelectorHandlerIndex(EntityTypeBuilder<TProcess> builder)
-        {
-            return builder.HasIndex(e => new { e.ProcessTypeId, e.ProcessVersion, e.Priority, e.Id })
+            return builder.HasIndex(e => new { e.Priority, e.ProcessTypeId, e.ProcessVersion, e.Id })
                 .HasFilter($"status = {(int)ProcessStatusEnum.AsyncExecute}");
         }
 
@@ -69,7 +58,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Stora
         /// </summary>
         protected virtual IndexBuilder<TProcess> MaybeStoppedByTriggerEventLoosedIndex(EntityTypeBuilder<TProcess> builder) 
         {
-            return builder.HasIndex(e => new { e.Id, e.ReservationTimeout })
+            return builder.HasIndex(e => new { e.Id })
                 .HasFilter(@$"
 status = {(int)ProcessStatusEnum.WaitEvent}
 and stopped_by_error is false

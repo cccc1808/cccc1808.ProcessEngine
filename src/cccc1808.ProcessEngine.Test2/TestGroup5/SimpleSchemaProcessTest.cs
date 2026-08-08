@@ -74,7 +74,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler.ProcessType.ProcessType,
                         TestSchemaProcessHandler.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -111,7 +110,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // на 2 токене создаем таймер и засыпаем.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var processDatas = await _testService.LoadAsync<SchemaProcessDataDbEntity<Guid>>(scope.ServiceProvider);
@@ -126,17 +128,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                     e => e.CurrentTokenId.ShouldBe("2"));
             }
 
-            // 3) .1) Выполняем дочерний таймер триггер.
+            // 3)
+            // .1) Выполняем дочерний таймер триггер.
             // .2) Выполняем корневой триггер (событие и засыпании и событие об актвации от дочернего).
             // .3) Выполняем 2 токен схемы, процесс завершается.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: false);
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider, 
+                    withProcessNotification: false);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var processDatas = await _testService.LoadAsync<SchemaProcessDataDbEntity<Guid>>(scope.ServiceProvider);
@@ -179,7 +191,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler2.ProcessType.ProcessType,
                         TestSchemaProcessHandler2.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -219,7 +230,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var schemaService = scope.ServiceProvider.GetRequiredService<ISchemaService<Guid>>();
                 var stateHandler = schemaService.GetProcessStateHandler(TestSchemaProcessHandler2.ProcessType);
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var processDatas = await _testService.LoadAsync<SchemaProcessDataDbEntity<Guid>>(scope.ServiceProvider);
@@ -290,7 +304,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         TestSchemaProcessHandler4.ProcessType.ProcessType,
                         TestSchemaProcessHandler4.ProcessType.ProcessVersion,
                         1,
-                        DateTimeOffset.MinValue,
                         false,
                         ProcessStatusEnum.WaitEvent,
                         null

@@ -57,7 +57,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
             bool isAsyncExecution, 
             CancellationToken cancellationToken)
         {
-            if (!byTypeIndex.TryGetValue(_outboxRegistry.Registry.ProcessType, out var outboxProcessesIds))
+            if (!byTypeIndex.TryGetValue(_outboxRegistry.Unique.ProcessType, out var outboxProcessesIds))
             {
                 return;
             }

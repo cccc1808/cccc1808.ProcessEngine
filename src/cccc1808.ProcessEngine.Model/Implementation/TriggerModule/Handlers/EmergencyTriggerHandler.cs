@@ -214,7 +214,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             var isWaitingMissmath =
                                 !setter.StreamSetter.GetStreamsProcessIsWaiting(elem.Trigger)
                                 && elem.ProcessStatus == ProcessStatusEnum.WaitEvent
-                                && (now - elem.ReservationTimeout) > options.SteamGoWaitTimeout;
+                                && (now - elem.ProcessLastAsyncExecuteDate) > options.SteamGoWaitTimeout;
 
                             if (isWaitingMissmath)
                             {
@@ -247,7 +247,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             !e.Trigger.IsCompleted
                             && !e.Trigger.IsActivated
                             && e.Trigger.Kind != ITriggerComponent.TriggerKind.SimpleStreamRoot // Он реагирует на сигналы дочерних.
-                            && e.Trigger.SelectLockTimeout < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
+                            && e.Trigger.ReservationTimeout < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
                             )
                         .ToArray();
 
@@ -367,7 +367,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                 ITriggerComponent<TId> Trigger,
                 bool ProcessDeleted,
                 ProcessStatusEnum? ProcessStatus,
-                DateTimeOffset? ReservationTimeout
+                DateTimeOffset? ProcessLastAsyncExecuteDate
                 );
         }
 

@@ -8,26 +8,27 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
 {
     public interface ITriggerSelectQuery<TId>
     {
-        IContextState BuildContext(IOptions options);
+        IContext InitContext(IOptions options, string handlerKey);
 
-        Task<ICollection<SelectDto>> SelectForProcessingAsync(
-            IContextState contextState,
-            CancellationToken cancellationToken);
+        Task<ICollection<SelectResult>> ExecuteAsync(IContext context, CancellationToken cancellationToken);
 
-        public readonly record struct SelectDto(
-            TId Id,
-            // string Key,
+
+        #region types
+
+        public interface IOptions
+        {
+
+        }
+
+        public interface IContext 
+        {
+        
+        }
+
+        public readonly record struct SelectResult(
+            TId TriggerId,
             string HandlerKey);
 
-
-        public interface IOptions 
-        {
-            
-        }
-
-        public interface IContextState 
-        {
-            void SetFreeSlots(int freeSlotsCount);
-        }
+        #endregion
     }
 }

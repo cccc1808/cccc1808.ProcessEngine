@@ -48,7 +48,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                                 e.ProcessType,
                                 1,
                                 1,
-                                DateTimeOffset.MinValue,
                                 stoppedByError: false,
                                 status: ProcessStatusEnum.AsyncExecute,
                                 retryCount: 0);

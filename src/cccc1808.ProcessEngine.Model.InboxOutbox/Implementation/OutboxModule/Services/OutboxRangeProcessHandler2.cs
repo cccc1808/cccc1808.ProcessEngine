@@ -230,7 +230,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.S
                                             processId: elem2.Process.Id,
                                             isRangeTrigger: true,
                                             handlerKey: NoWakeupRetryTriggerRangeHandler<TId>.Name,
-                                            priority: elem2.Process.Process.Info.Priority,
+                                            priority: elem2.Process.Process.Info.Registry.Unique.Priority,
                                             isActivated: true,
                                             isChildTrigger: false));
                                 }

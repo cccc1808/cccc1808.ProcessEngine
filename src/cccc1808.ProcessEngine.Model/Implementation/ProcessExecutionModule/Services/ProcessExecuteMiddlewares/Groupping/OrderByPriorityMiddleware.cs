@@ -28,7 +28,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         {
             var orderedIds = ids.Select(
                 e => e.Select(e2 => e2)
-                .OrderByDescending(e => e.Priority)
+                .OrderByDescending(e => e.Registry.Unique.Priority)
                 .ToArray())
                 .ToArray();
 

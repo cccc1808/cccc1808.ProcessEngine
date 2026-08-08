@@ -34,7 +34,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -49,6 +52,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             var beId1 = Guid.NewGuid();
             var beId2 = Guid.NewGuid();
 
+            // 1) Создаем бизнес сущности, публикуем сообщения в inbox очереди.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("1", Stopwatch.StartNew());
@@ -91,6 +95,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                 watches["1"].Stop();
             }
 
+            // 2) Запускаем Inbox runner (считывание сообщений, созранение в InbxoMessage и подача сигнала на триггер).
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("2", Stopwatch.StartNew());
@@ -105,34 +110,43 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
                 watches["2"].Stop();
             }
 
+            // 3) Запускаем trigger consumer, активируется триггер на inbox процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("3", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 watches["3"].Stop();
             }
 
+            // 4) Выполняется inbox trigger, пробуждается процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("4", Stopwatch.StartNew());
 
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false, 
+                    withProcessNotification: true);
 
                 watches["4"].Stop();
             }
 
+            // 5) Выпволняется inbox процесс, обрабатываются inbox message. 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("5", Stopwatch.StartNew());
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 watches["5"].Stop();
             }
 
             // TODO: добавить промежуточные assert.
+            // 7) Проверяем, что бизнес сущности обновлены.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 watches.Add("6", Stopwatch.StartNew());
@@ -200,7 +214,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("9", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 watches["9"].Stop();
             }
@@ -209,7 +223,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("10", Stopwatch.StartNew());
 
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 watches["10"].Stop();
             }
@@ -218,7 +235,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("11", Stopwatch.StartNew());
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 watches["11"].Stop();
             }

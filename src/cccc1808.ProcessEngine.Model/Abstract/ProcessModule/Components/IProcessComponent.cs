@@ -50,7 +50,5 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
             DateTimeOffset Date);
 
         #endregion
-
-        DateTimeOffset ReservationTimeout { get; set; }
     }
 }

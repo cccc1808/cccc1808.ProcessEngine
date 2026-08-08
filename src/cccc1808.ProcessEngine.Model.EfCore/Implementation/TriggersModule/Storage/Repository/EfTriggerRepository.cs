@@ -112,8 +112,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         new ITriggerDbEntityConditions<TId>.DbProcessingForHandlerParameters(
                             now,
                             ids)
-                        ) // Для индекса.
-                    .Where(e => ids.Contains(e.Id))
+                        )
                     .ToArrayAsync(cancellationToken);
 
                 return data

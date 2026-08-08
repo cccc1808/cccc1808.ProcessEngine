@@ -22,10 +22,16 @@
             Func<TParam, Exception, CancellationToken, ValueTask>? criticalExceptionHandler,
             CancellationToken cancellationToken);
 
-        bool InScope { get; }
+        bool TryGetCurrentScopeInfo(out InScopeInfo scopeInfo);
 
+        /// <summary>
+        /// Зарегистрировать действие ручной компенсации.
+        /// Действие будет вызвано, если текущий scope будет скомпенсировано.
+        /// </summary>
+        /// <param name="compensateHandler"></param>
         void RegisterManualCompensate(
-            Func<CancellationToken, ValueTask> compensateHandler);
+            object state,
+            Func<int, object, CancellationToken, ValueTask> compensateHandler);
 
         public enum IsolationMode 
         {
@@ -57,5 +63,7 @@
             /// </summary>
             ChangeTrackerSnapshot,
         }
+
+        public readonly record struct InScopeInfo(int ScopeIndex);
     }
 }

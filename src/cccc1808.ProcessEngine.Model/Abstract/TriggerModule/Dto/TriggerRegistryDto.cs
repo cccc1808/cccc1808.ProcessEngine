@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto
 {
     public record TriggerRegistryDto(
-        string Key,
+        string HandlerName,
         Type ImplementationType)
     {
     }

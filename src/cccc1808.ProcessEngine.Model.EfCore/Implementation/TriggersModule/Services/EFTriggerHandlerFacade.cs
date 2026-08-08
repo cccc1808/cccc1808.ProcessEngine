@@ -7,13 +7,18 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
+using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,16 +30,28 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly IWakeupService<TId> _wakeupService;
+        private readonly IProcessRegistry _processRegistry;
+        private readonly IProcessQueueContext<TId> _queueContext;
+
+        private readonly IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> _processDbEntityConditions;
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
-            ILockQueryHintStore lockQueryHintStore, 
-            IWakeupService<TId> wakeupService)
+            ILockQueryHintStore lockQueryHintStore,
+            IWakeupService<TId> wakeupService,
+            IProcessRegistry processRegistry,
+            IProcessQueueContext<TId> queueContext,
+
+            IProcessDbEntityConditions<TId, ProcessDbEntity<TId>> processDbEntityConditions)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
-        }        
+            _processRegistry = processRegistry;
+            _queueContext = queueContext;
+
+            _processDbEntityConditions = processDbEntityConditions;
+        }
 
         public async Task<ITriggerHandlerFacade<TId>.LockForWaitProcessResult> LockForWaitProcessAsync(
             IEnumerable<ITriggerComponent<TId>> triggers, 
@@ -169,17 +186,62 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             ICollection<TId> processIds,
             CancellationToken cancellationToken)
         {
-            await _dbContext.Set<ProcessDbEntity<TId>>()
-                .Where(e => processIds.Contains(e.Id) && e.Status == Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.WaitEvent)
-                .ExecuteUpdateAsync(
-                    e => e.SetProperty(e => e.Status, Model.Abstract.ProcessModule.Dto.ProcessStatusEnum.AsyncExecute),
-                    cancellationToken);
+            ProcessDbEntity<TId>[] processWithLock;
+            //using (var scope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+            {
+                // Блокировка уже есть выше. Возможно поправить параметры, чтобы не загружать 2 раз.
+                processWithLock = await _dbContext.Set<ProcessDbEntity<TId>>()
+                    .ApplayQueryCondition(_processDbEntityConditions.WaitEvent.Query)
+                    .Where(e => processIds.Contains(e.Id))
+                    .ToArrayAsync(cancellationToken);
+            }
+            if (!processWithLock.Any())
+            {
+                return;
+            }
+
+            _queueContext.IncreseBufferCapacity(processWithLock.Length);
+            var firstKey = _processRegistry.Get(
+                processWithLock.First().ToProcessTypeUnique<TId, ProcessDbEntity<TId>>());
+
+            // TODO: options.
+            // TODO: Возможно нужен будет разный timeout, но пока так.
+            if (firstKey.Metadata.IsSignleExecuteProcess)
+            {
+                _queueContext.SetReserveTimeout(
+                    TimeSpan.FromSeconds(30));
+            }
+            else 
+            {
+                _queueContext.SetReserveTimeout(
+                    TimeSpan.FromSeconds(60));
+            }
+
+            foreach (var elem in processWithLock)
+            {
+                elem.Status = ProcessStatusEnum.AsyncExecute;
+                _queueContext.ProcessToExecute(
+                    IProcessQueueContext<TId>.ProcessDto.ProcessToExecute(
+                        elem.Id,
+                        _processRegistry.Get(
+                            elem.ToProcessTypeUnique<TId, ProcessDbEntity<TId>>())
+                        )
+                    );
+            }
+
+            //await _dbContext.Set<ProcessDbEntity<TId>>()
+            //    .Where(e => processIds.Contains(e.Id) && e.Status == ProcessStatusEnum.WaitEvent)
+            //    .ExecuteUpdateAsync(
+            //        e => e.SetProperty(e => e.Status, ProcessStatusEnum.AsyncExecute),
+            //        cancellationToken);
         }
 
         public async Task ToAsyncExecutingWakeupAsync(
             ICollection<TId> processIds,
             CancellationToken cancellationToken)
         {
+            throw new NotSupportedException("Предпологается удаление.");
+
             await _wakeupService.WakeupProcessHandlerAsync(
                 processIds, 
                 useShareLock: true,
@@ -209,7 +271,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
                         var query = queryFactory(dbContext.Set<ProcessDbEntity<TId>>(), dbContext);
 
                         var data = await query
-                            .Where(e => e.Status == ProcessStatusEnum.WaitEvent && e.ReservationTimeout < timeout)
+                            .Where(e => e.Status == ProcessStatusEnum.WaitEvent && e.LastAsyncExecuteDate < timeout)
                             .Take(batchSize)
                             .Select(e => e.Id)
                             .ToArrayAsync(cancellationToken);

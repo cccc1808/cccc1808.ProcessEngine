@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
@@ -23,6 +23,11 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.StaticInstance.Abstract.Dtos;
 using cccc1808.ProcessEngine.Model.StaticInstance.EF;
 using cccc1808.ProcessEngine.Model.StaticInstance.Implementation.Services;
@@ -34,6 +39,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Testcontainers.Kafka;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
 {
@@ -43,6 +49,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
         public const string Name = "FixtureCollection 6";
         public const int TestTimeout = 115000;
 
+        private static string RedisConnectionName { get; } = "1";
+
+        private static int RedisDb { get; } = -1;
+
         public static string TriggerEvents 
             => "trigger_events";
 
@@ -51,6 +61,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
             private PostgreSqlContainer PostgreSqlContainer { get; set; } = null!;
 
             private KafkaContainer KafkaContainer { get; set; } = null!;
+
+            private RedisContainer RedisContainer { get; set; } = null!;
 
             public ServiceProvider ServiceProvider { get; private set; } = null!;
 
@@ -65,6 +77,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
 
                     var kafkaBuilder = new KafkaBuilder("apache/kafka-native:4.0.2");
                     KafkaContainer = kafkaBuilder.Build();
+
+                    var redisBuilder = new RedisBuilder("redis:7.4");
+                    RedisContainer = redisBuilder.Build();
                 }
 
                 var tryStartCount = 0;
@@ -73,7 +88,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                     var startTasks = new Task[]
                     {
                         PostgreSqlContainer.StartAsync(),
-                        KafkaContainer.StartAsync()
+                        KafkaContainer.StartAsync(),
+                        RedisContainer.StartAsync(),
                     };
                     try
                     {
@@ -129,9 +145,72 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                             (_) => 1
                             )
                     )
+                    .AddRedis(
+                        new RedisConnectionFactory.OptionsDto()
+                        {
+                            ConnectionConfigrations = new Dictionary<string, (string ConnectionString, TimeSpan PiplineTimeout)>()
+                            {
+                                [FixtureCollection.RedisConnectionName] = new($"localhost:{RedisContainer.GetMappedPublicPort()}", TimeSpan.FromSeconds(10))
+                            }
+                        }
+                    )
                     .AddIsolationServices()
 
-                    .AddParallelLimitProcessRunner()
+                    // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
+                    .AddQueueProcessRunner(
+                        new QueueProcessRunner<Guid>.OptionsDto() 
+                        {
+                            DbSelect_Options = new EFQueueProcessRunnerQuery<Guid>.Options() 
+                            {
+                                BatchSize = 1,
+                                OffsetStartId = Guid.Empty,
+                            },
+                            DbSelect_ParallilLimit = 1,
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
+
+                            RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
+
+                            SingleExecute_MiddlewareFactory = (s) => new TransactionMiddleware<Guid>(
+                                s,
+                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                    s,
+                                    s.GetRequiredService<IDateTimeProvider>(),
+                                    s.GetRequiredService<IIsolationService>(),
+                                    s.GetRequiredService<IProcessSetter>(),
+                                    s.GetRequiredService<IWakeupService<Guid>>(),
+                                    s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                    (s) => throw new NotImplementedException(),
+                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                    ),
+                                s.GetRequiredService<ITransactionManager>()
+                                ),
+                            SingleExecute_ParallelismLimit = 1,
+                        }
+                    )
+
+                    .AddRedisProcessQueueServices(
+                        new RedisProcessReserveProvider<Guid>.OptionsDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            HashKey = NameFactory.ProcessReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
+                        },
+                        new ProcessQueueOptionsDto<Guid>()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+
+                            IdToString = NameFactory.IdToString,
+                            StringToId = NameFactory.StringToId,
+
+                            ProcessToQueueSetNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
+                            QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
+
+                            QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
+                        }
+                        )
 
                     .AddWakeupServices(
                         [],
@@ -139,6 +218,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                     )
 
                     .AddTriggerServices()
+
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
                             FixtureCollection.TriggerEvents
@@ -151,17 +231,18 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                         )
 
                     .AddTriggerEngineServices(
-                        new TriggerRunner<Guid>.OptionsDto(
-                            new EFTriggerSelectQuery<Guid>.Options3()
-                            {
-                                SingleTriggerBatchSize = (_) => 1,
-                            }
-                            )
+                        new TriggerRunner<Guid>.OptionsDto()
                         {
-                            DbExecuteParallelismLimit = 1,
-                            DbExecuteSelectLockTimeout = TimeSpan.FromSeconds(30),
-                            DbExecuteWaitTriggerLockTimeout = TimeSpan.FromSeconds(30),
-                            TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
+                            RangeExecutor_ExecuteParallelismLimit = 1,
+                            SingleExecutor_ParallelismLimit = 1,
+
+                            DbSelect_Options = new EFTriggerSelectQuery<Guid>.OptionsDto()
+                            {
+                                BatchSize = 1,
+                                StartOffset = Guid.Empty,
+                            },
+
+                            Consumer_TriggerEventQueues = new List<TriggerRunner<Guid>.QueueOptionsDto>()
                             {
                                 new TriggerRunner<Guid>.QueueOptionsDto()
                                 {
@@ -174,6 +255,24 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                         new TriggerOptions<Guid>()
                         {
                             PartitionSelector = (e) => e.ProcessId.GetHashCode() % 1
+                        },
+                        new RedisTriggerQueueOptionsDto<Guid>()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            IdToString = NameFactory.IdToString,
+                            StringToId = NameFactory.StringToId,
+                            HandlerToQueueSetNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueue),
+                            QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
+                            QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
+                        },
+                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            HashKey = NameFactory.TriggerReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
                         }
                         )
 
@@ -183,46 +282,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                             RetryLimit = 2,
                             SoftTimeout = TimeSpan.FromSeconds(60),
                         },
-                        new ProcessRegistryDto(new ProcessTypeDto(1, 1), 1)
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(new ProcessTypeDto(1, 1), 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true))
                     );
 
                 StaticInstanceServiceCollectionExtension.RegistryEFStaticInstance<Guid, StaticInstanceTestHandler>(
                     services,
                     new StaticInstanceRunner.OptionsDto(),
                     new StaticInstanceDeployRegistrationDto(1),
-                    new StaticInstanceProcessRegistrationDto(1, string.Empty));
-
-                // StubHander = Substitute.For<ExecuteStepByStepGroupMiddleware<Guid>.IHandler>();
-                services.AddScoped<IProcessRunner>(
-                    s => new ParallelLimitProcessRunner<Guid>(
-                        s,
-                        new ParallelLimitProcessRunner<Guid>.OptionsDto(
-                            selectOptions: new EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>.Options1()
-                            {
-                                RangeBatchSize = (e) => e,
-                                SingleBatchSize = (e) => e,
-                            },
-                            selectFactory: (s) => s.GetRequiredService<EFParallelLimitProcessSelectQuery<Guid, ProcessDbEntity<Guid>>>(),
-                            rangeMiddlewareFactory: (s) => throw new Exception(""),
-                            signleMiddlewareFactory: (s) => new TransactionMiddleware<Guid>(
-                                s,
-                                (s, _) => new ExecuteStepByStepGroupMiddleware<Guid>(
-                                    s,
-                                    s.GetRequiredService<IDateTimeProvider>(),
-                                    s.GetRequiredService<IIsolationService>(),
-                                    s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeupService<Guid>>(),
-                                    (s) => throw new NotImplementedException(),
-                                    s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                    ),
-                                s.GetRequiredService<ITransactionManager>()
-                                )
-                        )
-                        {
-                            ExceptionDelay = TimeSpan.Zero,
-                            DbExecuteParallelismLimit = 1,
-                        })
-                );
+                    new StaticInstanceProcessRegistrationDto(1, string.Empty));                
 
                 return services.BuildServiceProvider(
                     new ServiceProviderOptions()
@@ -276,7 +343,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                 await Task.WhenAll(
                     [
                     PostgreSqlContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
-                    KafkaContainer.DisposeAsync().AsTask() ?? Task.CompletedTask
+                    KafkaContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
+                    RedisContainer?.DisposeAsync().AsTask() ?? Task.CompletedTask,
                     ]
                     );
             }

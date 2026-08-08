@@ -2,7 +2,6 @@
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
-
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events
 {
     /// <summary>
@@ -17,13 +16,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
     {
         private readonly ITriggerEventRaiser<TId> _source;
         private readonly ITransactionManager _transactionManager;
-        private readonly IIsolationService _isolationService;        
-        
-        private readonly Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>> _sendBuffer;
+        private readonly IIsolationService _isolationService;
 
-        private int RaiseCounter { get; set; }
+        private readonly HashSet<int> _registeredScopes;
+        private readonly IsolationContainer<ITriggerEventRaiser<TId>.RaiseContainer> _sendBuffer;
 
-        private bool HandlerRegistered { get; set; }
+        private bool TransactionIsRegistered { get; set; }
 
         public TriggerEventRaiserAfterTransactionCompleteDecorator(
             ITriggerEventRaiser<TId> source,
@@ -33,63 +31,83 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
             _source = source;
             _transactionManager = transactionManager;            
             _isolationService = isolationService;
-            _sendBuffer = new Dictionary<int, ICollection<ITriggerEventRaiser<TId>.RaiseContainer>>(10);
+
+            _registeredScopes = new HashSet<int>(10);
+            _sendBuffer = new IsolationContainer<ITriggerEventRaiser<TId>.RaiseContainer>(10);
         }
 
         public ValueTask RaiseAsync(
             ICollection<ITriggerEventRaiser<TId>.RaiseContainer> events,
             CancellationToken cancellationToken)
         {
-            if (!_transactionManager.TryGetCurrentTransaction(out var transaction))
-            {
-                throw new InvalidOperationException("[Bug] Необходима транзакция.");
-            }
-
             if (!events.Any())
             {
                 return ValueTask.CompletedTask;
             }
 
-            if (!HandlerRegistered)
+            RegisterScopeHandler();
+
+            var scopeIndex = _isolationService.TryGetCurrentScopeInfo(out var scope)
+                ? scope.ScopeIndex
+                : IsolationContainer.TransactionIsolationIndex;
+            // _sendBuffer.EncreaseCapacity(ScopeIndex, events.Count);
+            _sendBuffer.AddRange(scopeIndex, events);
+            
+            return ValueTask.CompletedTask;
+        }
+
+        private void RegisterScopeHandler()
+        {
+            // 1) Прикрепление к TransactionScope.
+            if (!TransactionIsRegistered)
             {
-                // 1) Привязка к транзакции.
+                if (!_transactionManager.TryGetCurrentTransaction(out var transaction))
+                {
+                    throw new Exception("Transaction required.");
+                }
+
                 transaction.AddAfterCommitHandler(
-                    commitHandler: async (_) =>
+                    this,
+                    static async (s, t) =>
                     {
+                        var typedState = (TriggerEventRaiserAfterTransactionCompleteDecorator<TId>)s;
+
                         // Игнорируем cancelation token, чтобы выполнить отправку, даже если сервис останавливается.
                         // Если будет gracefull shutdown, то событие будет опубликовано, иначе событие потеряется.
-                        await _source.RaiseAsync(
-                            _sendBuffer.OrderBy(e => e.Key).SelectMany(e => e.Value).ToArray(),
+                        await typedState._source.RaiseAsync(
+                            typedState._sendBuffer.All.ToArray(),
                             default);
-                        Clear();
+                        typedState.Clear();
                     },
-                    roolbackHandler: (_) => 
+                    static (s, _) => 
                     {
-                        Clear();
+                        var typedState = (TriggerEventRaiserAfterTransactionCompleteDecorator<TId>)s;
+                        typedState.Clear();
+
                         return ValueTask.CompletedTask;
                     }
                     );
 
-                HandlerRegistered = true;
+                TransactionIsRegistered = true;
             }
 
-            var number = RaiseCounter++;
-            _sendBuffer.Add(number, events);
-            
-            // Если находимся в scope изоляции, то регистрируем событие на случай компенсации scope.
-            if (_isolationService.InScope)
+            // 2) Прикрепление к isolation scope.
+            if (
+                _isolationService.TryGetCurrentScopeInfo(out var scope)
+                && !_registeredScopes.Contains(scope.ScopeIndex))
             {
-                // 2) Привязка к текущему scope изоляции.
                 _isolationService.RegisterManualCompensate(
-                    (t) => 
+                    this,
+                    static (scopeIndex, s, t) =>
                     {
-                        _sendBuffer.Remove(number);
-                        return ValueTask.CompletedTask;
-                    }
-                    );
-            }
+                        var typedState = (TriggerEventRaiserAfterTransactionCompleteDecorator<TId>)s;
 
-            return ValueTask.CompletedTask;
+                        typedState._sendBuffer.ScopeCompensated(scopeIndex);
+                        return ValueTask.CompletedTask;
+                    });
+
+                _registeredScopes.Add(scope.ScopeIndex);
+            }
         }
 
         public void ClearBuffer()

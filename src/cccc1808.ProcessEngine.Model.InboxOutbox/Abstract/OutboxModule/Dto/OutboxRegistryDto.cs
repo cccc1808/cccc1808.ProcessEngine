@@ -9,7 +9,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.OutboxModule.Dto
 {
     public record OutboxRegistryDto(
-        ProcessRegistryDto Registry,
+        ProcessTypeUniqueDto Unique,
         string TriggerEventQueue)
     {
     }

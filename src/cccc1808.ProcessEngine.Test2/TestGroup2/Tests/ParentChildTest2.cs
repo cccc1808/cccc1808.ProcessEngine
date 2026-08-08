@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -45,6 +46,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         private readonly FixtureCollection.Fixture _fixture;
         private readonly TestService _testService;
 
+        private static ProcessRegistryDto ParentProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(3, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
+        private static ProcessRegistryDto ChildProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(4, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
         public ParentChildTest2(
             FixtureCollection.Fixture fixture)
         {
@@ -52,7 +63,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -77,10 +91,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
                     new ProcessDbEntity<Guid>(
                         processId,
-                        3,
-                        1,
-                        1,
-                        DateTimeOffset.MinValue,
+                        ParentProcessRegistry.Unique,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -104,7 +115,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: true);
 
                 // assert.
                 {
@@ -144,7 +158,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // StreamTrigger фиксирует, что родительский процес уснул.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
 
                 // assert.
                 {
@@ -163,7 +177,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // По завершению на родитедьский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -200,7 +216,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // События по SimpleStreamTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 // assert.
                 {
@@ -219,7 +235,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 // assert.
                 {
@@ -243,7 +262,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -267,7 +288,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         {
             var process = group.Group.Values.First();
 
-            switch (process.Process.Info.ProcessType.ProcessType)
+            switch (process.Process.Info.Registry.Unique.ProcessType.ProcessType)
             {
                 case 3:
                     {
@@ -276,6 +297,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
+                        var processQueueContext = serviceProvider.GetRequiredService<IProcessQueueContext<Guid>>();
 
                         var childProcessesCreated = await dbcontext
                             .Set<ChildProcessDbEntity>()
@@ -307,10 +329,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 dbcontext.Set<ProcessDbEntity<Guid>>().Add(
                                     new ProcessDbEntity<Guid>(
                                         processId,
-                                        4,
-                                        1,
-                                        1,
-                                        DateTimeOffset.MinValue,
+                                        ChildProcessRegistry.Unique,
                                         false,
                                         ProcessStatusEnum.AsyncExecute,
                                         null
@@ -322,16 +341,21 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                         process.Id,
                                         triggerKey));
 
-                                setter.SetStatus(
-                                    process,
-                                    ProcessStatusEnum.WaitEvent);
-
-                                process.AddComponent<IStreamTriggerComponent>(
-                                    new StreamTriggerComponent(
-                                        triggerOptions.TriggerEventQueues.Single().QueueName, 
-                                        [triggerKey])
-                                    );
+                                processQueueContext.ProcessToExecute(
+                                    IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
+                                        processId,
+                                        ChildProcessRegistry));
                             }
+
+                            setter.SetStatus(
+                                process,
+                                ProcessStatusEnum.WaitEvent);
+
+                            process.AddComponent<IStreamTriggerComponent>(
+                                new StreamTriggerComponent(
+                                    triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
+                                    [triggerKey])
+                                );
                         }
                         else
                         {
@@ -356,7 +380,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         // Оповещаем родительский процесс о завершении дочернего процесса.
                         await triggerEventRaiser.RaiseAsync(
                             [new ITriggerEventRaiser<Guid>.RaiseContainer(
-                                triggerOptions.TriggerEventQueues.Single().QueueName,
+                                triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
                                 component.ParentProcessId,
                                 new SignalSimpleStreamTriggerEvent(component.ParentTriggerKey)
                                 )],

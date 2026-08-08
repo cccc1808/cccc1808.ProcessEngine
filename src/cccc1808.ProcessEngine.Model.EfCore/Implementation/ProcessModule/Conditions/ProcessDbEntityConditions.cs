@@ -55,26 +55,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
             object? no,
             IQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters> Query
             ) DbProcessingForSelector
-        { get; }
-
-        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters> DbProcessingForSelectorForProjection1<T>(IQueryable<T> _)
-        {
-            return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters>(
-                (q, p, pr) => q
-                    .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
-                    .DWhere(p, e => e.ReservationTimeout < pr.now)
-                    );
-        }
-
-        public IQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2> DbProcessingForSelectorForProjection2<T>(IQueryable<T> _)
-        {
-            return new DelegateIQueryableCondition<T, TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters2>(
-                (q, p, pr) => q
-                    .DWhere(p, e => e.Status == ProcessStatusEnum.AsyncExecute)
-                    .DWhere(p, e => e.IsRangeExecution == pr.isRangeExecution)
-                    .DWhere(p, e => e.ReservationTimeout < pr.now)
-                    );
-        }
+        { get; }        
 
         public (
             object? no, 
@@ -102,15 +83,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
 
         #region protected
 
-        /// <summary>
-        /// Условие отсутсвия <see cref="ProcessDbEntity{TId}.ReservationTimeout"/>.
-        /// </summary>
-        protected (
-            IInMemoryCondition<TEntity, DateTimeOffset> Memory,
-            IQueryableCondition<TEntity, DateTimeOffset> Query
-            ) SelectLock
-        { get; }
-
         protected (
             object? _no,
             IQueryableCondition<TEntity, (IEFDbContext dbContext, ICollection<ProcessRegistryDto> data)> QueryRange
@@ -126,11 +98,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 // new Id_RangeCondition<TId, TEntity>(),
                 new Id_RangeCondition<TId, TEntity>(),
                 new Id_RangeCondition<TId, TEntity>()
-                );
-
-            SelectLock = (
-                new DelegateInMemoryCondition<TEntity, DateTimeOffset>((e, p) => e.ReservationTimeout < p),
-                new DelegateIQueryableCondition<TEntity, DateTimeOffset>((s, p) => s.Where(e => e.ReservationTimeout < p))
                 );
 
             AsyncExecute = (
@@ -170,6 +137,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
 
                         var joinData = p
                             .data
+                            .Select(e => e.Unique)
                             .Select(e => new { ProcessTypeId = e.ProcessType.ProcessType, e.ProcessType.ProcessVersion, e.Priority })
                             .ToArray();
                         var queryList = p.dbContext.QueryFromCollection(joinData);
@@ -191,11 +159,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                 new DelegateIQueryableCondition<TEntity, IProcessDbEntityConditions<TId, TEntity>.DbProcessingForSelectorParameters>(
                     (s, p) =>
                     {
-                        s = s
+                        s = s                            
+                            .Where(
+                                e =>
+                                e.Priority == p.registration.Unique.Priority
+                                && e.ProcessTypeId == p.registration.Unique.ProcessType.ProcessType 
+                                && e.ProcessVersion == p.registration.Unique.ProcessType.ProcessVersion
+                                && Comparer<TId>.Default.Compare(e.Id, p.offsetId) > 0 // keyset
+                                )
                             .ApplayQueryCondition(AsyncExecute.Query)
-                            .ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations))
-                            .ApplayQueryCondition(SelectLock.Query, p.now)
-                            .OrderByDescending(e => e.Priority);
+                            .OrderByDescending(e => e.Priority)
+                            .ThenBy(e => e.ProcessTypeId)
+                            .ThenBy(e => e.ProcessVersion)
+                            .ThenBy(e => e.Id);
 
                         return s;
                     })
@@ -208,7 +184,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                     {
                         s = s
                             .ApplayQueryCondition(AsyncExecute.QueryIds, p.ids)
-                            .ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations));
+                            //.ApplayQueryCondition(ProcessRegistry.QueryRange, (p.dbContext, p.registrations))
+                            ;
 
                         return s;
                     })
@@ -221,7 +198,8 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Condi
                         e.Status == ProcessStatusEnum.WaitEvent // 1) Процесс в статусе ожидания.
                         && !e.StoppedByError
                         && e.RetryCount == null // 2) Процесс не в ошибке.
-                        && e.ReservationTimeout < timeout) // 3) Процесс давно не брался в обработку.                        
+                        && e.LastAsyncExecuteDate < timeout // 3) Не выполнялся.
+                        )                   
                     )
                 );
         }        

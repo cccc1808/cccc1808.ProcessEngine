@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Queries;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -20,6 +20,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.Implementation.ConditionModule;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
@@ -44,6 +45,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
+        private readonly IProcessRegistry _processRegistry;
         private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         private readonly Options _options;
@@ -59,6 +61,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
+            IProcessRegistry processRegistry,
             ITriggerEventRaiser<TId> triggerEventRaiser,
             Options options,
             EFChangeTrackerProcessRepository<TId, ProcessDbEntity<TId>>.Options repositoryOptions,
@@ -73,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             _dbContext = dbContext;
             _inboxRegistryDto = inboxRegistryDto;
             _lockQueryHintStore = lockQueryHintStore;
-
+            _processRegistry = processRegistry;
             _triggerEventRaiser = triggerEventRaiser;
 
             _options = options;
@@ -98,7 +101,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                 return;
             }
 
-            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Registry.ProcessType, out var inboxProcessesIds))
+            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Unique.ProcessType, out var inboxProcessesIds))
             {
                 return;
             }
@@ -146,7 +149,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             IDictionary<ProcessTypeDto, ICollection<TId>> byTypeIndex,
             CancellationToken cancellationToken)
         {
-            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Registry.ProcessType, out var inboxProcessesIds))
+            if (!byTypeIndex.TryGetValue(_inboxRegistryDto.Unique.ProcessType, out var inboxProcessesIds))
             {
                 return;
             }
@@ -169,9 +172,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     .QueryFromCollection(notProcessedInboxProcessesIds.Select(
                         e => new
                         {
-                            ProcessTypeId = _inboxRegistryDto.Registry.ProcessType.ProcessType,
-                            ProcessVersion = _inboxRegistryDto.Registry.ProcessType.ProcessVersion,
-                            Priority = _inboxRegistryDto.Registry.Priority,
+                            ProcessTypeId = _inboxRegistryDto.Unique.ProcessType.ProcessType,
+                            ProcessVersion = _inboxRegistryDto.Unique.ProcessType.ProcessVersion,
+                            Priority = _inboxRegistryDto.Unique.Priority,
                             Id = e,
                         })
                     .ToArray());
@@ -193,7 +196,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         e => e.Process,
                         new IProcessDbEntityConditions<TId, ProcessDbEntity<TId>>.DbProcessingForHandlerParameters(
                             _dbContext,
-                            [_inboxRegistryDto.Registry],
+                            [_inboxRegistryDto.Unique],
                             notProcessedInboxProcessesIds))
                     .ApplayQueryCondition(
                         _messageStreamConditions.ForProcessingProjection(query),
@@ -236,14 +239,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
             foreach (var elem in processGroups)
             {
-                // Так как мы уже считали с блокировкой,
-                // то в конце текущей транзакции тожно сбросить ReservationTimeout, т.к. сессия работы была завершена.
-                // Не сбрасываем на min, потому что значение используется.
-                elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                 var processDataElem = processData[elem.Process.Id];
 
                 var container = new ProcessContainer<TId>(
-                    new EFProcessProxyComponent<TId>(elem.Process),
+                    new EFProcessProxyComponent<TId>(
+                        elem.Process,
+                        _processRegistry.Get(
+                            elem.Process.ToProcessTypeUnique<TId, ProcessDbEntity<TId>>())),
                     new AsyncSessionComponent(
                         sessionId: Guid.Empty,
                         isSessionFirstStep: true,
@@ -335,7 +337,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                     {
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
-                                            elem.Process.ReservationTimeout = _dateTimeProvider.UtcNow;
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
                                             elem.Wakeup.IsAsyncExecuting = false;
 
@@ -388,9 +389,9 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        var unreserveProcessQuery = scope.ServiceProvider.GetRequiredService<IUnreserveProcessQuery<TId>>();
+                        var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReserveProvider<TId>>();
 
-                        await unreserveProcessQuery.UnreserveAsync(
+                        await processReservationProvider.UnreserveAsync(
                             notProcessedInboxProcessesIds,
                             cancellationToken);
                     }

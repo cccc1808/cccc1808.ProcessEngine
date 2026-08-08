@@ -1,0 +1,158 @@
+﻿using System.Collections.Concurrent;
+
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
+
+using StackExchange.Redis;
+
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
+{
+    public class RedisProcessQueueNotificationRunner<TId>
+        : IRedisProcessQueueNotificationRunner
+    {
+        private readonly IProcessRegistry _processRegistry;
+        private readonly IRedisConnectionFactory _redisConnectionFactory;
+        private readonly IRedisProcessQueueNotifyState _state;
+
+        private readonly ProcessQueueOptionsDto<TId> _options;
+
+        public RedisProcessQueueNotificationRunner(
+            IProcessRegistry processRegistry,
+            IRedisConnectionFactory redisConnectionFactory,
+            IRedisProcessQueueNotifyState state,
+
+            ProcessQueueOptionsDto<TId> options)
+        {
+            _processRegistry = processRegistry;
+            _redisConnectionFactory = redisConnectionFactory;
+            _state = state;
+
+            _options = options;
+        }
+
+        public async Task RunAsync(
+            bool one,
+            CancellationToken cancellationToken)
+        {
+            static ProcessTypeUniqueDto waitComplete(
+                LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)> state)
+            {
+                state.Data.Item2.TryAdd(state.Data.Item1, state.Data.Item3);
+
+                return state.Data.Item1;
+            }
+
+            var allProcesses = _processRegistry.All();
+
+            var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
+
+            var subscribes = new Dictionary<ProcessTypeUniqueDto, NotificationEntryDto>(allProcesses.Count);
+            var completeBuffer = new ConcurrentDictionary<ProcessTypeUniqueDto, Task>();
+            var waitBuffer = new HashSet<Task>(allProcesses.Count);
+
+            try
+            {
+                // 1) Подписываемся на оповещения по всем типам процессов.
+                foreach (var elem in allProcesses)
+                {
+                    var subscribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(elem.Unique), cancellationToken);
+                    var enumerator = subscribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
+
+                    var entry = new NotificationEntryDto()
+                    {
+                        ProcessRegistry = elem,
+                        Subsribe = subscribe,
+                        Enumerator = enumerator,
+                    };
+
+                    var waitTaskContainer = LinkContainer.Create<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>(default);
+                    var waitTask = enumerator.MoveNextAsync().AsTask()
+                        .ContinueWith(
+                            static (t, s) => waitComplete((LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>)s!),
+                            state: waitTaskContainer,
+                            continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
+                    waitTaskContainer.Data = (elem.Unique, completeBuffer, waitTask);
+
+                    subscribes.Add(elem.Unique, entry);
+                    waitBuffer.Add(waitTask);
+                }
+
+                // 2) Считываем обновления по очередям.
+                var rangeNotifyByffer = new List<ProcessTypeUniqueDto>();
+                var singleNotifyBuffer = new List<ProcessTypeUniqueDto>();
+                while (true)
+                {
+                    rangeNotifyByffer.Clear();
+                    singleNotifyBuffer.Clear();
+
+                    // Ждем оповещения о поступлении сообщения в очередь.
+                    await Task.WhenAny(waitBuffer);
+
+                    foreach (var elem in completeBuffer)
+                    {
+                        var key = elem.Key;
+                        var subscribe = subscribes[key];
+
+                        completeBuffer.TryRemove(elem.Key, out _);
+
+                        if (!subscribe.ProcessRegistry.Metadata.IsSignleExecuteProcess)
+                        {
+                            rangeNotifyByffer.Add(key);
+                        }
+                        else
+                        {
+                            singleNotifyBuffer.Add(key);
+                        }                        
+
+                        var waitTaskContainer = LinkContainer.Create<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>(default);
+                        var newWaitTask = subscribe.Enumerator.MoveNextAsync().AsTask()
+                            .ContinueWith(
+                                static (t, s) => waitComplete((LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>)s!),
+                                state: waitTaskContainer,
+                                continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
+                        waitTaskContainer.Data = (key, completeBuffer, newWaitTask);
+
+                        waitBuffer.Remove(elem.Value);
+                        waitBuffer.Add(newWaitTask);
+                    }
+
+                    // Обновляем метаданные о поступлении нового сообщения.
+                    if (rangeNotifyByffer.Any())
+                    {
+                        await _state.RangeHandler.NewMessageInQueueAsync(rangeNotifyByffer, cancellationToken);
+                    }
+
+                    if (singleNotifyBuffer.Any())
+                    {
+                        await _state.SingleHandler.NewMessageInQueueAsync(singleNotifyBuffer, cancellationToken);
+                    }
+
+                    if (one)
+                    {
+                        return;
+                    }
+                }                
+            }
+            finally
+            {
+                foreach (var elem in subscribes.Values)
+                {
+                    // await elem.Enumerator.DisposeAsync();
+                    await elem.Subsribe.DisposeAsync();
+                }
+            }
+        }
+
+        private class NotificationEntryDto
+        {
+            public required ProcessRegistryDto ProcessRegistry { get; init; }
+
+            public required IRedisConnection.ISubscribeContainer Subsribe { get; init; }
+
+            public required IAsyncEnumerator<ChannelMessage> Enumerator { get; init; }
+        }
+    }
+}

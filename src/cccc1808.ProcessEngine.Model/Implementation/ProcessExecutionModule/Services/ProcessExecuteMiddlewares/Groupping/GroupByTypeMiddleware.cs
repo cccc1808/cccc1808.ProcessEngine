@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             }
 
             var groupedByProcessTypeIds = ids.First()
-                .GroupBy(e => e.ProcessType)
+                .GroupBy(e => e.Registry.Unique.ProcessType)
                 .Select(e => e.Select(e2 => e2).ToArray())
                 .ToArray();
 

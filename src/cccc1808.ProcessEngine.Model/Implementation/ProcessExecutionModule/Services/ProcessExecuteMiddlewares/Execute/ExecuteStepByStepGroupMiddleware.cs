@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -31,7 +32,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
     /// * Обрабатывать батчами с сохранением после каждого шага.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    /// <typeparam name="TContext"></typeparam>
     public class ExecuteStepByStepGroupMiddleware<TId>
         : IProcessHandlerMiddleware<TId>
     {
@@ -39,7 +39,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IIsolationService _isolationService;
         private readonly IProcessSetter _processSetter;
-        private readonly IWakeupService<TId> _wakeupService;        
+        private readonly IWakeupService<TId> _wakeupService;
+        private readonly IProcessQueueContext<TId> _processQueueContext;
 
         private readonly Func<IServiceProvider, ValueTask<IHandler>> _factory;
 
@@ -51,6 +52,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IIsolationService isolationService,
             IProcessSetter processSetter,
             IWakeupService<TId> wakeupService,
+            IProcessQueueContext<TId> processQueueContext,
 
             Func<IServiceProvider, ValueTask<IHandler>> factory,
 
@@ -61,6 +63,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _isolationService = isolationService;
             _processSetter = processSetter;
             _wakeupService = wakeupService;
+            _processQueueContext = processQueueContext;
 
             _factory = factory;
 
@@ -413,6 +416,43 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 allProcesses.Data.Values,
                 cancellationToken);
             await handler.SaveWakeupRangeAsync(wakeupUpdate, cancellationToken);
+
+            //// 5) Обновление очереди и резервирования.
+            {
+                _processQueueContext.IncreseBufferCapacity(allProcesses.Data.Count);
+                // TODO: options.
+                _processQueueContext.SetReserveTimeout(
+                    allProcesses.Data.Values.First().Process.Info.Registry.Metadata.IsSignleExecuteProcess
+                    ? TimeSpan.FromSeconds(30) 
+                    : TimeSpan.FromSeconds(60));
+                foreach (var elem in allProcesses.Data.Values)
+                {
+                    switch (elem.Process.Status)
+                    {
+                        case ProcessStatusEnum.AsyncExecute:
+                            {
+                                // Асинхронное выполнение продолжается.
+                                _processQueueContext.ProcessContinueExecute(
+                                    IProcessQueueContext<TId>.ProcessDto.TriggerContinueRun(
+                                        elem.Id,
+                                        elem.Process.Info.Registry
+                                        ));
+                                break;
+                            }
+
+                        case ProcessStatusEnum.WaitEvent:
+                        case ProcessStatusEnum.Complete:
+                            {
+                                // Асинхронное выполнение не требуется.
+                                _processQueueContext.ProcessExecuted(elem.Process.Info.Id);
+                                break;
+                            }
+
+                        default: 
+                            throw new NotImplementedException(elem.Process.Status.ToString());
+                    }
+                }
+            }
         }
 
         private async Task<Dictionary<TId, IProcessContainer<TId>>> LoadAsync(

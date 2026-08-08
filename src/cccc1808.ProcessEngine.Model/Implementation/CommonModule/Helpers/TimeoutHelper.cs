@@ -102,5 +102,49 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers
 
             return false;
         }
+
+        /// <summary>
+        /// Ждать завершения задачи или timeout или отмены.
+        /// Не ожидает waitTask.
+        /// </summary>
+        /// <returns>True - задача завершена, False - timeout.</returns>
+        public static async ValueTask<bool> WaitTimeoutAsync(
+            Task waitTask,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+        {
+            if (timeout.HasValue)
+            {
+                var timeoutTask = Task.Delay(timeout.Value, cancellationToken);
+                var completedTask = await Task.WhenAny(
+                    waitTask,
+                    timeoutTask);
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return completedTask == waitTask;
+            }
+            else 
+            {
+                using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var taskCompletionSource = new TaskCompletionSource(
+                    creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
+                cancellationTokenSource.Token.Register(
+                    static (s, t) =>
+                    {
+                        var typedState = (TaskCompletionSource)s!;
+                        typedState.TrySetCanceled(t);
+                    },
+                    taskCompletionSource);
+
+                await Task.WhenAny(
+                    waitTask,
+                    taskCompletionSource.Task);
+
+                cancellationTokenSource.Token.ThrowIfCancellationRequested();
+
+                return true;
+            }
+        }
     }
 }

@@ -12,24 +12,29 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 
 namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components
 {
-    public class EFProcessProxyComponent<TId> : IProcessComponent<TId>
+    public class EFProcessProxyComponent<TId> 
+        : IProcessComponent<TId>
     {
         public ProcessDbEntity<TId> ProcessDbEntity { get; }        
 
+        private ProcessInstanceInfoDto<TId> InnerInfo { get; set; }
+
         public ProcessInstanceInfoDto<TId> Info 
-        { 
-            get => new ProcessInstanceInfoDto<TId>(
-                ProcessDbEntity.Id,
-                new ProcessTypeDto(
-                    ProcessDbEntity.ProcessTypeId, 
-                    ProcessDbEntity.ProcessVersion),
-                ProcessDbEntity.Priority
-                );
+        {
+            get => InnerInfo; 
             set 
             {
-                ProcessDbEntity.ProcessTypeId = value.ProcessType.ProcessType;
-                ProcessDbEntity.ProcessVersion = value.ProcessType.ProcessVersion;
-                ProcessDbEntity.Priority = value.Priority;
+                if (ProcessDbEntity.ProcessTypeId != value.Registry.Unique.ProcessType.ProcessType)
+                {
+                    throw new ArgumentException("Изменение типа процесса не допустимо.");
+                }
+                if (ProcessDbEntity.ProcessVersion != value.Registry.Unique.ProcessType.ProcessVersion)
+                {
+                    throw new ArgumentException("Изменение версии типа процесса не допустимо.");
+                }
+
+                ProcessDbEntity.Priority = value.Registry.Unique.Priority;
+                InnerInfo = value;
             }
         }
 
@@ -49,12 +54,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
         {
             get => ProcessDbEntity.RetryCount;
             set => ProcessDbEntity.RetryCount = value;
-        }       
-
-        public DateTimeOffset ReservationTimeout 
-        {
-            get => ProcessDbEntity.ReservationTimeout;
-            set => ProcessDbEntity.ReservationTimeout = value;
         }
 
         /// <summary>
@@ -64,9 +63,11 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Compo
         public IProcessComponent<TId>.ErrorDto? Error { get; set; }
 
         public EFProcessProxyComponent(
-            ProcessDbEntity<TId> processDbEntity)
+            ProcessDbEntity<TId> processDbEntity,
+            ProcessRegistryDto processRegistryDto)
         {
             ProcessDbEntity = processDbEntity;
+            Info = new ProcessInstanceInfoDto<TId>(processDbEntity.Id, processRegistryDto);
         }
     }
 }
