@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
@@ -134,11 +135,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                 var dateTimeProvider = serviceProvider.GetRequiredService<IDateTimeProvider>();
                 var transactionManager = serviceProvider.GetRequiredService<ITransactionManager>();
                 var dbContext = serviceProvider.GetRequiredService<DbContext>();
+                var processQueueContext = serviceProvider.GetRequiredService<IProcessQueueContext<Guid>>();
 
                 var batchLimit = Math.Min(processState.ChildProcessCount, lastCreatedIndex.Data + batchSize);
 
                 await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                 {
+                    processQueueContext.IncreseBufferCapacity(batchLimit);
                     for (var i = lastCreatedIndex.Data; i < batchLimit; i++)
                     {
                         var createProcessId = Guid.NewGuid();
@@ -170,6 +173,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                                 isActive: true,
                                 childProcessId: createProcessId,
                                 childProcessIndex: i));
+
+                        processQueueContext.ProcessToExecute(
+                            IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
+                                createProcessId,
+                                new ProcessRegistryDto(
+                                    new ProcessTypeUniqueDto(TestSchemaProcessHandler52.ProcessType, 1),
+                                    new ProcessTypeMetadata(IsSignleExecuteProcess: true))
+                                ));
                     }
 
                     await dbContext.SaveChangesAsync(cancellationToken);

@@ -87,13 +87,13 @@ using cccc1808.ProcessEngine.Model.InboxOutbox.Implementation.OutboxModule.Servi
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service;
@@ -261,20 +261,18 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddRedisProcessQueueServices(
             this IServiceCollection services,
 
-            RedisProcessReseveProvider<Guid>.OptionsDto options,
-            RedisProcessReserveOptions reservationOptions,
+            RedisProcessReserveProvider<Guid>.OptionsDto reserveOptions,
             ProcessQueueOptionsDto<Guid> processQueueOptions
             )
         {
             services
-                .AddScoped<IProcessReserveProvider<Guid>, RedisProcessReseveProvider<Guid>>()
-                .AddSingleton(options)
-                .AddSingleton(reservationOptions)
+                .AddScoped<IProcessReserveProvider<Guid>, RedisProcessReserveProvider<Guid>>()
+                .AddSingleton(reserveOptions)
 
                 .AddScoped<IProcessQueueProvider<Guid>, RedisProcessQueueProvider<Guid>>()
                 .AddSingleton(processQueueOptions)
 
-                .AddSingleton<IRedisNotifyProcessQueueState, RedisNotifyProcessQueueState>()
+                .AddSingleton<IRedisProcessQueueNotifyState, RedisProcessQueueNotifyState>()
 
                 .AddScoped<IProcessQueueContext<Guid>, ProcessQueueContext<Guid>>()
 
@@ -330,8 +328,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
             TriggerOptions<Guid> triggerOptions,
             RedisTriggerQueueOptionsDto<Guid> triggerQueueOptions,
-            RedisTriggerReservationOptions triggerReservationOptions,
-            RedisTriggerReserveProvider<Guid>.OptionsDto triggerReservationOptions2)
+            RedisTriggerReserveProvider<Guid>.OptionsDto triggerReserveOptions)
         {
             services
                 .AddSingleton<ITriggerRegistry, TriggerRegistry>()
@@ -362,12 +359,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             services
                 .AddScoped<ITriggerReserveProvider<Guid>, RedisTriggerReserveProvider<Guid>>()
-                .AddSingleton(triggerReservationOptions)
-                .AddSingleton(triggerReservationOptions2)
+                .AddSingleton(triggerReserveOptions)
 
                 .AddScoped<ITriggerQueueProvider<Guid>, RedisTriggerQueueProvider<Guid>>()
                 .AddSingleton(triggerQueueOptions)
-                .AddSingleton<IRedisNotifyTriggerQueueState, RedisNotifyTriggerQueueState<Guid>>()
+                .AddSingleton<IRedisTriggerQueueNotifyState, RedisTriggerQueueNotifyState<Guid>>()
                 .AddScoped<IRedisTriggerQueueNotificationRunner, RedisTriggerQueueNotificationRunner<Guid>>()
 
                 .AddScoped<ITriggerQueueContext<Guid>, TriggerQueueContext<Guid>>()

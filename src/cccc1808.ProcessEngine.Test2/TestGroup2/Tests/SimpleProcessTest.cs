@@ -37,7 +37,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -73,7 +76,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
             }
             
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())

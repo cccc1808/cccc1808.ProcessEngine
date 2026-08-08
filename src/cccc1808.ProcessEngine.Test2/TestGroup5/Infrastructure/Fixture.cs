@@ -28,10 +28,9 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Storage.DbProviders;
@@ -204,16 +203,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             SingleExecute_ParallelismLimit = 1,
                         })
                     .AddRedisProcessQueueServices(
-                        new RedisProcessReseveProvider<Guid>.OptionsDto() 
-                        {
-                            HashKey = NameFactory.ProcessReserve,
-                            KeyToStringHandler = NameFactory.IdToString,
-                            StringToKeyHandler = NameFactory.StringToId,
-                        },
-                        new RedisProcessReserveOptions()
+                        new RedisProcessReserveProvider<Guid>.OptionsDto() 
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
+                            HashKey = NameFactory.ProcessReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
                         },
                         new ProcessQueueOptionsDto<Guid>() 
                         {
@@ -285,13 +281,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
                             QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
-                        new RedisTriggerReservationOptions()
+                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                        },
-                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
-                        {
                             HashKey = NameFactory.TriggerReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
@@ -306,6 +299,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         },
                         new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
                         new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler2.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
+                        new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler4.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
                         new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler51.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
                         new ProcessRegistryDto(new ProcessTypeUniqueDto(TestSchemaProcessHandler52.ProcessType, 1), new ProcessTypeMetadata(IsSignleExecuteProcess: true))
                     )

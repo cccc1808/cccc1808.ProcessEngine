@@ -4,11 +4,11 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue
 {
     public class RedisTriggerQueueNotificationRunner<TId> 
         : IRedisTriggerQueueNotificationRunner
@@ -16,7 +16,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
         private readonly IServiceProvider _serviceProvider;
         private readonly ITriggerRegistry _triggerRegistry;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
-        private readonly IRedisNotifyTriggerQueueState _state;
+        private readonly IRedisTriggerQueueNotifyState _state;
         private readonly ITriggerHandlerFactory<TId> _triggerHandlerFactory;
 
         private readonly RedisTriggerQueueOptionsDto<TId> _options;
@@ -25,7 +25,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             IServiceProvider serviceProvider,
             ITriggerRegistry triggerRegistry,
             IRedisConnectionFactory redisConnectionFactory,
-            IRedisNotifyTriggerQueueState state,
+            IRedisTriggerQueueNotifyState state,
             ITriggerHandlerFactory<TId> triggerHandlerFactory,
 
             RedisTriggerQueueOptionsDto<TId> options)
@@ -55,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
 
-            var subscribers = new Dictionary<string, NotificationEntryDto>(allTriggers.Count);
+            var subscribes = new Dictionary<string, NotificationEntryDto>(allTriggers.Count);
             var completeBuffer = new ConcurrentDictionary<string, Task>();
             var waitBuffer = new HashSet<Task>(allTriggers.Count);
 
@@ -64,16 +64,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                 // 1) Подписываемся на оповещения по всем типам процессов.
                 foreach (var elem in allTriggers)
                 {
-                    var subsribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(
-                        new IRedisNotifyTriggerQueueState.KeyDto(elem.HandlerName, 0)),
+                    var subscribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(
+                        new IRedisTriggerQueueNotifyState.KeyDto(elem.HandlerName, 0)),
                         cancellationToken);
-                    var enumerator = subsribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
+                    var enumerator = subscribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
 
                     var entry = new NotificationEntryDto()
                     {
                         TriggerRegistryDto = elem,
                         IsRangeTrigger = _triggerHandlerFactory.IsRangeHandler(_serviceProvider, elem.HandlerName),
-                        Subsribe = subsribe,
+                        Subsribe = subscribe,
                         Enumerator = enumerator,
                     };
 
@@ -85,13 +85,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                             continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                     waitTaskContainer.Data = (elem.HandlerName, completeBuffer, waitTask);
 
-                    subscribers.Add(elem.HandlerName, entry);
+                    subscribes.Add(elem.HandlerName, entry);
                     waitBuffer.Add(waitTask);
                 }
 
                 // 2) Считываем обновления по очередям.
-                var rangeNotifyBuffer = new List<IRedisNotifyTriggerQueueState.KeyDto>();
-                var singleNotifyBuffer = new List<IRedisNotifyTriggerQueueState.KeyDto>();
+                var rangeNotifyBuffer = new List<IRedisTriggerQueueNotifyState.KeyDto>();
+                var singleNotifyBuffer = new List<IRedisTriggerQueueNotifyState.KeyDto>();
                 while (true)
                 {
                     rangeNotifyBuffer.Clear();
@@ -105,17 +105,17 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         var key = elem.Key;
                         completeBuffer.TryRemove(elem.Key, out _);                        
 
-                        var subscribe = subscribers[key];
+                        var subscribe = subscribes[key];
                         if (subscribe.IsRangeTrigger)
                         {
-                            rangeNotifyBuffer.Add(new IRedisNotifyTriggerQueueState.KeyDto(key, 0));
+                            rangeNotifyBuffer.Add(new IRedisTriggerQueueNotifyState.KeyDto(key, 0));
                         }
                         else 
                         {
-                            singleNotifyBuffer.Add(new IRedisNotifyTriggerQueueState.KeyDto(key, 0));
+                            singleNotifyBuffer.Add(new IRedisTriggerQueueNotifyState.KeyDto(key, 0));
                         }
-
-                            var waitTaskContainer = LinkContainer.Create<(string, ConcurrentDictionary<string, Task>, Task)>(default);
+                            
+                        var waitTaskContainer = LinkContainer.Create<(string, ConcurrentDictionary<string, Task>, Task)>(default);
                         var newWaitTask = subscribe.Enumerator.MoveNextAsync().AsTask()
                             .ContinueWith(
                                 static (t, s) => waitComplete((LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)>)s!),
@@ -134,7 +134,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                     }
                     if (singleNotifyBuffer.Any())
                     {
-                        await _state.SignleTriggerState.NewMessageInQueueAsync(rangeNotifyBuffer, cancellationToken);
+                        await _state.SignleTriggerState.NewMessageInQueueAsync(singleNotifyBuffer, cancellationToken);
                     }
 
                     if (one)
@@ -145,7 +145,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             }
             finally
             {
-                foreach (var elem in subscribers.Values)
+                foreach (var elem in subscribes.Values)
                 {
                     // await elem.Enumerator.DisposeAsync();
                     await elem.Subsribe.DisposeAsync();

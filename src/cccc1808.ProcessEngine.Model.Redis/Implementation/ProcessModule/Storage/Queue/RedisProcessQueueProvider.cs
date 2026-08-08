@@ -23,20 +23,17 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
     public class RedisProcessQueueProvider<TId> 
         : IProcessQueueProvider<TId>
     {
-        private readonly IServiceProvider _serviceProvider;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
-        private readonly IRedisNotifyProcessQueueState _state;
+        private readonly IRedisProcessQueueNotifyState _state;
 
         private readonly ProcessQueueOptionsDto<TId> _options;        
 
         public RedisProcessQueueProvider(
-            IServiceProvider serviceProvider,
             IRedisConnectionFactory redisConnectionFactory,
-            IRedisNotifyProcessQueueState state,
+            IRedisProcessQueueNotifyState state,
 
             ProcessQueueOptionsDto<TId> options)
         {
-            _serviceProvider = serviceProvider;
             _redisConnectionFactory = redisConnectionFactory;
             _state = state;
 
@@ -140,7 +137,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
         }
 
         private async Task<List<IProcessQueueProvider<TId>.MessageDto>> InnerConsumeAsync(
-            IRedisNotifyProcessQueueState.IHandler state,
+            IRedisProcessQueueNotifyState.IHandler state,
             int batchSize,
             int? uniqueHandlersLimit,
             TimeSpan batchTimeout,
@@ -181,7 +178,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                             var timeout = stopwatch.IsRunning 
                                 ? batchTimeout - stopwatch.Elapsed 
                                 : (TimeSpan?)null;
-                            var isNewMessage = await TimeoutHelper.WaitTaskAsync(
+                            var isNewMessage = await TimeoutHelper.WaitTimeoutAsync(
                                 waitNewMessages,
                                 timeout,
                                 cancellationToken);

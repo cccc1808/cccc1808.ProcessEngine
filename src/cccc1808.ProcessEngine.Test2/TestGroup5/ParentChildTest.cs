@@ -120,7 +120,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 2) Родительский процесс запускает дочерние процессы.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: true);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var processDatas = await _testService.LoadAsync<SchemaProcessDataDbEntity<Guid>>(scope.ServiceProvider);
@@ -138,17 +141,25 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 3) Дочерние процессы выполняются.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
             }
 
             // 4) Обрабатываем триггеры. Родительский процесс должен пробудится.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);                
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);                
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false, 
+                    withProcessNotification: false);
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var process = processes.Single(e => e.Id == processId);
@@ -160,7 +171,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 5) Завершаем родительский процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);
                 var process = processes.Single(e => e.Id == processId);

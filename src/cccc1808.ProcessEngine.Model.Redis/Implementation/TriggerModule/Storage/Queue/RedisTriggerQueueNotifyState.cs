@@ -9,21 +9,20 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue
 {
-    public class RedisNotifyTriggerQueueState<TId>
-        : IRedisNotifyTriggerQueueState
+    public class RedisTriggerQueueNotifyState<TId>
+        : IRedisTriggerQueueNotifyState
     {
-        public IRedisNotifyTriggerQueueState.IHandler RangeTriggerState { get; }
+        public IRedisTriggerQueueNotifyState.IHandler RangeTriggerState { get; }
 
-        public IRedisNotifyTriggerQueueState.IHandler SignleTriggerState { get; }
+        public IRedisTriggerQueueNotifyState.IHandler SignleTriggerState { get; }
 
-
-        public RedisNotifyTriggerQueueState(
+        public RedisTriggerQueueNotifyState(
             IServiceProvider serviceProvider,
             ITriggerRegistry triggerRegistry,
             ITriggerHandlerFactory<TId> triggerHandlerFactory)
@@ -42,7 +41,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             }
         }
 
-        private class Handler : IRedisNotifyTriggerQueueState.IHandler
+        private class Handler : IRedisTriggerQueueNotifyState.IHandler
         {
             /// <summary>
             /// Содержит данные об очередях, в которых должны быть сообщения.
@@ -51,7 +50,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             /// Value - timestamp последнего события о поступлении сообщения.
             /// // TODO: PERF: ImmutableSortedDictionary vs ConcurrentSortedDictionary.
             /// </summary>
-            private OptimisticLockContainer<ImmutableSortedDictionary<IRedisNotifyTriggerQueueState.KeyDto, long>> QueueWithMessages { get; }
+            private OptimisticLockContainer<ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long>> QueueWithMessages { get; }
             /// <summary>
             /// Содержит задачу для ожидания.
             /// Если все очереди опустели - Task переводится в состояние ожидания.
@@ -62,24 +61,24 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             public Handler(
                 TriggerRegistryDto[] registries)
             {
-                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<IRedisNotifyTriggerQueueState.KeyDto, long>(new KeyComparer());
+                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<IRedisTriggerQueueNotifyState.KeyDto, long>(new KeyComparer());
                 waitNewMessageBuilder.AddRange(
                     registries
-                        .Select(e => new KeyValuePair<IRedisNotifyTriggerQueueState.KeyDto, long>(
-                            new IRedisNotifyTriggerQueueState.KeyDto(e.HandlerName, 0),
+                        .Select(e => new KeyValuePair<IRedisTriggerQueueNotifyState.KeyDto, long>(
+                            new IRedisTriggerQueueNotifyState.KeyDto(e.HandlerName, 0),
                             DateTimeOffset.MinValue.UtcTicks))
                         .ToArray()
                     );
                 var waitNewMessage = new TaskCompletionSource(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
                 waitNewMessage.SetResult();
 
-                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<IRedisNotifyTriggerQueueState.KeyDto, long>>(
+                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long>>(
                         waitNewMessageBuilder.ToImmutableSortedDictionary());
                 WaitNewMessage = new LockContainer<TaskCompletionSource>(
                         waitNewMessage);
             }
 
-            public ImmutableSortedDictionary<IRedisNotifyTriggerQueueState.KeyDto, long> GetQueueWithMessages()
+            public ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long> GetQueueWithMessages()
             {
                 return QueueWithMessages.Data;
             }
@@ -95,7 +94,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             }
 
             public void QueueIsEmpty(
-                IRedisNotifyTriggerQueueState.KeyDto key,
+                IRedisTriggerQueueNotifyState.KeyDto key,
                 long timestamp,
                 CancellationToken cancellationToken)
             {
@@ -115,7 +114,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             }
 
             public async ValueTask NewMessageInQueueAsync(
-                ICollection<IRedisNotifyTriggerQueueState.KeyDto> keys,
+                ICollection<IRedisTriggerQueueNotifyState.KeyDto> keys,
                 CancellationToken cancellationToken)
             {
                 foreach (var elem in keys)
@@ -138,11 +137,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                     },
                     cancellationToken);
             }
+
+            public void Clear()
+            {
+                QueueWithMessages.TryUpdate(1, (p, e) => e.Clear(), default);
+            }
         }
 
-        private class KeyComparer : IComparer<IRedisNotifyTriggerQueueState.KeyDto>
+        private class KeyComparer : IComparer<IRedisTriggerQueueNotifyState.KeyDto>
         {
-            public int Compare(IRedisNotifyTriggerQueueState.KeyDto x, IRedisNotifyTriggerQueueState.KeyDto y)
+            public int Compare(IRedisTriggerQueueNotifyState.KeyDto x, IRedisTriggerQueueNotifyState.KeyDto y)
             {
                 var r1 = Comparer<short>.Default.Compare(x.Priority, y.Priority);
                 if (r1 != 0)

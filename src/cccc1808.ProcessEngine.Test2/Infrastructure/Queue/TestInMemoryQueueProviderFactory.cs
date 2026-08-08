@@ -122,7 +122,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
 
                     while (consumeBuffer.Count < limit && stopwatch.Elapsed < batchTimeout)
                     {
-                        await Task.WhenAny(
+                        await await Task.WhenAny(
                             _queue.Queue.Reader.WaitToReadAsync(cancellationToken).AsTask(),
                             Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken)
                             );
@@ -152,7 +152,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure.Queue
 
                     while (stopwatch.Elapsed < batchTimeout)
                     {
-                        await Task.WhenAny(
+                        await await Task.WhenAny(
                             _queue.Queue.Reader.WaitToReadAsync(cancellationToken).AsTask(),
                             Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken)
                             );

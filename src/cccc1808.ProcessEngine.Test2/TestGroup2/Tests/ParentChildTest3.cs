@@ -49,6 +49,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         private readonly FixtureCollection.Fixture _fixture;
         private readonly TestService _testService;
 
+        private static ProcessRegistryDto ParentProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(3, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
+        private static ProcessRegistryDto ChildProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(4, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
         public ParentChildTest3(
             FixtureCollection.Fixture fixture)
         {
@@ -56,7 +66,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -85,9 +98,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
                     new ProcessDbEntity<Guid>(
                         processId,
-                        3,
-                        1,
-                        1,
+                        ParentProcessRegistry.Unique,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -119,8 +130,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessDbSelectAsync(scope.ServiceProvider);
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider, 
+                    withProcessNotification: true);
 
                 // assert.
                 {
@@ -160,7 +173,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // StreamTrigger фиксирует, что родительский процес уснул.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
 
                 // assert.
                 {
@@ -176,10 +189,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             }
 
             // 3) Выполнение дочерних процессов.
-            // По завершению на родитедьский триггер публикуется событие.
+            // По завершению на родительский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -216,7 +231,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // События по SimpleStreamTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 // assert.
                 {
@@ -263,7 +278,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -426,9 +443,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 dbcontext.Set<ProcessDbEntity<Guid>>().Add(
                                     new ProcessDbEntity<Guid>(
                                         processId,
-                                        4,
-                                        1,
-                                        1,
+                                        ChildProcessRegistry.Unique,
                                         false,
                                         ProcessStatusEnum.AsyncExecute,
                                         null
@@ -443,11 +458,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 processQueueContext.ProcessToExecute(
                                     IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
                                         processId,
-                                        new ProcessRegistryDto(
-                                            new ProcessTypeUniqueDto(
-                                                new ProcessTypeDto(4, 1), 1),
-                                            new ProcessTypeMetadata(IsSignleExecuteProcess: true)
-                                            )
+                                        ChildProcessRegistry
                                         )
                                     );
                             }

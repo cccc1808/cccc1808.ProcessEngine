@@ -14,23 +14,23 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue
 {
     public class RedisTriggerQueueProvider<TId>
         : ITriggerQueueProvider<TId>
     {
         private readonly IRedisConnectionFactory _redisConnectionFactory;
-        private readonly IRedisNotifyTriggerQueueState _state;
+        private readonly IRedisTriggerQueueNotifyState _state;
 
         private readonly RedisTriggerQueueOptionsDto<TId> _options;
 
         public RedisTriggerQueueProvider(
             IRedisConnectionFactory redisConnectionFactory,
-            IRedisNotifyTriggerQueueState state,
+            IRedisTriggerQueueNotifyState state,
 
             RedisTriggerQueueOptionsDto<TId> options)
         {
@@ -74,7 +74,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
 
             var notSended = new HashSet<TId>(0);
 
-            var groups = messages.GroupBy(e => new IRedisNotifyTriggerQueueState.KeyDto(e.Message.HandlerKey, 0))
+            var groups = messages.GroupBy(e => new IRedisTriggerQueueNotifyState.KeyDto(e.Message.HandlerKey, 0))
                 .ToDictionary(e => e.Key, e => e.ToArray());
 
             // 1) Проверка свободного места (не строгая).
@@ -82,7 +82,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             {
                 if (checkLimit)
                 {
-                    var lenghtTasks = new Dictionary<IRedisNotifyTriggerQueueState.KeyDto, Task<long>>(groups.Count);
+                    var lenghtTasks = new Dictionary<IRedisTriggerQueueNotifyState.KeyDto, Task<long>>(groups.Count);
                     foreach (var elem in groups)
                     {
                         var t = db.SortedSetLengthAsync(_options.HandlerToQueueSetNameFactory(elem.Key));
@@ -133,7 +133,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
         }
 
         private async Task<List<ITriggerQueueProvider<TId>.MessageDto>> InnerConsumeAsync(
-            IRedisNotifyTriggerQueueState.IHandler state,
+            IRedisTriggerQueueNotifyState.IHandler state,
             int batchSize,
             int? uniqueHandlersLimit,
             TimeSpan batchTimeout,
@@ -154,7 +154,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
             {
                 if (
                     buffer.Count >= batchSize
-                    || (stopwatch.IsRunning && stopwatch.Elapsed > batchTimeout)
+                    || stopwatch.IsRunning && stopwatch.Elapsed > batchTimeout
                     )
                 {
                     break;
@@ -175,7 +175,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                             var timeout = stopwatch.IsRunning
                                 ? batchTimeout - stopwatch.Elapsed
                                 : (TimeSpan?)null;
-                            var isNewMessage = await TimeoutHelper.WaitTaskAsync(
+                            var isNewMessage = await TimeoutHelper.WaitTimeoutAsync(
                                 waitNewMessages,
                                 timeout,
                                 cancellationToken);

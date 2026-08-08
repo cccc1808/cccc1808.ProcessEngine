@@ -60,5 +60,23 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities
             Status = status;
             RetryCount = retryCount;
         }
+
+        public ProcessDbEntity(
+            TId id,
+            ProcessTypeUniqueDto processTypeUniqueDto,
+            bool stoppedByError,
+            ProcessStatusEnum status,
+            short? retryCount)
+            : this(
+                  id,
+                  processTypeUniqueDto.ProcessType.ProcessType,
+                  processTypeUniqueDto.ProcessType.ProcessVersion,
+                  processTypeUniqueDto.Priority,
+                  stoppedByError,
+                  status,
+                  retryCount
+                  )
+        {
+        }
     }
 }

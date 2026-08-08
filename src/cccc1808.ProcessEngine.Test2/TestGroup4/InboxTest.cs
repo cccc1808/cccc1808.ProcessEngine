@@ -34,7 +34,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -112,7 +115,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("3", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 watches["3"].Stop();
             }
@@ -135,7 +138,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("5", Stopwatch.StartNew());
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 watches["5"].Stop();
             }
@@ -209,7 +214,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("9", Stopwatch.StartNew());
 
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 watches["9"].Stop();
             }
@@ -230,7 +235,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 watches.Add("11", Stopwatch.StartNew());
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 watches["11"].Stop();
             }

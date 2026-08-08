@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -32,13 +30,13 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Provider;
-using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services;
 using cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services.RootTrigger;
@@ -191,7 +189,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 BatchSize = 1,
                             },
                             DbSelect_ParallilLimit = 1,
-                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(1),
 
                             RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
 
@@ -216,16 +214,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     )
 
                     .AddRedisProcessQueueServices(
-                        new RedisProcessReseveProvider<Guid>.OptionsDto()
-                        {
-                            HashKey = NameFactory.ProcessReserve,
-                            KeyToStringHandler = NameFactory.IdToString,
-                            StringToKeyHandler = NameFactory.StringToId,
-                        },
-                        new RedisProcessReserveOptions()
+                        new RedisProcessReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
+                            HashKey = NameFactory.ProcessReserve,
+                            KeyToStringHandler = NameFactory.IdToString,
+                            StringToKeyHandler = NameFactory.StringToId,
                         },
                         new ProcessQueueOptionsDto<Guid>()
                         {
@@ -318,13 +313,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
                             QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
-                        new RedisTriggerReservationOptions()
+                        new RedisTriggerReserveProvider<Guid>.OptionsDto() 
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                        },
-                        new RedisTriggerReserveProvider<Guid>.OptionsDto() 
-                        {
                             HashKey = NameFactory.TriggerReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
@@ -354,6 +346,20 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                         ValidateOnBuild = true,
                         ValidateScopes = true
                     });
+            }
+
+            public async Task PrepareEnvironmentAsync()
+            {
+                await using (var scope = ServiceProvider.CreateAsyncScope())
+                {
+                    var triggerQueueNotifyState = scope.ServiceProvider.GetRequiredService<IRedisTriggerQueueNotifyState>();
+                    triggerQueueNotifyState.RangeTriggerState.Clear();
+                    triggerQueueNotifyState.SignleTriggerState.Clear();
+
+                    var processQueueNotifyState = scope.ServiceProvider.GetRequiredService<IRedisProcessQueueNotifyState>();
+                    processQueueNotifyState.RangeHandler.Clear();
+                    processQueueNotifyState.SingleHandler.Clear();
+                }
             }
 
             public async Task CleanEnvironmentAsync() 

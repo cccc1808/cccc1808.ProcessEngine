@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
@@ -16,6 +17,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
+using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
@@ -40,6 +42,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
         private readonly FixtureCollection.Fixture _fixture;
         private readonly TestService _testService;
 
+        private static ProcessRegistryDto ParentProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(3, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
+        private static ProcessRegistryDto ChildProcessRegistry { get; }
+            = new ProcessRegistryDto(
+                new ProcessTypeUniqueDto(new ProcessTypeDto(4, 1), 1),
+                new ProcessTypeMetadata(IsSignleExecuteProcess: true));
+
         public ParentChildTest1(
             FixtureCollection.Fixture fixture)
         {
@@ -47,7 +59,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -69,9 +84,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
                     new ProcessDbEntity<Guid>(
                         processId,
-                        3,
-                        1,
-                        1,
+                        ParentProcessRegistry.Unique,
                         false,
                         ProcessStatusEnum.AsyncExecute,
                         null
@@ -95,7 +108,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: true);
 
                 // assert.
                 {
@@ -133,7 +149,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // По завершению на родитедьский триггер публикуется событие.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -169,7 +187,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // События по счетчику CounterTrigger, активация триггера.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
 
                 // assert.
                 {
@@ -187,7 +205,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 // assert.
                 {
@@ -211,7 +232,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Завершение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // assert.
                 {
@@ -243,6 +266,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var triggerRepository = serviceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
+                        var processQueueContext = serviceProvider.GetRequiredService<IProcessQueueContext<Guid>>();
 
                         var childProcessesCreated = await dbcontext
                             .Set<ChildProcessDbEntity>()
@@ -264,7 +288,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     1,
                                     false,
                                     childCount,
-                                    isChildTrigger: false), 
+                                    isChildTrigger: false),
                                 CancellationToken.None);
 
                             for (int i = 0; i < childCount; i++)
@@ -273,9 +297,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                 dbcontext.Set<ProcessDbEntity<Guid>>().Add(
                                     new ProcessDbEntity<Guid>(
                                         processId,
-                                        4,
-                                        1,
-                                        1,
+                                        ChildProcessRegistry.Unique,
                                         false,
                                         ProcessStatusEnum.AsyncExecute,
                                         null
@@ -287,10 +309,15 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                         process.Id,
                                         triggerKey));
 
-                                setter.SetStatus(
-                                    process,
-                                    ProcessStatusEnum.WaitEvent);
+                                processQueueContext.ProcessToExecute(
+                                    IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
+                                        processId,
+                                        ChildProcessRegistry));
                             }
+
+                            setter.SetStatus(
+                                process,
+                                ProcessStatusEnum.WaitEvent);
                         }
                         else
                         {

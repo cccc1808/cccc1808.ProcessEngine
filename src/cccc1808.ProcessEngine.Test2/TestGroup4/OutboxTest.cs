@@ -36,7 +36,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -97,7 +100,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             {
                 await _testService.RunTriggerConsumerRunnerAsync(
                     scope.ServiceProvider,
-                    withNotification: true);
+                    withTriggerNotification: true);
             }
 
             // 3) Триггер пробуждает процесс.
@@ -113,7 +116,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             // 4) Процесс отправляет сообщения (по нескольким процессам).
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider, isSingle: false);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider, 
+                    withProcessNotification: false,
+                    isSingle: false);
             }
 
             // 5) Считываем сообщения, отправленные через outbox.

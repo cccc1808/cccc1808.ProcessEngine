@@ -4,7 +4,13 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue
 {
-    public interface IRedisNotifyProcessQueueState
+    /// <summary>
+    /// Состояние для работы очереди процессов.
+    /// Хранит:
+    /// 1) Есть ли хотя бы одна непустая очередь (или Task асинхронного ожидания).
+    /// 2) Какие очереди предположительно не пустые.
+    /// </summary>
+    public interface IRedisProcessQueueNotifyState
     {
         IHandler RangeHandler { get; }
 
@@ -25,6 +31,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue
 
             Task<Task> AllQueueEmptySleepAsync(
                 CancellationToken cancellationToken);
+
+            /// <summary>
+            /// !Для тестов.
+            /// </summary>
+            void Clear();
         }
     }
 }

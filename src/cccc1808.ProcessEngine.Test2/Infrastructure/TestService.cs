@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,7 +17,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,35 +33,62 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
     {
         #region process runner
 
-        public async Task RunProcessDbSelectAsync(IServiceProvider serviceProvider)
+        /// <summary>
+        /// Db -> process queue.
+        /// </summary>
+        public async Task RunProcessDbSelectRunnerAsync(IServiceProvider serviceProvider)
         {
             var processNotifyRunner = serviceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
             var runner = serviceProvider.GetRequiredService<IQueueProcessRunner>();
 
-            var runnerTask = processNotifyRunner.RunAsync(true, CancellationToken.None);
+            var processNotifyRunnerTask = new WaitTaskContainer(
+                async (t) => await processNotifyRunner.RunAsync(true, t));
 
             await WaitRunnerWithTimeoutAsync(
-                runner.DbSelectExecuteAsync(executeOne: true, default));
+                new WaitTaskContainer(async (t) => await runner.DbSelectExecuteAsync(executeOne: true, t))
+                );
 
-            await WaitRunnerWithTimeoutAsync(runnerTask);
+            await WaitRunnerWithTimeoutAsync(
+                processNotifyRunnerTask);
         }
 
         /// <summary>
         /// Асинхронная обработка процессов.
         /// </summary>
-        public async Task RunProcessRunnerAsync(IServiceProvider serviceProvider, bool isSingle = true)
+        public async Task RunProcessRunnerAsync(
+            IServiceProvider serviceProvider, 
+            bool withProcessNotification, 
+            bool isSingle = true)
         {
+            var processQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
             var runner = serviceProvider.GetRequiredService<IQueueProcessRunner>();
+
+            var processNotifyRunnerTask = new WaitTaskContainer((t) => Task.CompletedTask);
+            if (withProcessNotification)
+            {
+                processNotifyRunnerTask = new WaitTaskContainer(
+                    async (t) => await processQueueNotificationRunner.RunAsync(true, t));
+            }
 
             if (isSingle)
             {
                 await WaitRunnerWithTimeoutAsync(
-                    runner.RunSingleExecuteAsync(executeOne: true, default));
+                    new WaitTaskContainer(
+                        async(t) => await runner.RunSingleExecuteAsync(executeOne: true, t))
+                    );
             }
             else 
             {
                 await WaitRunnerWithTimeoutAsync(
-                    runner.RunRangeExecuteAsync(executeOne: true, default));
+                    new WaitTaskContainer(
+                        async(t) => await runner.RunRangeExecuteAsync(executeOne: true, t))
+                    );
+            }
+
+
+            if (withProcessNotification)
+            {
+                await WaitRunnerWithTimeoutAsync(processNotifyRunnerTask);
             }
         }
 
@@ -74,26 +100,29 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// <summary>
         /// Обработка <see cref="ITriggerEvent"/>.
         /// </summary>
-        public async Task RunTriggerConsumerRunnerAsync(IServiceProvider serviceProvider, bool withNotification)
+        public async Task RunTriggerConsumerRunnerAsync(IServiceProvider serviceProvider, bool withTriggerNotification)
         {
             var triggerOptions = serviceProvider.GetRequiredService<TriggerRunner<Guid>.OptionsDto>();
             var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();
             var queueProviderFactory = serviceProvider.GetRequiredService<IQueueProviderFactory>();
-            var queueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
+            var triggerQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
 
-            var notifyRunner = Task.CompletedTask;
-            if (withNotification)
+            var triggerNotifyRunnerTask = new WaitTaskContainer((t) => Task.CompletedTask);
+            if (withTriggerNotification)
             {
                 // Запускаем Notify, чтобы триггер оповещение поступило в очередь триггеров.
-                notifyRunner = queueNotificationRunner.RunAsync(one: true, default);
+                triggerNotifyRunnerTask = new WaitTaskContainer(
+                    async (t) => await triggerQueueNotificationRunner.RunAsync(one: true, t));
             }
 
-            await WaitRunnerWithTimeoutAsync(triggerRunner.ConsumerWorkAsync(executeOne: true, default));
+            await WaitRunnerWithTimeoutAsync(
+                new WaitTaskContainer(async (t) => await triggerRunner.ConsumerWorkAsync(executeOne: true, t))
+                );
             (await queueProviderFactory.DisconnectConsumerAsync(triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, default)).ShouldBeTrue();
 
-            if (withNotification)
+            if (withTriggerNotification)
             {
-                await WaitRunnerWithTimeoutAsync(notifyRunner);
+                await WaitRunnerWithTimeoutAsync(triggerNotifyRunnerTask);
             }
         }
 
@@ -103,7 +132,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public async Task RunTriggerExecuteRunnerAsync(
             IServiceProvider serviceProvider, 
             bool withTriggerNotification, 
-            bool withProcessNotification = false,
+            bool withProcessNotification,
             bool range = true)
         {
             var triggerQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
@@ -111,54 +140,68 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();            
 
-            var triggerNotifyRunner = Task.CompletedTask;
-            var processNotifyRunner = Task.CompletedTask;
+            var triggerNotifyRunnerTask = new WaitTaskContainer((t) => Task.CompletedTask);
+            var processNotifyRunnerTask = new WaitTaskContainer((t) => Task.CompletedTask);
             if (withTriggerNotification)
             {
                 // Запускаем Notify, чтобы триггер оповещение поступило в очередь триггеров.
-                triggerNotifyRunner = triggerQueueNotificationRunner.RunAsync(one: true, default);
+                triggerNotifyRunnerTask = new WaitTaskContainer(
+                    async (t) => await triggerQueueNotificationRunner.RunAsync(one: true, t)
+                    );
             }
             if (withProcessNotification)
             {
-                processNotifyRunner = processQueueNotificationRunner.RunAsync(true, CancellationToken.None);
+                processNotifyRunnerTask = new WaitTaskContainer(
+                    async (t) => await processQueueNotificationRunner.RunAsync(true, t)
+                    );
             }
 
             if (range)
             {
-                await WaitRunnerWithTimeoutAsync(triggerRunner.RangeTriggerProcessingAsync(executeOne: true, default));
+                await WaitRunnerWithTimeoutAsync(
+                    new WaitTaskContainer(
+                        async (t) => await triggerRunner.RangeTriggerProcessingAsync(executeOne: true, t))
+                    );
             }
             else
             {
-                await WaitRunnerWithTimeoutAsync(triggerRunner.SignleTriggerProcessingAsync(executeOne: true, default));
+                await WaitRunnerWithTimeoutAsync(
+                    new WaitTaskContainer(
+                        async (t) => await triggerRunner.SignleTriggerProcessingAsync(executeOne: true, t))
+                    );
             }
 
             if (withTriggerNotification)
             {
-                await WaitRunnerWithTimeoutAsync(triggerNotifyRunner);
+                await WaitRunnerWithTimeoutAsync(triggerNotifyRunnerTask);
             }
             if (withProcessNotification)
             {
-                await WaitRunnerWithTimeoutAsync(processNotifyRunner);
+                await WaitRunnerWithTimeoutAsync(processNotifyRunnerTask);
             }
         }
 
-        public async Task RunTriggerDbSelectRunnerAsync(IServiceProvider serviceProvider, bool withNotification)
+        public async Task RunTriggerDbSelectRunnerAsync(IServiceProvider serviceProvider, bool withTriggerNotification)
         {
             var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();
-            var queueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
+            var triggerQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
 
-            var notifyRunner = Task.CompletedTask;
-            if (withNotification)
+            var triggerNotifyRunnerTask = new WaitTaskContainer((t) => Task.CompletedTask);
+            if (withTriggerNotification)
             {
                 // Запускаем Notify, чтобы триггер оповещение поступило в очередь триггеров.
-                notifyRunner = queueNotificationRunner.RunAsync(one: true, default);
+                triggerNotifyRunnerTask = new WaitTaskContainer(
+                    async (t) => await triggerQueueNotificationRunner.RunAsync(one: true, t)
+                    );
             }
 
-            await WaitRunnerWithTimeoutAsync(triggerRunner.DbSelectorAsync(executeOne: true, default));
+            await WaitRunnerWithTimeoutAsync(
+                new WaitTaskContainer(async (t) => await triggerRunner.DbSelectorAsync(executeOne: true, t))
+                );
 
-            if (withNotification)
+            if (withTriggerNotification)
             {
-                await WaitRunnerWithTimeoutAsync(notifyRunner);
+                await WaitRunnerWithTimeoutAsync(triggerNotifyRunnerTask);
             }
         }
 
@@ -233,22 +276,70 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         #endregion
 
-        private async Task WaitRunnerWithTimeoutAsync(Task t)
+        private async Task WaitRunnerWithTimeoutAsync(
+            WaitTaskContainer waitTaskContainer)
         {
-            var timeout = System.Diagnostics.Debugger.IsAttached
+            var executeTimeout = System.Diagnostics.Debugger.IsAttached
                 ? TimeSpan.FromSeconds(120)
                 : TimeSpan.FromSeconds(5);
 
-            var waitTask = Task.Delay(timeout);
+            var waitCancelTimeout = TimeSpan.FromSeconds(10);
 
-            var resultTask = await Task.WhenAny(t, waitTask);
+            var waitTask = Task.Delay(executeTimeout);
+
+            var resultTask = await Task.WhenAny(
+                waitTaskContainer.Task,
+                waitTask);
 
             if (resultTask == waitTask)
             {
+                waitTaskContainer.Cancel();
+
+                try
+                {
+                    var waitTask2 = Task.Delay(waitCancelTimeout);
+
+                    var resultTask2 = await Task.WhenAny(
+                        waitTask2,
+                        waitTaskContainer.Task
+                        );
+
+                    if (waitTask2 == resultTask2)
+                    {
+                        throw new Exception($"Раннер не реагирует на остановку {nameof(CancellationToken)}.");
+                    }
+
+                    await waitTaskContainer.Task;
+                }
+                catch(Exception ex)
+                {
+                    throw new Exception(
+                        "Раннер завис (не отработал).",
+                        ex);
+                }
+
                 throw new Exception("Раннер завис (не отработал).");
             }
 
-            await t;
+            await waitTaskContainer.Task;
+        }
+
+        private record WaitTaskContainer
+        {
+            private readonly CancellationTokenSource _cancellationTokenSource;
+
+            public Task Task { get; }
+
+            public WaitTaskContainer(Func<CancellationToken, Task> actionAsync)
+            {
+                _cancellationTokenSource = new CancellationTokenSource();
+                Task = actionAsync(_cancellationTokenSource.Token);
+            }
+
+            public void Cancel()
+            {
+                _cancellationTokenSource.Cancel();
+            }
         }
     }
 }

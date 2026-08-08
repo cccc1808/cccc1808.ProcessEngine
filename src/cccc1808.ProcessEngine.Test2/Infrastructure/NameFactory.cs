@@ -5,8 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
-
+using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -55,15 +54,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 );
         }
 
-        public static string TriggerTypeToKey(IRedisNotifyTriggerQueueState.KeyDto key, string prefix)
+        public static string TriggerTypeToKey(IRedisTriggerQueueNotifyState.KeyDto key, string prefix)
         {
             return $"{prefix}{NameConst.NamePartsSplitChar}{key.HandlerName}{NameConst.NamePartsSplitChar}{key.Priority}";
         }
 
-        public static IRedisNotifyTriggerQueueState.KeyDto KeyToTriggerType(string key)
+        public static IRedisTriggerQueueNotifyState.KeyDto KeyToTriggerType(string key)
         {
             var parts = key.Split(NameConst.NamePartsSplitChar);
-            return new IRedisNotifyTriggerQueueState.KeyDto(
+            return new IRedisTriggerQueueNotifyState.KeyDto(
                 parts[1], 
                 short.Parse(parts[2])
                 );

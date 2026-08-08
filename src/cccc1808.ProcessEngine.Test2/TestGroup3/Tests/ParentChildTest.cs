@@ -81,7 +81,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: true);
 
                 //var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
                 //var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
@@ -116,7 +118,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 // var childProcessData = await dbContext.Set<ChildProcessDbEntity>().AsNoTracking().ToArrayAsync();
                 // var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
@@ -195,7 +199,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
 
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider, 
+                    withProcessNotification: false);
 
                 // var allProceses = await dbContext.Set<ProcessDbEntity<Guid>>().AsNoTracking().ToArrayAsync();
 

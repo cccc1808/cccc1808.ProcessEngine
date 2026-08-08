@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -37,7 +36,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             _testService = fixture.ServiceProvider.GetRequiredService<TestService>();
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await _fixture.PrepareEnvironmentAsync();
+        }
 
         public async Task DisposeAsync()
         {
@@ -74,7 +76,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             //// 1)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessDbSelectRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -109,8 +114,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -134,7 +142,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             //// 2)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -169,8 +179,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             }
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withTriggerNotification: true);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true);
 
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
@@ -194,7 +207,9 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             //// 3)
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(
+                    scope.ServiceProvider,
+                    withProcessNotification: false);
 
                 {
                     var processes = await _testService.LoadProcessAsync(scope.ServiceProvider);

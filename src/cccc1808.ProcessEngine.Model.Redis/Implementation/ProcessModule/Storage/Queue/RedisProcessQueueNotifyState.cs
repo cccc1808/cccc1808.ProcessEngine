@@ -13,14 +13,14 @@ using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
 {
-    public class RedisNotifyProcessQueueState
-        : IRedisNotifyProcessQueueState
+    public class RedisProcessQueueNotifyState
+        : IRedisProcessQueueNotifyState
     {
-        public IRedisNotifyProcessQueueState.IHandler RangeHandler { get; }
+        public IRedisProcessQueueNotifyState.IHandler RangeHandler { get; }
 
-        public IRedisNotifyProcessQueueState.IHandler SingleHandler { get; }
+        public IRedisProcessQueueNotifyState.IHandler SingleHandler { get; }
 
-        public RedisNotifyProcessQueueState(IProcessRegistry processRegistry)
+        public RedisProcessQueueNotifyState(IProcessRegistry processRegistry)
         {
             var registries = processRegistry.All();
 
@@ -30,7 +30,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 registries.Where(e => e.Metadata.IsSignleExecuteProcess).ToArray());
         }
 
-        private class Handler : IRedisNotifyProcessQueueState.IHandler
+        private class Handler : IRedisProcessQueueNotifyState.IHandler
         {
             /// <summary>
             /// Содержит данные об очередях, в которых должны быть сообщения.
@@ -130,6 +130,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         return e;
                     },
                     cancellationToken);
+            }
+
+            public void Clear()
+            {
+                QueueWithMessages.TryUpdate(1, (p, e) => e.Clear(), CancellationToken.None);
             }
         }
 

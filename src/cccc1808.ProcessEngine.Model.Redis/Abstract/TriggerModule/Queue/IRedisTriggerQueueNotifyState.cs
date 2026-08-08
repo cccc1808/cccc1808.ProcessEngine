@@ -1,11 +1,14 @@
 ﻿using System.Collections.Immutable;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2
+namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue
 {
     /// <summary>
     /// Состояние для работы очереди триггеров.
+    /// Хранит:
+    /// 1) Есть ли хотя бы одна непустая очередь (или Task асинхронного ожидания).
+    /// 2) Какие очереди предположительно не пустые.
     /// </summary>
-    public interface IRedisNotifyTriggerQueueState
+    public interface IRedisTriggerQueueNotifyState
     {
         IHandler RangeTriggerState { get; }
 
@@ -39,6 +42,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2
             /// </summary>
             Task<Task> AllQueueEmptySleepAsync(
                 CancellationToken cancellationToken);
+
+            /// <summary>
+            /// !Для тестов.
+            /// </summary>
+            void Clear();
         }
 
         public readonly record struct KeyDto(

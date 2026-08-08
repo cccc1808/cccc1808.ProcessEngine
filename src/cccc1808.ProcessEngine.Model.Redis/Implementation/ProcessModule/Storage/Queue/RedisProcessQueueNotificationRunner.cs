@@ -15,14 +15,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
     {
         private readonly IProcessRegistry _processRegistry;
         private readonly IRedisConnectionFactory _redisConnectionFactory;
-        private readonly IRedisNotifyProcessQueueState _state;
+        private readonly IRedisProcessQueueNotifyState _state;
 
         private readonly ProcessQueueOptionsDto<TId> _options;
 
         public RedisProcessQueueNotificationRunner(
             IProcessRegistry processRegistry,
             IRedisConnectionFactory redisConnectionFactory,
-            IRedisNotifyProcessQueueState state,
+            IRedisProcessQueueNotifyState state,
 
             ProcessQueueOptionsDto<TId> options)
         {
@@ -49,7 +49,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
 
-            var subscribers = new Dictionary<ProcessTypeUniqueDto, NotificationEntryDto>(allProcesses.Count);
+            var subscribes = new Dictionary<ProcessTypeUniqueDto, NotificationEntryDto>(allProcesses.Count);
             var completeBuffer = new ConcurrentDictionary<ProcessTypeUniqueDto, Task>();
             var waitBuffer = new HashSet<Task>(allProcesses.Count);
 
@@ -58,13 +58,13 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 // 1) Подписываемся на оповещения по всем типам процессов.
                 foreach (var elem in allProcesses)
                 {
-                    var subsribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(elem.Unique), cancellationToken);
-                    var enumerator = subsribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
+                    var subscribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(elem.Unique), cancellationToken);
+                    var enumerator = subscribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
 
                     var entry = new NotificationEntryDto()
                     {
                         ProcessRegistry = elem,
-                        Subsribe = subsribe,
+                        Subsribe = subscribe,
                         Enumerator = enumerator,
                     };
 
@@ -76,7 +76,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                             continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                     waitTaskContainer.Data = (elem.Unique, completeBuffer, waitTask);
 
-                    subscribers.Add(elem.Unique, entry);
+                    subscribes.Add(elem.Unique, entry);
                     waitBuffer.Add(waitTask);
                 }
 
@@ -94,7 +94,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     foreach (var elem in completeBuffer)
                     {
                         var key = elem.Key;
-                        var subscribe = subscribers[key];
+                        var subscribe = subscribes[key];
 
                         completeBuffer.TryRemove(elem.Key, out _);
 
@@ -138,7 +138,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             }
             finally
             {
-                foreach (var elem in subscribers.Values)
+                foreach (var elem in subscribes.Values)
                 {
                     // await elem.Enumerator.DisposeAsync();
                     await elem.Subsribe.DisposeAsync();
