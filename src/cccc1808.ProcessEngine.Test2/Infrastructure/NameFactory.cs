@@ -4,11 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 
-using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -37,27 +35,23 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static Guid StringToId(string name) => new Guid(name);
 
         public static string ProcessToKey(
-            ProcessRegistryDto processRegistry, 
+            ProcessTypeUniqueDto processRegistry, 
             string prefix)
         {
-            return $"{prefix}{NameConst.NamePartsSplitChar}{processRegistry.Unique.ProcessType.ProcessType}{NameConst.NamePartsSplitChar}{processRegistry.Unique.ProcessType.ProcessVersion}{NameConst.NamePartsSplitChar}{processRegistry.Unique.Priority}";
+            return $"{prefix}{NameConst.NamePartsSplitChar}{processRegistry.ProcessType.ProcessType}{NameConst.NamePartsSplitChar}{processRegistry.ProcessType.ProcessVersion}{NameConst.NamePartsSplitChar}{processRegistry.Priority}";
         }
 
-        public static ProcessRegistryDto KeyToProcessType(
-            IServiceProvider serviceProvider,
+        public static ProcessTypeUniqueDto KeyToProcessType(
             string key)
         {
-            var processRegistry = serviceProvider.GetRequiredService<IProcessRegistry>();
             var parts = key.Split(NameConst.NamePartsSplitChar);
 
-            return processRegistry.Get(
-                new ProcessTypeUniqueDto(
-                    new ProcessTypeDto(
-                        long.Parse(parts[1]), 
-                        int.Parse(parts[2])
-                        ),
-                    short.Parse(parts[3])
-                    )
+            return new ProcessTypeUniqueDto(
+                new ProcessTypeDto(
+                    long.Parse(parts[1]),
+                    int.Parse(parts[2])
+                    ),
+                short.Parse(parts[3])
                 );
         }
 

@@ -70,9 +70,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 ICollection<IProcessQueueProvider<TId>.MessageDto> selectData,
                 CancellationToken cancellationToken)
             {
-                var groupByRange = selectData.GroupBy(e => (e.Registry.Unique, e.Registry.Metadata.IsSignleExecuteProcess));
+                var groupByProcessType = selectData.GroupBy(e => e.Unique);
 
-                foreach (var group in groupByRange)
+                foreach (var group in groupByProcessType)
                 {
                     // Режим запуска: 1 task - 1 transaction - N процессов.
                     foreach (var batch in group.Chunk(options.TransactionUpdateLimit))
@@ -87,10 +87,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                 {
                                     await using (var scope = serviceProvider.CreateAsyncScope())
                                     {
+                                        var processRegistry = scope.ServiceProvider.GetRequiredService<IProcessRegistry>();
                                         var handler = options.RangeExecute_MiddlewareFactory(serviceProvider);
 
                                         await handler.HandleRangeAsync(
-                                            [batch.Select(e => new ProcessInstanceInfoDto<TId>(e.ProcessId, e.Registry)).ToArray()],
+                                            [batch.Select(e => new ProcessInstanceInfoDto<TId>(e.ProcessId, processRegistry.Get(e.Unique))).ToArray()],
                                             cancellationToken);
                                     }
                                 }
@@ -191,7 +192,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 try
                 {
                     var freeSlots = parallelLimiter.CurrentCount;
-                    var batchSize = freeSlots * options.TransactionUpdateLimit;
+                    var batchSize = freeSlots;
 
                     var messages = await queueProvider.ConsumeSignleAsync(batchSize, options.RangeExecute_ConsumeTimeout, cancellationToken);
                     return messages;
@@ -223,10 +224,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                             {
                                 await using (var scope = serviceProvider.CreateAsyncScope())
                                 {
+                                    var processRegistry = scope.ServiceProvider.GetRequiredService<IProcessRegistry>();
                                     var handler = options.SingleExecute_MiddlewareFactory(serviceProvider);
 
                                     await handler.HandleRangeAsync(
-                                        [[new ProcessInstanceInfoDto<TId>(elem.ProcessId, elem.Registry)]],
+                                        [[new ProcessInstanceInfoDto<TId>(elem.ProcessId, processRegistry.Get(elem.Unique))]],
                                         cancellationToken);
                                 }
                             }
@@ -383,6 +385,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                                 );
 
                                             Interlocked.CompareExchange(ref executeOneTriggered, true, false);
+
+                                            if (executeOne)
+                                            {
+                                                break;
+                                            }
 
                                             if (queueIsFull)
                                             {

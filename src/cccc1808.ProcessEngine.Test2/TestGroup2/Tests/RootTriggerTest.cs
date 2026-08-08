@@ -202,7 +202,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 5.1) Дочерний триггер передает сигнал на родительский триггер.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
                 await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
 
                 // assert.
@@ -250,7 +250,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // 6) root триггер запускает процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
 
                 // assert.
                 {

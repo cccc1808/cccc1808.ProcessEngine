@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services.Runners;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
@@ -27,7 +26,6 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reseve;
@@ -181,9 +179,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         {
                             DbSelect_Options = new EFQueueProcessRunnerQuery<Guid>.Options()
                             {
+                                BatchSize = 1,
                                 OffsetStartId = Guid.Empty,
                             },
                             DbSelect_ParallilLimit = 1,
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
 
                             RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
 
@@ -221,8 +221,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             DbId = FixtureCollection.RedisDb,
                             IdToString = NameFactory.IdToString,
                             StringToId = NameFactory.StringToId,
-                            ProcessToQueueSetNameFactory = (_, e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
-                            QueueSetNameToProcessTypeFactory = (s,e) => NameFactory.KeyToProcessType(s, e),
+                            ProcessToQueueSetNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
+                            QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.TriggerQueueChannel)
                         })
 

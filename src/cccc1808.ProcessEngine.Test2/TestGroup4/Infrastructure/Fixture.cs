@@ -167,6 +167,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                 BatchSize = 1,
                             },
                             DbSelect_ParallilLimit = 1,
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
 
                             SingleExecute_MiddlewareFactory = (s) => throw new Exception(""),
 
@@ -231,8 +232,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             IdToString = NameFactory.IdToString,
                             StringToId = NameFactory.StringToId,
 
-                            ProcessToQueueSetNameFactory = (s, e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
-                            QueueSetNameToProcessTypeFactory = (s, e) => NameFactory.KeyToProcessType(s, e),
+                            ProcessToQueueSetNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
+                            QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
 
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
                         })

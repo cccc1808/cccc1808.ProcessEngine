@@ -12,14 +12,14 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue
 
         public interface IHandler
         {
-            ImmutableSortedDictionary<ProcessRegistryDto, long> GetQueueWithMessages();
+            ImmutableSortedDictionary<ProcessTypeUniqueDto, long> GetQueueWithMessages();
 
             ValueTask NewMessageInQueueAsync(
-                ICollection<ProcessRegistryDto> keys,
+                ICollection<ProcessTypeUniqueDto> keys,
                 CancellationToken cancellationToken);
 
             void QueueIsEmpty(
-                ProcessRegistryDto key,
+                ProcessTypeUniqueDto key,
                 long timestamp,
                 CancellationToken cancellationToken);
 

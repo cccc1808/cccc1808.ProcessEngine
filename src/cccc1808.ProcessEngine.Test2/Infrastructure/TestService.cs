@@ -17,6 +17,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
+using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,19 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
     {
         #region process runner
 
+        public async Task RunProcessDbSelectAsync(IServiceProvider serviceProvider)
+        {
+            var processNotifyRunner = serviceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
+            var runner = serviceProvider.GetRequiredService<IQueueProcessRunner>();
+
+            var runnerTask = processNotifyRunner.RunAsync(true, CancellationToken.None);
+
+            await WaitRunnerWithTimeoutAsync(
+                runner.DbSelectExecuteAsync(executeOne: true, default));
+
+            await WaitRunnerWithTimeoutAsync(runnerTask);
+        }
+
         /// <summary>
         /// Асинхронная обработка процессов.
         /// </summary>
@@ -42,11 +56,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
             if (isSingle)
             {
-                await runner.RunSingleExecuteAsync(executeOne: true, default);
+                await WaitRunnerWithTimeoutAsync(
+                    runner.RunSingleExecuteAsync(executeOne: true, default));
             }
             else 
             {
-                await runner.RunRangeExecuteAsync(executeOne: true, default);
+                await WaitRunnerWithTimeoutAsync(
+                    runner.RunRangeExecuteAsync(executeOne: true, default));
             }
         }
 
@@ -84,16 +100,27 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         /// <summary>
         /// Асинхронная обработка триггеров.
         /// </summary>
-        public async Task RunTriggerExecuteRunnerAsync(IServiceProvider serviceProvider, bool withNotification, bool range = true)
+        public async Task RunTriggerExecuteRunnerAsync(
+            IServiceProvider serviceProvider, 
+            bool withTriggerNotification, 
+            bool withProcessNotification = false,
+            bool range = true)
         {
-            var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();
-            var queueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
+            var triggerQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisTriggerQueueNotificationRunner>();
+            var processQueueNotificationRunner = serviceProvider.GetRequiredService<IRedisProcessQueueNotificationRunner>();
 
-            var notifyRunner = Task.CompletedTask;
-            if (withNotification)
+            var triggerRunner = serviceProvider.GetRequiredService<ITriggerRunner>();            
+
+            var triggerNotifyRunner = Task.CompletedTask;
+            var processNotifyRunner = Task.CompletedTask;
+            if (withTriggerNotification)
             {
                 // Запускаем Notify, чтобы триггер оповещение поступило в очередь триггеров.
-                notifyRunner = queueNotificationRunner.RunAsync(one: true, default);
+                triggerNotifyRunner = triggerQueueNotificationRunner.RunAsync(one: true, default);
+            }
+            if (withProcessNotification)
+            {
+                processNotifyRunner = processQueueNotificationRunner.RunAsync(true, CancellationToken.None);
             }
 
             if (range)
@@ -105,9 +132,13 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 await WaitRunnerWithTimeoutAsync(triggerRunner.SignleTriggerProcessingAsync(executeOne: true, default));
             }
 
-            if (withNotification)
+            if (withTriggerNotification)
             {
-                await WaitRunnerWithTimeoutAsync(notifyRunner);
+                await WaitRunnerWithTimeoutAsync(triggerNotifyRunner);
+            }
+            if (withProcessNotification)
+            {
+                await WaitRunnerWithTimeoutAsync(processNotifyRunner);
             }
         }
 
@@ -202,12 +233,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
         #endregion
 
-
         private async Task WaitRunnerWithTimeoutAsync(Task t)
         {
             var timeout = System.Diagnostics.Debugger.IsAttached
                 ? TimeSpan.FromSeconds(120)
-                : TimeSpan.FromSeconds(3);
+                : TimeSpan.FromSeconds(5);
 
             var waitTask = Task.Delay(timeout);
 

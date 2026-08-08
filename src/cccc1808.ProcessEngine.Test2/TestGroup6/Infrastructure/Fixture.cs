@@ -161,12 +161,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                     .AddQueueProcessRunner(
                         new QueueProcessRunner<Guid>.OptionsDto() 
                         {
-                            DbSelect_ParallilLimit = 1,
                             DbSelect_Options = new EFQueueProcessRunnerQuery<Guid>.Options() 
                             {
                                 BatchSize = 1,
                                 OffsetStartId = Guid.Empty,
                             },
+                            DbSelect_ParallilLimit = 1,
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
 
                             RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
 

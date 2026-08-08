@@ -187,14 +187,15 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             CancellationToken cancellationToken)
         {
             ProcessDbEntity<TId>[] processWithLock;
-            using (var scope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
+            //using (var scope = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
+                // Блокировка уже есть выше. Возможно поправить параметры, чтобы не загружать 2 раз.
                 processWithLock = await _dbContext.Set<ProcessDbEntity<TId>>()
                     .ApplayQueryCondition(_processDbEntityConditions.WaitEvent.Query)
                     .Where(e => processIds.Contains(e.Id))
                     .ToArrayAsync(cancellationToken);
             }
-            if (processWithLock.Any())
+            if (!processWithLock.Any())
             {
                 return;
             }

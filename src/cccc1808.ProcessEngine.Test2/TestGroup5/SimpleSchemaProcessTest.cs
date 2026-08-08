@@ -132,10 +132,10 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
 
                 await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
 
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 

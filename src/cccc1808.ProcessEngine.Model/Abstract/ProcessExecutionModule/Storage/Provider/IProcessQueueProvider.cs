@@ -20,7 +20,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
             CancellationToken cancellationToken);
 
         public readonly record struct MessageDto(
-            ProcessRegistryDto Registry,
+            ProcessTypeUniqueDto Unique,
             TId ProcessId);
     }
 }

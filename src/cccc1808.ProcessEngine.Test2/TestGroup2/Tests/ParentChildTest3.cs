@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
@@ -74,8 +75,12 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             var processId = await idGenerator.NextAsync(default);
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
+                var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
                 var testState = scope.ServiceProvider.GetRequiredService<TestProcessBody.TestState>();
+                var processQueueContext = scope.ServiceProvider.GetRequiredService<IProcessQueueContext<Guid>>();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
+
+                await using var transaction = await transactionManager.StartTransactionAsync(CancellationToken.None);
 
                 dbContext.Set<ProcessDbEntity<Guid>>().Add(
                     new ProcessDbEntity<Guid>(
@@ -93,8 +98,16 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         await idGenerator.NextAsync(default),
                         processId,
                         isAsyncExecuting: true));
+                //processQueueContext.ProcessToExecute(
+                //    IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
+                //        processId, 
+                //        new ProcessRegistryDto(
+                //            new ProcessTypeUniqueDto(new ProcessTypeDto(3, 1), 1),
+                //            new ProcessTypeMetadata(IsSignleExecuteProcess: true))
+                //        ));
 
                 await dbContext.SaveChangesAsync(default);
+                await transaction.CommitAsync(CancellationToken.None);
 
                 testState.StepRange = Handler;
             }
@@ -106,6 +119,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             string parentTriggerKey;
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
+                await _testService.RunProcessDbSelectAsync(scope.ServiceProvider);
                 await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
 
                 // assert.
@@ -221,7 +235,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             // Пробуждение родительского процесса.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false,
+                    withProcessNotification: true
+                    );
 
                 // assert.
                 {
@@ -373,7 +391,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         var dbcontext = serviceProvider.GetRequiredService<IEFDbContext>();
                         var setter = serviceProvider.GetRequiredService<IProcessSetter>();
                         var externalCounterContext = serviceProvider.GetRequiredService<IExternalCounterContext>();
-
+                        var processQueueContext = serviceProvider.GetRequiredService<IProcessQueueContext<Guid>>();
 
                         var childProcessesCreated = await dbcontext
                             .Set<ChildProcessDbEntity>()
@@ -401,6 +419,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
 
                             await externalCounterContext.CreateCounterAsync(triggerKey, childCount, default);
 
+                            processQueueContext.IncreseBufferCapacity(childCount);
                             for (int i = 0; i < childCount; i++)
                             {
                                 var processId = await idGenerator.NextAsync(default);
@@ -421,16 +440,27 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                         process.Id,
                                         triggerKey));
 
-                                setter.SetStatus(
-                                    process,
-                                    ProcessStatusEnum.WaitEvent);
-
-                                process.AddComponent<IStreamTriggerComponent>(
-                                    new StreamTriggerComponent(
-                                        triggerOptions.Consumer_TriggerEventQueues.Single().QueueName, 
-                                        [triggerKey])
+                                processQueueContext.ProcessToExecute(
+                                    IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
+                                        processId,
+                                        new ProcessRegistryDto(
+                                            new ProcessTypeUniqueDto(
+                                                new ProcessTypeDto(4, 1), 1),
+                                            new ProcessTypeMetadata(IsSignleExecuteProcess: true)
+                                            )
+                                        )
                                     );
                             }
+
+                            setter.SetStatus(
+                                process,
+                                ProcessStatusEnum.WaitEvent);
+
+                            process.AddComponent<IStreamTriggerComponent>(
+                                new StreamTriggerComponent(
+                                    triggerOptions.Consumer_TriggerEventQueues.Single().QueueName,
+                                    [triggerKey])
+                                );
                         }
                         else
                         {

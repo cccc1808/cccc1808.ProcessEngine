@@ -111,7 +111,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             return await ProduceAsync(
                 ids
                     .Where(e => reserveResult.Contains(e.GetId()))
-                    .Select(e => new IProcessQueueProvider<TId>.MessageDto(e.ProcessRegistry, e.GetId()))
+                    .Select(e => new IProcessQueueProvider<TId>.MessageDto(e.ProcessRegistry.Unique, e.GetId()))
                     .ToArray(),
                 cancellationToken
                 );
@@ -181,7 +181,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 await ProduceAsync(
                     _processToExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
-                            e.ProcessRegistry,
+                            e.ProcessRegistry.Unique,
                             e.GetId())
                         )
                         .ToArray(),
@@ -198,7 +198,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 await ProduceAsync(
                     _processContinueExecuteBuffer.All
                         .Select(e => new IProcessQueueProvider<TId>.MessageDto(
-                            e.ProcessRegistry,
+                            e.ProcessRegistry.Unique,
                             e.GetId())
                         )
                         .ToArray(),

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.T2;
 
@@ -120,7 +121,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         when: SortedSetWhen.NotExists);
 
                     // Публикуем оповещения.
-                    var t2 = publishContainer.PubAsync(_options.QueueChannelNameFactory(elem.Key), RedisValue.Null);
+                    var t2 = publishContainer.PubAsync(_options.QueueChannelNameFactory(elem.Key), RedisValue.EmptyString);
 
                     pipline.Add(t1);
                     pipline.Add(t2);
@@ -167,24 +168,25 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
 
                     if (!queueWithMessages.Any())
                     {
-                        var waitNewMessages = state.AllQueueEmptySleepAsync(cancellationToken);
+                        var waitNewMessages = await state.AllQueueEmptySleepAsync(cancellationToken);
 
                         if (!waitNewMessages.IsCompleted)
                         {
-                            var timeoutTask = Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken);
-                            var completedTask = await Task.WhenAny(
+                            var timeout = stopwatch.IsRunning
+                                ? batchTimeout - stopwatch.Elapsed
+                                : (TimeSpan?)null;
+                            var isNewMessage = await TimeoutHelper.WaitTaskAsync(
                                 waitNewMessages,
-                                timeoutTask);
+                                timeout,
+                                cancellationToken);
 
-                            if (completedTask == timeoutTask)
+                            if (!isNewMessage)
                             {
                                 // timeout
                                 return buffer;
                             }
-                            else
-                            {
-                                // Появились новые сообщения.
-                            }
+
+                            // Появились новые сообщения.
                         }
                     }
                 }

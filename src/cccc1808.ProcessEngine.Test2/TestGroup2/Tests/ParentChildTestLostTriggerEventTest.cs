@@ -184,7 +184,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 await _testService.RunTriggerDbSelectRunnerAsync(scope.ServiceProvider, withNotification: true);
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withNotification: false, range: false);
+                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false, range: false);
 
                 {
                     var triggers = await _testService.LoadTriggersAsync(scope.ServiceProvider);

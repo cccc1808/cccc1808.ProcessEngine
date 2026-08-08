@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.ProcessModule.Queue;
 
@@ -76,7 +77,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
             var notSended = new HashSet<TId>(0);
 
-            var groups = messages.GroupBy(e => e.Registry)
+            var groups = messages.GroupBy(e => e.Unique)
                 .ToDictionary(e => e.Key, e => e.ToArray());
 
             // 1) Проверка свободного места (не строгая).
@@ -84,10 +85,10 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             {
                 if (checkLimit)
                 {
-                    var lenghtTasks = new Dictionary<ProcessRegistryDto, Task<long>>(groups.Count);
+                    var lenghtTasks = new Dictionary<ProcessTypeUniqueDto, Task<long>>(groups.Count);
                     foreach (var elem in groups)
                     {
-                        var t = db.SortedSetLengthAsync(_options.ProcessToQueueSetNameFactory(_serviceProvider, elem.Key));
+                        var t = db.SortedSetLengthAsync(_options.ProcessToQueueSetNameFactory(elem.Key));
 
                         pipline.Add(t);
                         lenghtTasks.Add(elem.Key, t);
@@ -119,7 +120,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 {
                     // Публикуем сообщения.
                     var t1 = db.SortedSetUpdateAsync(
-                        _options.ProcessToQueueSetNameFactory(_serviceProvider, elem.Key),
+                        _options.ProcessToQueueSetNameFactory(elem.Key),
                         // TODO: score можно указывать на основе LastProcessedDate timestamp (чтобы элементы размещались в пордяке даты последней обработки).
                         elem.Value
                             .Select(e => new SortedSetEntry(_options.IdToString(e.ProcessId), score: -1))
@@ -127,7 +128,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         when: SortedSetWhen.NotExists);
 
                     // Публикуем оповещения.
-                    var t2 = publishContainer.PubAsync(_options.QueueChannelNameFactory(elem.Key), RedisValue.Null);
+                    var t2 = publishContainer.PubAsync(_options.QueueChannelNameFactory(elem.Key), RedisValue.EmptyString);
 
                     pipline.Add(t1);
                     pipline.Add(t2);
@@ -146,7 +147,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             CancellationToken cancellationToken)
         {
             var buffer = new List<IProcessQueueProvider<TId>.MessageDto>(batchSize);
-            var uniqueHandlerSet = new HashSet<ProcessRegistryDto>(uniqueHandlersLimit ?? 0);
+            var uniqueHandlerSet = new HashSet<ProcessTypeUniqueDto>(uniqueHandlersLimit ?? 0);
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
@@ -173,24 +174,25 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
                     if (!queueWithMessages.Any())
                     {
-                        var waitNewMessages = state.AllQueueEmptySleepAsync(cancellationToken);
+                        var waitNewMessages = await state.AllQueueEmptySleepAsync(cancellationToken);
 
                         if (!waitNewMessages.IsCompleted)
                         {
-                            var timeoutTask = Task.Delay(batchTimeout - stopwatch.Elapsed, cancellationToken);
-                            var completedTask = await Task.WhenAny(
+                            var timeout = stopwatch.IsRunning 
+                                ? batchTimeout - stopwatch.Elapsed 
+                                : (TimeSpan?)null;
+                            var isNewMessage = await TimeoutHelper.WaitTaskAsync(
                                 waitNewMessages,
-                                timeoutTask);
+                                timeout,
+                                cancellationToken);
 
-                            if (completedTask == timeoutTask)
+                            if (!isNewMessage)
                             {
                                 // timeout
                                 return buffer;
                             }
-                            else
-                            {
-                                // Появились новые сообщения.
-                            }
+
+                            // Появились новые сообщения.
                         }
                     }
                 }
@@ -202,7 +204,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         .Take(_options.SearchSetsPerQueryLimit)
                         .Select(e => (
                             entry: e,
-                            queueName: new RedisKey(_options.ProcessToQueueSetNameFactory(_serviceProvider, e.Key))
+                            queueName: new RedisKey(_options.ProcessToQueueSetNameFactory(e.Key))
                             )
                             )
                         .ToArray();
@@ -233,7 +235,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         continue;
                     }
 
-                    var processTypeKey = _options.QueueSetNameToProcessTypeFactory(_serviceProvider, consumedMessages.Key);
+                    var processTypeKey = _options.QueueSetNameToProcessTypeFactory(consumedMessages.Key);
 
                     if (!stopwatch.IsRunning)
                     {

@@ -10,7 +10,7 @@ using StackExchange.Redis;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Queue
 {
-    public class RedisQueueNotificationRunner<TId>
+    public class RedisProcessQueueNotificationRunner<TId>
         : IRedisProcessQueueNotificationRunner
     {
         private readonly IProcessRegistry _processRegistry;
@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
         private readonly ProcessQueueOptionsDto<TId> _options;
 
-        public RedisQueueNotificationRunner(
+        public RedisProcessQueueNotificationRunner(
             IProcessRegistry processRegistry,
             IRedisConnectionFactory redisConnectionFactory,
             IRedisNotifyProcessQueueState state,
@@ -37,8 +37,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             bool one,
             CancellationToken cancellationToken)
         {
-            static ProcessRegistryDto waitComplete(
-                LinkContainer<(ProcessRegistryDto, ConcurrentDictionary<ProcessRegistryDto, Task>, Task)> state)
+            static ProcessTypeUniqueDto waitComplete(
+                LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)> state)
             {
                 state.Data.Item2.TryAdd(state.Data.Item1, state.Data.Item3);
 
@@ -49,8 +49,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
 
-            var subscribers = new Dictionary<ProcessRegistryDto, NotificationEntryDto>(allProcesses.Count);
-            var completeBuffer = new ConcurrentDictionary<ProcessRegistryDto, Task>();
+            var subscribers = new Dictionary<ProcessTypeUniqueDto, NotificationEntryDto>(allProcesses.Count);
+            var completeBuffer = new ConcurrentDictionary<ProcessTypeUniqueDto, Task>();
             var waitBuffer = new HashSet<Task>(allProcesses.Count);
 
             try
@@ -58,7 +58,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 // 1) Подписываемся на оповещения по всем типам процессов.
                 foreach (var elem in allProcesses)
                 {
-                    var subsribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(elem), cancellationToken);
+                    var subsribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(elem.Unique), cancellationToken);
                     var enumerator = subsribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
 
                     var entry = new NotificationEntryDto()
@@ -68,21 +68,21 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                         Enumerator = enumerator,
                     };
 
-                    var waitTaskContainer = LinkContainer.Create<(ProcessRegistryDto, ConcurrentDictionary<ProcessRegistryDto, Task>, Task)>(default);
+                    var waitTaskContainer = LinkContainer.Create<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>(default);
                     var waitTask = enumerator.MoveNextAsync().AsTask()
                         .ContinueWith(
-                            static (t, s) => waitComplete((LinkContainer<(ProcessRegistryDto, ConcurrentDictionary<ProcessRegistryDto, Task>, Task)>)s!),
+                            static (t, s) => waitComplete((LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>)s!),
                             state: waitTaskContainer,
-                            continuationOptions: TaskContinuationOptions.ExecuteSynchronously);
-                    waitTaskContainer.Data = (elem, completeBuffer, waitTask);
+                            continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
+                    waitTaskContainer.Data = (elem.Unique, completeBuffer, waitTask);
 
-                    subscribers.Add(elem, entry);
+                    subscribers.Add(elem.Unique, entry);
                     waitBuffer.Add(waitTask);
                 }
 
                 // 2) Считываем обновления по очередям.
-                var rangeNotifyByffer = new List<ProcessRegistryDto>();
-                var singleNotifyBuffer = new List<ProcessRegistryDto>();
+                var rangeNotifyByffer = new List<ProcessTypeUniqueDto>();
+                var singleNotifyBuffer = new List<ProcessTypeUniqueDto>();
                 while (true)
                 {
                     rangeNotifyByffer.Clear();
@@ -94,25 +94,25 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     foreach (var elem in completeBuffer)
                     {
                         var key = elem.Key;
+                        var subscribe = subscribers[key];
+
                         completeBuffer.TryRemove(elem.Key, out _);
 
-                        if (!key.Metadata.IsSignleExecuteProcess)
+                        if (!subscribe.ProcessRegistry.Metadata.IsSignleExecuteProcess)
                         {
                             rangeNotifyByffer.Add(key);
                         }
                         else
                         {
                             singleNotifyBuffer.Add(key);
-                        }
+                        }                        
 
-                        var subscribe = subscribers[key];
-
-                        var waitTaskContainer = LinkContainer.Create<(ProcessRegistryDto, ConcurrentDictionary<ProcessRegistryDto, Task>, Task)>(default);
+                        var waitTaskContainer = LinkContainer.Create<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>(default);
                         var newWaitTask = subscribe.Enumerator.MoveNextAsync().AsTask()
                             .ContinueWith(
-                                static (t, s) => waitComplete((LinkContainer<(ProcessRegistryDto, ConcurrentDictionary<ProcessRegistryDto, Task>, Task)>)s!),
+                                static (t, s) => waitComplete((LinkContainer<(ProcessTypeUniqueDto, ConcurrentDictionary<ProcessTypeUniqueDto, Task>, Task)>)s!),
                                 state: waitTaskContainer,
-                                continuationOptions: TaskContinuationOptions.ExecuteSynchronously);
+                                continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                         waitTaskContainer.Data = (key, completeBuffer, newWaitTask);
 
                         waitBuffer.Remove(elem.Value);

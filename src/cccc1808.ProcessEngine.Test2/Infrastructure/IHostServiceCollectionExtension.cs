@@ -278,7 +278,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<IProcessQueueContext<Guid>, ProcessQueueContext<Guid>>()
 
-                .AddScoped<IRedisProcessQueueNotificationRunner, RedisQueueNotificationRunner<Guid>>()
+                .AddScoped<IRedisProcessQueueNotificationRunner, RedisProcessQueueNotificationRunner<Guid>>()
                 ;
             return services;
         }
@@ -510,7 +510,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             {
                 services
                     .AddSingleton(providerOptions)
-                    .AddSingleton<IExternalCounterProvider, RedisExternalCounterProvider>();
+                    .AddScoped<IExternalCounterProvider, RedisExternalCounterProvider>()
+                    .AddScoped<IExternalCounterContext, ExternalCounterContext>();
             }
             else 
             {

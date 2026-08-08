@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             /// Value - timestamp последнего события о поступлении сообщения.
             /// // TODO: PERF: ImmutableSortedDictionary vs ConcurrentSortedDictionary.
             /// </summary>
-            private OptimisticLockContainer<ImmutableSortedDictionary<ProcessRegistryDto, long>> QueueWithMessages { get; }
+            private OptimisticLockContainer<ImmutableSortedDictionary<ProcessTypeUniqueDto, long>> QueueWithMessages { get; }
             /// <summary>
             /// Содержит задачу для ожидания.
             /// Если все очереди опустели - Task переводится в состояние ожидания.
@@ -50,22 +50,28 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             public Handler(
                 ProcessRegistryDto[] processRegistries)
             {
-                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<ProcessRegistryDto, long>(new PriorityComparer());
+                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<ProcessTypeUniqueDto, long>(
+                    new PriorityComparer());
                 waitNewMessageBuilder.AddRange(
                     processRegistries
-                        .Select(e => new KeyValuePair<ProcessRegistryDto, long>(e, DateTimeOffset.MinValue.UtcTicks))
+                        .Select(e => new KeyValuePair<ProcessTypeUniqueDto, long>(
+                            e.Unique, 
+                            DateTimeOffset.MinValue.UtcTicks
+                            )
+                        )
                         .ToArray()
                     );
-                var waitNewMessage = new TaskCompletionSource(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
+                var waitNewMessage = new TaskCompletionSource(
+                    creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
                 waitNewMessage.SetResult();
 
-                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<ProcessRegistryDto, long>>(
-                        waitNewMessageBuilder.ToImmutableSortedDictionary());
+                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<ProcessTypeUniqueDto, long>>(
+                    waitNewMessageBuilder.ToImmutableSortedDictionary());
                 WaitNewMessage = new LockContainer<TaskCompletionSource>(
-                        waitNewMessage);
+                    waitNewMessage);
             }
 
-            public ImmutableSortedDictionary<ProcessRegistryDto, long> GetQueueWithMessages()
+            public ImmutableSortedDictionary<ProcessTypeUniqueDto, long> GetQueueWithMessages()
             {
                 return QueueWithMessages.Data;
             }
@@ -81,7 +87,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             }
 
             public void QueueIsEmpty(
-                ProcessRegistryDto key,
+                ProcessTypeUniqueDto key,
                 long timestamp,
                 CancellationToken cancellationToken)
             {
@@ -101,7 +107,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             }
 
             public async ValueTask NewMessageInQueueAsync(
-                ICollection<ProcessRegistryDto> keys,
+                ICollection<ProcessTypeUniqueDto> keys,
                 CancellationToken cancellationToken)
             {
                 foreach (var elem in keys)
@@ -109,6 +115,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     // Обновляем набор непустых очередей.
                     QueueWithMessages.TryUpdate(
                         elem,
+                        // TODO: datetime
                         static (p, e) => e.SetItem(p, DateTimeOffset.UtcNow.UtcTicks),
                         cancellationToken);
                 }
@@ -126,11 +133,23 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             }
         }
 
-        private class PriorityComparer : IComparer<ProcessRegistryDto>
+        private class PriorityComparer : IComparer<ProcessTypeUniqueDto>
         {
-            public int Compare(ProcessRegistryDto? x, ProcessRegistryDto? y)
+            public int Compare(ProcessTypeUniqueDto x, ProcessTypeUniqueDto y)
             {
-                return Comparer<int>.Default.Compare(x.Unique.Priority, y.Unique.Priority);
+                var r1 = Comparer<int>.Default.Compare(x.Priority, y.Priority);
+                if (r1 != 0)
+                {
+                    return r1;
+                }
+
+                var r2 = Comparer<long>.Default.Compare(x.ProcessType.ProcessType, y.ProcessType.ProcessType);
+                if (r2 != 0) 
+                {
+                    return r2;
+                }
+
+                return Comparer<int>.Default.Compare(x.ProcessType.ProcessVersion, y.ProcessType.ProcessVersion);
             }
         }
     }

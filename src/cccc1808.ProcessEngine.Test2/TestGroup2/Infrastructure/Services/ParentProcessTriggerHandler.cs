@@ -67,7 +67,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure.Services
             IEnumerable<ITriggerComponent<Guid>> triggers, 
             CancellationToken cancellationToken)
         {
-            await _triggerHandlerFacade.ToAsyncExecutingWakeupAsync(
+            await _triggerHandlerFacade.ToAsyncExecutingNoWakeupAsync(
                 triggers.Select(e => e.ProcessId).ToArray(), 
                 cancellationToken);
         }

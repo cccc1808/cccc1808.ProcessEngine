@@ -82,7 +82,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                         .ContinueWith(
                             static (t, s) => waitComplete((LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)>)s!),
                             state: waitTaskContainer,
-                            continuationOptions: TaskContinuationOptions.ExecuteSynchronously);
+                            continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                     waitTaskContainer.Data = (elem.HandlerName, completeBuffer, waitTask);
 
                     subscribers.Add(elem.HandlerName, entry);
@@ -120,7 +120,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.T2
                             .ContinueWith(
                                 static (t, s) => waitComplete((LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)>)s!),
                                 state: waitTaskContainer,
-                                continuationOptions: TaskContinuationOptions.ExecuteSynchronously);
+                                continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                         waitTaskContainer.Data = (key, completeBuffer, newWaitTask);
 
                         waitBuffer.Remove(elem.Value);

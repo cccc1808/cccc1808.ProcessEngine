@@ -104,7 +104,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                     {
                         await Task.WhenAll(startTasks);
                         break;
-                    }
+                    }                    
                     catch(Docker.DotNet.DockerApiException)
                     {
                         if (tryStartCount > 2)
@@ -112,6 +112,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             throw;
                         }
                         tryStartCount++;
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                    }
+                    catch (Exception ex)
+                    {
+                        throw;
                     }
                 }                
 
@@ -186,6 +191,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                                 BatchSize = 1,
                             },
                             DbSelect_ParallilLimit = 1,
+                            DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
 
                             RangeExecute_MiddlewareFactory = (s) => throw new Exception(""),
 
@@ -229,8 +235,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Infrastructure
                             IdToString = NameFactory.IdToString,
                             StringToId = NameFactory.StringToId,
 
-                            ProcessToQueueSetNameFactory = (s, e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
-                            QueueSetNameToProcessTypeFactory = (s, e) => NameFactory.KeyToProcessType(s, e),
+                            ProcessToQueueSetNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
+                            QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
 
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
                         }

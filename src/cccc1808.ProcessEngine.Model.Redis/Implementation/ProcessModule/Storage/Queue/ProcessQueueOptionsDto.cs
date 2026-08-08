@@ -8,7 +8,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
         public required int DbId { get; set; }
 
-        public required Func<ProcessRegistryDto, string> QueueChannelNameFactory { get; set; }
+        public required Func<ProcessTypeUniqueDto, string> QueueChannelNameFactory { get; set; }
 
         /// <summary>
         /// Ограничение размера очереди по <see cref="ProcessRegistryDto"/>.
@@ -28,12 +28,12 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
         /// <summary>
         /// Фабрика ключа SortedSet на основании типа процесса.
         /// </summary>
-        public required Func<IServiceProvider, ProcessRegistryDto, string> ProcessToQueueSetNameFactory { get; set; }
+        public required Func<ProcessTypeUniqueDto, string> ProcessToQueueSetNameFactory { get; set; }
 
         /// <summary>
         /// Фабрика типа процесса на основании ключа SortedSet.
         /// </summary>
-        public required Func<IServiceProvider, string, ProcessRegistryDto> QueueSetNameToProcessTypeFactory { get; set; }
+        public required Func<string, ProcessTypeUniqueDto> QueueSetNameToProcessTypeFactory { get; set; }
 
         public required Func<TId, string> IdToString { get; set; }
 
