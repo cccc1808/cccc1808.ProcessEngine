@@ -95,29 +95,28 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4
             // 2) Триггер получает сигнал с сообщениях.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerConsumerRunnerAsync(scope.ServiceProvider, withNotification: true);
+                await _testService.RunTriggerConsumerRunnerAsync(
+                    scope.ServiceProvider,
+                    withNotification: true);
             }
 
             // 3) Триггер пробуждает процесс.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunTriggerExecuteRunnerAsync(scope.ServiceProvider, withTriggerNotification: false);
+                await _testService.RunTriggerExecuteRunnerAsync(
+                    scope.ServiceProvider, 
+                    withTriggerNotification: false, 
+                    withProcessNotification: true);
                 // await _testService.RunTriggerDbRunnerAsync(scope.ServiceProvider);
             }
 
-            // 4) Процесс отправляет сообщения.
+            // 4) Процесс отправляет сообщения (по нескольким процессам).
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
+                await _testService.RunProcessRunnerAsync(scope.ServiceProvider, isSingle: false);
             }
 
-            // 5) Процесс отправляет сообщения.
-            await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
-            {
-                await _testService.RunProcessRunnerAsync(scope.ServiceProvider);
-            }
-
-            // 6) Считываем сообщения, отправленные через outbox.
+            // 5) Считываем сообщения, отправленные через outbox.
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
                 var queueProviderFactory = scope.ServiceProvider.GetRequiredService<IQueueProviderFactory>();

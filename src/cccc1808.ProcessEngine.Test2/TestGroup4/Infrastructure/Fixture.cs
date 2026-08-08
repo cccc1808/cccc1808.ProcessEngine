@@ -169,45 +169,56 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             DbSelect_ParallilLimit = 1,
                             DbSelect_EmptyDelay = TimeSpan.FromSeconds(2),
 
-                            SingleExecute_MiddlewareFactory = (s) => throw new Exception(""),
+                            SingleExecute_ParallelismLimit = 1,
+                            SingleExecute_MiddlewareFactory = (s) => 
+                            {
+                                return new TransactionMiddleware<Guid>(
+                                    s,
+                                    (s, ids) => new ExecuteStepByStepGroupMiddleware<Guid>(
+                                        s,
+                                        s.GetRequiredService<IDateTimeProvider>(),
+                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IProcessSetter>(),
+                                        s.GetRequiredService<IWakeupService<Guid>>(),
+                                        s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
+                                        s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                        ),
+                                    s.GetRequiredService<ITransactionManager>()
+                                    );
+                            },
 
+                            RangeExecute_ParallelismLimit = 1,
                             RangeExecute_MiddlewareFactory = (s) => new TransactionMiddleware<Guid>(
                                 s,
                                 (s, ids) =>
                                 {
-                                    var inbox = s.GetRequiredService<InboxRegistryDto>();
-                                    var outbox = s.GetRequiredService<OutboxRegistryDto>();
+                                    return new ExecuteStepByStepGroupMiddleware<Guid>(
+                                        s,
+                                        s.GetRequiredService<IDateTimeProvider>(),
+                                        s.GetRequiredService<IIsolationService>(),
+                                        s.GetRequiredService<IProcessSetter>(),
+                                        s.GetRequiredService<IWakeupService<Guid>>(),
+                                        s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                        (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler1<Guid>>()),
+                                        s.GetRequiredService<IProcessContainerConditions<Guid>>()
+                                        );
 
-                                    if (ids.First().First().Registry.Unique.ProcessType == inbox.Unique.ProcessType)
-                                    {
-                                        return new ExecuteStepByStepGroupMiddleware<Guid>(
-                                            s,
-                                            s.GetRequiredService<IDateTimeProvider>(),
-                                            s.GetRequiredService<IIsolationService>(),
-                                            s.GetRequiredService<IProcessSetter>(),
-                                            s.GetRequiredService<IWakeupService<Guid>>(),
-                                            s.GetRequiredService<IProcessQueueContext<Guid>>(),
-                                            (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
-                                            s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                            );
-                                    }
-                                    else if (ids.First().First().Registry.Unique.ProcessType == outbox.Unique.ProcessType)
-                                    {
-                                        return new ExecuteStepByStepGroupMiddleware<Guid>(
-                                            s,
-                                            s.GetRequiredService<IDateTimeProvider>(),
-                                            s.GetRequiredService<IIsolationService>(),
-                                            s.GetRequiredService<IProcessSetter>(),
-                                            s.GetRequiredService<IWakeupService<Guid>>(),
-                                            s.GetRequiredService<IProcessQueueContext<Guid>>(),
-                                            (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler1<Guid>>()),
-                                            s.GetRequiredService<IProcessContainerConditions<Guid>>()
-                                            );
-                                    }
-                                    else
-                                    {
-                                        throw new NotImplementedException("Test");
-                                    }
+                                    //var inbox = s.GetRequiredService<InboxRegistryDto>();
+                                    //var outbox = s.GetRequiredService<OutboxRegistryDto>();
+
+                                    //if (ids.First().First().Registry.Unique.ProcessType == inbox.Unique.ProcessType)
+                                    //{
+                                        
+                                    //}
+                                    //else if (ids.First().First().Registry.Unique.ProcessType == outbox.Unique.ProcessType)
+                                    //{
+                                        
+                                    //}
+                                    //else
+                                    //{
+                                    //    throw new NotImplementedException("Test");
+                                    //}
                                 },
                                 s.GetRequiredService<ITransactionManager>()
                             )
@@ -316,7 +327,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             new ProcessTypeMetadata(IsSignleExecuteProcess: true)),
                         new ProcessRegistryDto(
                             new ProcessTypeUniqueDto(new ProcessTypeDto(11, 1), 1),
-                            new ProcessTypeMetadata(IsSignleExecuteProcess: true))
+                            new ProcessTypeMetadata(IsSignleExecuteProcess: false))
                     );
 
                 services
