@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
@@ -24,17 +25,20 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
         public RedisTriggerQueueNotifyState(
             IServiceProvider serviceProvider,
+            IDateTimeProvider dateTimeProvider,
             ITriggerRegistry triggerRegistry,
             ITriggerHandlerFactory<TId> triggerHandlerFactory)
         {
             using (var scope = serviceProvider.CreateAsyncScope())
             {
                 RangeTriggerState = new Handler(
+                    dateTimeProvider,
                     triggerRegistry.GetAll()
                     .Where(e => triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.HandlerName))
                     .ToArray());
 
                 SignleTriggerState = new Handler(
+                    dateTimeProvider,
                     triggerRegistry.GetAll()
                     .Where(e => !triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.HandlerName))
                     .ToArray());
@@ -43,6 +47,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
         private class Handler : IRedisTriggerQueueNotifyState.IHandler
         {
+            private readonly IDateTimeProvider _dateTimeProvider;
+
             /// <summary>
             /// Содержит данные об очередях, в которых должны быть сообщения.
             /// В порядке приоритета процессов.
@@ -59,8 +65,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             private LockContainer<TaskCompletionSource> WaitNewMessage { get; }
 
             public Handler(
+                IDateTimeProvider dateTimeProvider,
                 TriggerRegistryDto[] registries)
             {
+                _dateTimeProvider = dateTimeProvider;
+
                 var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<IRedisTriggerQueueNotifyState.KeyDto, long>(new KeyComparer());
                 waitNewMessageBuilder.AddRange(
                     registries
@@ -121,8 +130,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                 {
                     // Обновляем набор непустых очередей.
                     QueueWithMessages.TryUpdate(
-                        elem,
-                        static (p, e) => e.SetItem(p, DateTimeOffset.UtcNow.UtcTicks),
+                        (This: this, elem),
+                        static (p, e) => e.SetItem(p.elem, p.This._dateTimeProvider.UtcNow.UtcTicks),
                         cancellationToken);
                 }
 

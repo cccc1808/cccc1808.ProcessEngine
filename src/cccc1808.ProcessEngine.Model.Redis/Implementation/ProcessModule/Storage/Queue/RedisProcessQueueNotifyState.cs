@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
@@ -20,18 +21,24 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
 
         public IRedisProcessQueueNotifyState.IHandler SingleHandler { get; }
 
-        public RedisProcessQueueNotifyState(IProcessRegistry processRegistry)
+        public RedisProcessQueueNotifyState(
+            IDateTimeProvider dateTimeProvider,
+            IProcessRegistry processRegistry)
         {
             var registries = processRegistry.All();
 
             RangeHandler = new Handler(
+                dateTimeProvider,
                 registries.Where(e => !e.Metadata.IsSignleExecuteProcess).ToArray());
             SingleHandler = new Handler(
+                dateTimeProvider,
                 registries.Where(e => e.Metadata.IsSignleExecuteProcess).ToArray());
         }
 
         private class Handler : IRedisProcessQueueNotifyState.IHandler
         {
+            private readonly IDateTimeProvider _dateTimeProvider;
+
             /// <summary>
             /// Содержит данные об очередях, в которых должны быть сообщения.
             /// В порядке приоритета процессов.
@@ -48,8 +55,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
             private LockContainer<TaskCompletionSource> WaitNewMessage { get; }
 
             public Handler(
+                IDateTimeProvider dateTimeProvider,
                 ProcessRegistryDto[] processRegistries)
             {
+                _dateTimeProvider = dateTimeProvider;
+
                 var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<ProcessTypeUniqueDto, long>(
                     new PriorityComparer());
                 waitNewMessageBuilder.AddRange(
@@ -114,9 +124,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                 {
                     // Обновляем набор непустых очередей.
                     QueueWithMessages.TryUpdate(
-                        elem,
-                        // TODO: datetime
-                        static (p, e) => e.SetItem(p, DateTimeOffset.UtcNow.UtcTicks),
+                        (This: this, elem),
+                        static (p, e) => e.SetItem(p.elem, p.This._dateTimeProvider.UtcNow.UtcTicks),
                         cancellationToken);
                 }
 
