@@ -507,7 +507,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.Classif
                                         DateTimeOffset.MinValue,
                                         elem.Value.Entity.ProcessId,
                                         isRangeTrigger: true,
-                                        EFOutboxTriggerWakeupHandler<TId>.Name,
+                                        EFOutboxTriggerHandler<TId>.Name,
                                         priority: 0,
                                         isActivated: false,
                                         streamProcessIsWaiting: true,

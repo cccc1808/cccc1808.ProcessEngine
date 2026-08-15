@@ -336,7 +336,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             this IServiceCollection services,
             InboxRunner<Guid>.OptionsDto inboxRunnerOptions,
             EFInboxConsumerService<Guid>.Options inboxConsumerOptions,
-            EFInboxDbProvider<Guid>.Options inboxDbProviderOptions,
+            EFInboxDbProvider1<Guid>.Options inboxDbProviderOptions,
             EFOutboxDbProvider1<Guid>.Options outboxDbProviderOptions,
             InboxRegistryDto inboxRegistry,
             OutboxRegistryDto outboxRegistry) 
@@ -345,9 +345,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
 
                 .AddScoped<IOutboxSender<Guid>, EFOutboxSender<Guid>>()
 
-                .AddScoped<EFInboxDbProvider<Guid>>()
+                .AddScoped<EFInboxDbProvider1<Guid>>()
                 .AddSingleton(inboxDbProviderOptions)
-                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider<Guid>>())
+                .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFInboxDbProvider1<Guid>>())
                 .AddScoped<EFOutboxDbProvider1<Guid>>()
                 .AddSingleton(outboxDbProviderOptions)
                 .AddScoped<IProcessDbProvider<Guid>>(s => s.GetRequiredService<EFOutboxDbProvider1<Guid>>())

@@ -35,11 +35,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxModule.Storage
 {
-    public class EFInboxDbProvider<TId>
+    public class EFInboxDbProvider1<TId>
         : IProcessDbProvider<TId>
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly InboxRegistryDto _inboxRegistryDto;
         private readonly ILockQueryHintStore _lockQueryHintStore;
@@ -53,9 +52,8 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
         private readonly IProcessLinkedConditions<TId, InboxProcessDataDbEntity<TId>> _processLinkedConditions;
         private readonly IMessageStreamConditions<TId, InboxMessageDbEntity<TId>> _messageStreamConditions;
 
-        public EFInboxDbProvider(
+        public EFInboxDbProvider1(
             IServiceProvider serviceProvider,
-            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             InboxRegistryDto inboxRegistryDto,
             ILockQueryHintStore lockQueryHintStore,
@@ -70,7 +68,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
             )
         {
             _serviceProvider = serviceProvider;
-            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _inboxRegistryDto = inboxRegistryDto;
             _lockQueryHintStore = lockQueryHintStore;

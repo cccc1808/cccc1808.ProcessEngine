@@ -38,6 +38,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
     /// Особенность: загружает процесс, данные, батчи сообщений (на основе ограничения).
     /// </summary>
     /// <typeparam name="TId"></typeparam>
+    [Obsolete("EFOutboxDbProvider2")]
     public class EFOutboxDbProvider1<TId>
         : IProcessDbProvider<TId>
     {       
@@ -107,22 +108,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                 .Include(e => e.Queue)
                 .ApplayQueryCondition(_processLinkedConditions.ProcessId.QueryRange, outboxProcessesIds)
                 .ToDictionaryAsync(e => e.ProcessId, e => e, cancellationToken);
-
-            // 2) Загружаем сообщения по процессам.
-            //var messages = await _dbContext.Set<OutboxMessageDbEntity<TId>>()
-            //    .ApplayQueryCondition(
-            //        _messageStreamConditions.ForProcessing.Query,
-            //        new IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>>.ForProcessingParamDto2(
-            //            outboxProcesses, 
-            //            WithPriorityOrdering: true
-            //            )
-            //        )
-            //    .Take(_messagesLimit)
-            //    .ToArrayAsync(cancellationToken);
-
-            //var messagesByStream = messages
-            //    .GroupBy(e => e.ProcessId)
-            //    .ToDictionary(e => e.Key, e => e);
 
             foreach (var elem in outboxProcessesIds)
             {

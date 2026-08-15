@@ -20,17 +20,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxModule.Wakeup
 {
-    public class EFOutboxTriggerWakeupHandler<TId>
+    public class EFOutboxTriggerHandler<TId>
         : NoWakeupStreamTriggerRangeHandler<TId>
     {
-        public new const string Name = "EFOutboxTriggerWakeupHandler";
+        public new const string Name = "EFOutboxTriggerHandler";
 
         private readonly IEFDbContext _dbContext;
 
         private readonly IProcessLinkedConditions<TId, OutboxMessageDbEntity<TId>> _processLinkedConditions;
         private readonly IMessageStreamConditions<TId, OutboxMessageDbEntity<TId>> _messageStreamConditions;
 
-        public EFOutboxTriggerWakeupHandler(
+        public EFOutboxTriggerHandler(
             IDateTimeProvider dateTimeProvider,
             ITriggerHandlerFacade<TId> triggerHandlerFacade,
             IEFDbContext dbContext,            

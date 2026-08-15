@@ -246,7 +246,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddTriggerServices(
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(EFOutboxTriggerWakeupHandler<Guid>.Name, typeof(EFOutboxTriggerWakeupHandler<Guid>))
+                        new TriggerRegistryDto(EFOutboxTriggerHandler<Guid>.Name, typeof(EFOutboxTriggerHandler<Guid>))
                     )
 
                     .AddTriggerEngineServices(
@@ -329,7 +329,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             IdempotencyIdFactory = (m) => m.Key,
                             AggregateIdFactory = (m) => new AggregateDto("0", "0")
                         },
-                        new EFInboxDbProvider<Guid>.Options()
+                        new EFInboxDbProvider1<Guid>.Options()
                         { 
                             MessageLimitFunc = (m) => m * 10,
                         },
