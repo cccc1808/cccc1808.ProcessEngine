@@ -11,7 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
-namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Base
+namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.CascadeTrigger
 {
     /// <summary>
     /// Хендлер для дочерних триггеров при использовании <see cref="ITriggerComponent.TriggerKind.SimpleStreamRoot"/>.

@@ -13,12 +13,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
@@ -256,8 +254,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue, // TODO: condition                                                                                                   
                         clearErrorOnSessionEnd: true
                         ),
-                    isAsyncExecuting: true,
-                    wakeupState: WakeupStateEnum.NoWakeup
+                    isAsyncExecuting: true
                     );
                 if (softTimeout.HasValue)
                 {
@@ -308,19 +305,13 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
 
                                 var activeWithoutMessages = await dbContext.Set<ProcessDbEntity<TId>>()
                                     .Join(
-                                        dbContext.Set<ProcessWakeupDbEntity<TId>>(),
+                                        dbContext.Set<InboxProcessDataDbEntity<TId>>(),
                                         e => e.Id,
                                         e => e.ProcessId,
-                                        (e1, e2) => new { Process = e1, Wakeup = e2 }
-                                    )
-                                    .Join(
-                                        dbContext.Set<InboxProcessDataDbEntity<TId>>(),
-                                        e => e.Process.Id,
-                                        e => e.ProcessId,
-                                        (e1, e2) => new { Process = e1.Process, Wakeup = e1.Wakeup, Data = e2 }
+                                        (e1, e2) => new { Process = e1, Data = e2 }
                                         )
                                     .Where(e => notProcessedInboxProcessesIds.Contains(e.Process.Id))
-                                    .Where( e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
+                                    .Where(e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
                                     .ToArrayAsync(cancellationToken);
 
                                 if (activeWithoutMessages.Any())
@@ -338,7 +329,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
-                                            elem.Wakeup.IsAsyncExecuting = false;
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedInboxProcessesIds.Remove(elem.Process.Id);

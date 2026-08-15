@@ -12,7 +12,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
@@ -193,8 +193,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                                     s.GetRequiredService<IDateTimeProvider>(),
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeupService<Guid>>(),
                                     s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                    s.GetRequiredService<ITriggerEventRaiser<Guid>>(),
                                     (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<SchemaSingleProcessHandler<Guid>>()),
                                     s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                     ),
@@ -222,13 +222,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.TriggerQueueChannel)
                         })
 
-                    .AddWakeupServices(
-                        [],
-                        []
-                    )
-
                     .AddTriggerServices(
-                        new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(EmergencyTriggerHandler<Guid>.Name, typeof(EmergencyTriggerHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),

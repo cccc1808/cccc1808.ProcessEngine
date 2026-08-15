@@ -8,11 +8,9 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Configuration;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Configuration;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.ProcessModule;
 using cccc1808.ProcessEngine.Model.EfCore.Postgres.Implementation.TriggersModule;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
@@ -87,13 +85,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                         b.Property(e => e.Id).ValueGeneratedNever();
                     }
                     );
-
-                modelBuilder.Entity<ProcessWakeupDbEntity<Guid>>(
-                    b => 
-                    {
-                        new ProcessWakeUpDbEntityConfiguration<Guid>().Configure(b);
-                        b.Property(e => e.Id).ValueGeneratedNever();
-                    });
 
                 modelBuilder.Entity<TriggerDbEntity<Guid>>(
                     b => 

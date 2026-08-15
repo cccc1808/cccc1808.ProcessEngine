@@ -10,10 +10,8 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
@@ -29,7 +27,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
     {
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IWakeupService<TId> _wakeupService;
         private readonly IProcessRegistry _processRegistry;
         private readonly IProcessQueueContext<TId> _queueContext;
 
@@ -38,7 +35,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
-            IWakeupService<TId> wakeupService,
             IProcessRegistry processRegistry,
             IProcessQueueContext<TId> queueContext,
 
@@ -46,7 +42,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;
-            _wakeupService = wakeupService;
             _processRegistry = processRegistry;
             _queueContext = queueContext;
 
@@ -234,18 +229,6 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             //    .ExecuteUpdateAsync(
             //        e => e.SetProperty(e => e.Status, ProcessStatusEnum.AsyncExecute),
             //        cancellationToken);
-        }
-
-        public async Task ToAsyncExecutingWakeupAsync(
-            ICollection<TId> processIds,
-            CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException("Предпологается удаление.");
-
-            await _wakeupService.WakeupProcessHandlerAsync(
-                processIds, 
-                useShareLock: true,
-                cancellationToken);
         }
 
         public async Task<bool> CustomEmergencyTriggerHandlerAsync(

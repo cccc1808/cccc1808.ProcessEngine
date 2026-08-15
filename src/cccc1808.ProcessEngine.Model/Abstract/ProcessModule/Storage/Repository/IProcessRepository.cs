@@ -40,15 +40,5 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Storage.Repository
         Task UpdateAsync(
             ICollection<IProcessContainer<TId>> processes, 
             CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Обновить данные компонента <see cref="WakeupModule.Components.IWakeupComponent"/>.
-        /// </summary>
-        /// <param name="processes"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        Task UpdateWakeupAsync(
-            ICollection<IProcessContainer<TId>> processes,
-            CancellationToken cancellationToken);
     }
 }

@@ -12,13 +12,11 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.Runners;
@@ -135,8 +133,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                     .AddDbServices(
                         (s) => new TestDbContext(
                         s,
-                        $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;"),
-                        typeof(EFWakeupDbProvider<Guid>)
+                        $"Host=localhost;Port={PostgreSqlContainer.GetMappedPublicPort()};Database=test;Username=postgres;Password=postgres;Include Error Detail=True;")
                         )
 
                     .AddKafkaServices(
@@ -179,8 +176,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                         s.GetRequiredService<IDateTimeProvider>(),
                                         s.GetRequiredService<IIsolationService>(),
                                         s.GetRequiredService<IProcessSetter>(),
-                                        s.GetRequiredService<IWakeupService<Guid>>(),
                                         s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                        s.GetRequiredService<ITriggerEventRaiser<Guid>>(),
                                         (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<TestInboxBody>()),
                                         s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                         ),
@@ -198,8 +195,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                                         s.GetRequiredService<IDateTimeProvider>(),
                                         s.GetRequiredService<IIsolationService>(),
                                         s.GetRequiredService<IProcessSetter>(),
-                                        s.GetRequiredService<IWakeupService<Guid>>(),
                                         s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                        s.GetRequiredService<ITriggerEventRaiser<Guid>>(),
                                         (s) => ValueTask.FromResult((ExecuteStepByStepGroupMiddleware<Guid>.IHandler)s.GetRequiredService<OutboxRangeProcessHandler1<Guid>>()),
                                         s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                         );
@@ -246,20 +243,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
                         })
 
-                    .AddWakeupServices(
-                        [
-                            new WakeupRegistryDto(new ProcessTypeUniqueDto(new ProcessTypeDto(11, 1), 1), WakeupStateEnum.CheckWakeupWithoutLock, typeof(EFOutboxMessageWakeupHandler<Guid>))
-                        ],
-                        [
-                            new StreamRegistryDto(new ProcessTypeUniqueDto(new ProcessTypeDto(10, 1), 1)),
-                            new StreamRegistryDto(new ProcessTypeUniqueDto(new ProcessTypeDto(11, 1), 1)),
-                            ]
-                    )
-
                     .AddTriggerServices(
-                        new TriggerRegistryDto(WakeupTriggerRangeHandler<Guid>.Name, typeof(WakeupTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(WakeupStreamTriggerRangeHandler<Guid>.Name, typeof(WakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
                         new TriggerRegistryDto(EFOutboxTriggerWakeupHandler<Guid>.Name, typeof(EFOutboxTriggerWakeupHandler<Guid>))
                     )

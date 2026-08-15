@@ -12,7 +12,6 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure;
@@ -66,11 +65,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Tests
                         null
                         )
                     );
-                dbContext.Set<ProcessWakeupDbEntity<Guid>>().Add(
-                    new ProcessWakeupDbEntity<Guid>(
-                        await idGenerator.NextAsync(default),
-                        processId,
-                        isAsyncExecuting: true));
 
                 await dbContext.SaveChangesAsync(default);
             }

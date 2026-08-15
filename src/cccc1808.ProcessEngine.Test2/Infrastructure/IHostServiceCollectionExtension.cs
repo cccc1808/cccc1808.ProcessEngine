@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
+﻿using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
@@ -26,16 +20,12 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.CommonModule.Storage.ChangesIsolation;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.MessageStreamModule.Conditions;
@@ -46,8 +36,6 @@ using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Conditio
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Services;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Storage.Repository;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeupModule.Conditions;
-using cccc1808.ProcessEngine.Model.EfCore.Implementation.WakeUpModule.Storage.Queries;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Conditions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Storage.ChangesIsolation;
@@ -65,7 +53,6 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage.ExternalCounter;
-using cccc1808.ProcessEngine.Model.Implementation.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.CommonModule.Services;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Dto;
 using cccc1808.ProcessEngine.Model.InboxOutbox.Abstract.InboxModule.Services;
@@ -182,33 +169,6 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<INoIsolationCompensateService, NoIsolationCompensateService>()
                 .AddScoped<IChangeTrackerSnapshotService, ChangeTrackerSnapshotService>()
                 ;
-
-            return services;
-        }
-
-        public static IServiceCollection AddWakeupServices(
-            this IServiceCollection services, 
-            WakeupRegistryDto[] wakeupRegistrations,
-            StreamRegistryDto[] streamRegistrations)
-        {
-            services
-                .AddScoped<IWakeupService<Guid>, WakeupService<Guid>>()
-                .AddSingleton(s => new WakeupService<Guid>.OptionsDto())
-                .AddScoped<IWakeupServiceQueries<Guid>, EFWakeupServiceQueries<Guid>>()
-                .AddSingleton<IWakeupRegistry<Guid>, WakeupRegistry<Guid>>()
-                
-                .AddScoped<IProcessWakeupDbEntityConditions<Guid>, ProcessWakeupDbEntityConditions<Guid>>();
-
-            foreach (var elem in wakeupRegistrations)
-            {
-                services.AddSingleton(elem);
-                services.AddScoped(elem.CheckWakeupHandlerType);
-            }
-
-            foreach (var elem in streamRegistrations)
-            {
-                services.AddSingleton(elem);
-            }
 
             return services;
         }

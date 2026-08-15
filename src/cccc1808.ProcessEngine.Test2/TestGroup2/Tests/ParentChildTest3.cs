@@ -20,7 +20,6 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Services.ProcessExecuteMiddlewares.Execute;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
@@ -104,18 +103,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         null
                         )
                     );
-                dbContext.Set<ProcessWakeupDbEntity<Guid>>().Add(
-                    new ProcessWakeupDbEntity<Guid>(
-                        await idGenerator.NextAsync(default),
-                        processId,
-                        isAsyncExecuting: true));
-                //processQueueContext.ProcessToExecute(
-                //    IProcessQueueContext<Guid>.ProcessDto.ProcessToExecute(
-                //        processId, 
-                //        new ProcessRegistryDto(
-                //            new ProcessTypeUniqueDto(new ProcessTypeDto(3, 1), 1),
-                //            new ProcessTypeMetadata(IsSignleExecuteProcess: true))
-                //        ));
 
                 await dbContext.SaveChangesAsync(default);
                 await transaction.CommitAsync(CancellationToken.None);

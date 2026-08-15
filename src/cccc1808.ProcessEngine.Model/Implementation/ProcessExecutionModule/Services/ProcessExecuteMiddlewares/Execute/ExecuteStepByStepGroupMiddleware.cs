@@ -16,11 +16,12 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,8 +40,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IIsolationService _isolationService;
         private readonly IProcessSetter _processSetter;
-        private readonly IWakeupService<TId> _wakeupService;
         private readonly IProcessQueueContext<TId> _processQueueContext;
+        private readonly ITriggerEventRaiser<TId> _triggerEventRaiser;
 
         private readonly Func<IServiceProvider, ValueTask<IHandler>> _factory;
 
@@ -51,8 +52,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             IDateTimeProvider dateTimeProvider,
             IIsolationService isolationService,
             IProcessSetter processSetter,
-            IWakeupService<TId> wakeupService,
             IProcessQueueContext<TId> processQueueContext,
+            ITriggerEventRaiser<TId> triggerEventRaiser,
 
             Func<IServiceProvider, ValueTask<IHandler>> factory,
 
@@ -62,8 +63,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             _dateTimeProvider = dateTimeProvider;
             _isolationService = isolationService;
             _processSetter = processSetter;
-            _wakeupService = wakeupService;
             _processQueueContext = processQueueContext;
+            _triggerEventRaiser = triggerEventRaiser;
 
             _factory = factory;
 
@@ -411,48 +412,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     );
             }
 
-            //// 4) Проверка засыпания процессов.
-            var wakeupUpdate = await _wakeupService.AfterAsyncSessionHandlerAsync(
-                allProcesses.Data.Values,
-                cancellationToken);
-            await handler.SaveWakeupRangeAsync(wakeupUpdate, cancellationToken);
-
-            //// 5) Обновление очереди и резервирования.
-            {
-                _processQueueContext.IncreseBufferCapacity(allProcesses.Data.Count);
-                // TODO: options.
-                _processQueueContext.SetReserveTimeout(
-                    allProcesses.Data.Values.First().Process.Info.Registry.Metadata.IsSignleExecuteProcess
-                    ? TimeSpan.FromSeconds(30) 
-                    : TimeSpan.FromSeconds(60));
-                foreach (var elem in allProcesses.Data.Values)
-                {
-                    switch (elem.Process.Status)
-                    {
-                        case ProcessStatusEnum.AsyncExecute:
-                            {
-                                // Асинхронное выполнение продолжается.
-                                _processQueueContext.ProcessContinueExecute(
-                                    IProcessQueueContext<TId>.ProcessDto.TriggerContinueRun(
-                                        elem.Id,
-                                        elem.Process.Info.Registry
-                                        ));
-                                break;
-                            }
-
-                        case ProcessStatusEnum.WaitEvent:
-                        case ProcessStatusEnum.Complete:
-                            {
-                                // Асинхронное выполнение не требуется.
-                                _processQueueContext.ProcessExecuted(elem.Process.Info.Id);
-                                break;
-                            }
-
-                        default: 
-                            throw new NotImplementedException(elem.Process.Status.ToString());
-                    }
-                }
-            }
+            await EndHandlerAsync(allProcesses.Data, cancellationToken);
         }
 
         private async Task<Dictionary<TId, IProcessContainer<TId>>> LoadAsync(
@@ -474,6 +434,98 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                     return e;
                 }
                 );
+        }
+        
+        /// <summary>
+        /// Вызывается в конце сессии асинхронной обработки.
+        /// </summary>
+        private async ValueTask EndHandlerAsync(
+            Dictionary<TId, IProcessContainer<TId>> processes,
+            CancellationToken cancellationToken)
+        {
+            var triggerEventsBuffer = new List<ITriggerEventRaiser<TId>.RaiseContainer>(
+                processes.Count * 2);
+
+            // TODO: options.
+            _processQueueContext.SetReserveTimeout(
+                processes.Values.First().Process.Info.Registry.Metadata.IsSignleExecuteProcess
+                ? TimeSpan.FromSeconds(30)
+                : TimeSpan.FromSeconds(60));
+            _processQueueContext.IncreseBufferCapacity(
+                processes.Count);
+
+            foreach (var elem in processes.Values)
+            {
+                // 1) Оповещение о смещении нужно отправить в любом случае.
+                if (elem.TryGetComponent<IOffsetTriggerComponent>(out var offsetStreamComponent)
+                    && offsetStreamComponent.ProcessedOffsets.Any())
+                {
+                    var @events = offsetStreamComponent.ProcessedOffsets.Select(
+                        e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                            offsetStreamComponent.TriggerEventQueue,
+                            elem.Id,
+                            new ProcessedOffsetTriggerEvent(e.Key, e.Value)
+                            )
+                        );
+
+                    triggerEventsBuffer.AddRange(@events);
+                }
+
+                // 2) Обновление очереди и резервирования.
+                switch (elem.Process.Status)
+                {
+                    case ProcessStatusEnum.AsyncExecute:
+                        {
+                            // Асинхронное выполнение продолжается.
+                            _processQueueContext.ProcessContinueExecute(
+                                IProcessQueueContext<TId>.ProcessDto.TriggerContinueRun(
+                                    elem.Id,
+                                    elem.Process.Info.Registry
+                                    ));
+                            break;
+                        }
+
+                    case ProcessStatusEnum.WaitEvent:
+                    case ProcessStatusEnum.Complete:
+                        {
+                            // Асинхронное выполнение не требуется.
+                            _processQueueContext.ProcessExecuted(elem.Process.Info.Id);
+                            break;
+                        }
+
+                    default:
+                        throw new NotImplementedException(elem.Process.Status.ToString());
+                }
+
+                // Далее игнорируем процессы с ошибкой.
+                if (_processContainerConditions.HaveError.Check(elem))
+                {
+                    continue;
+                }
+
+                // 3) Событие об остановке процесса для stream триггеров.
+                if (elem.TryGetComponent<IStreamTriggerComponent>(out var streamTriggerComponent)
+                    && streamTriggerComponent.TriggersKeys.Any()
+                    && elem.Process.Status is ProcessStatusEnum.WaitEvent)
+                {
+                    var @events = streamTriggerComponent.TriggersKeys.Select(
+                        e => new ITriggerEventRaiser<TId>.RaiseContainer(
+                            streamTriggerComponent.TriggerEventQueue,
+                            elem.Id,
+                            new ProcessGoWaitStreamTriggerEvent(e)
+                            )
+                        );
+
+                    triggerEventsBuffer.AddRange(@events);
+                }
+            }
+
+            if (triggerEventsBuffer.Any())
+            {
+                await _triggerEventRaiser.RaiseAsync(
+                    triggerEventsBuffer, 
+                    cancellationToken);
+            }
         }
 
         #region types
@@ -513,16 +565,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
             Task SaveRangeAsync(
                 ExecuteGroup group,
-                CancellationToken cancellationToken);
-
-            /// <summary>
-            /// Сохранить состояние <see cref="cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components.IWakeupComponent" /> и статус процесса.
-            /// </summary>
-            /// <param name="processes"></param>
-            /// <param name="cancellationToken"></param>
-            /// <returns></returns>
-            Task SaveWakeupRangeAsync(
-                ICollection<IProcessContainer<TId>> process,
                 CancellationToken cancellationToken);
 
             ValueTask OnExceptionRangeAsync(

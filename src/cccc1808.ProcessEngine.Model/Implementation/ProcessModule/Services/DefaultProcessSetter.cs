@@ -10,8 +10,6 @@ using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Components;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
@@ -56,14 +54,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Services
             ProcessStatusEnum status)
         {
             process.Process.Status = status;
-
-            if (process.WakeupState == WakeupStateEnum.CheckWakeupWithLock && !process.InAsyncExecuting)
-            {
-                // Если не в асинхронном выполнении, то меняем также компонент.
-                var wakeupComponent = process.GetComponent<IWakeupComponent<TId>>();
-                wakeupComponent.IsAsyncExecuting = status == ProcessStatusEnum.AsyncExecute;
-                wakeupComponent.NeedUpdate = true;
-            }
         }
 
         public void ClearError<TId>(IProcessContainer<TId> process)

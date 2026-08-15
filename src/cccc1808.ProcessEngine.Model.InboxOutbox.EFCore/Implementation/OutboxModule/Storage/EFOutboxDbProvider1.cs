@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
@@ -13,12 +12,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.MessageStreamModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.EfCore.Abstract.WakeupModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Extensions;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
@@ -252,8 +249,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                         haveErrorOnStart: elem.Process.StoppedByError || elem.Process.RetryCount.HasValue, // TODO: condition                                                                                                   
                         clearErrorOnSessionEnd: true
                         ),
-                    isAsyncExecuting: true,
-                    wakeupState: WakeupStateEnum.CheckWakeupWithoutLock                       
+                    isAsyncExecuting: true                 
                     );
                 if (softTimeout.HasValue)
                 {
@@ -303,16 +299,10 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
 
                                 var activeWithoutMessages = await dbContext.Set<ProcessDbEntity<TId>>()
                                     .Join(
-                                        dbContext.Set<ProcessWakeupDbEntity<TId>>(),
+                                        dbContext.Set<OutboxProcessDataDbEntity<TId>>(),
                                         e => e.Id,
                                         e => e.ProcessId,
-                                        (e1, e2) => new { Process = e1, Wakeup = e2 }
-                                    )
-                                    .Join(
-                                        dbContext.Set<OutboxProcessDataDbEntity<TId>>(),
-                                        e => e.Process.Id,
-                                        e => e.ProcessId,
-                                        (e1, e2) => new { Process = e1.Process, Wakeup = e1.Wakeup, Data = e2 }
+                                        (e1, e2) => new { Process = e1, Data = e2 }
                                         )
                                     .Where(e => notProcessedOutboxProcessesIds.Contains(e.Process.Id))
                                     .Where(e => !messageQuery.Any(e2 => e2.ProcessId.Equals(e.Process.Id)))
@@ -333,7 +323,6 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.OutboxM
                                         if (elem.Process.Status == ProcessStatusEnum.AsyncExecute)
                                         {
                                             elem.Process.Status = ProcessStatusEnum.WaitEvent;
-                                            elem.Wakeup.IsAsyncExecuting = false;
 
                                             notLoadedProcesses.Remove(elem.Process.Id);
                                             notProcessedOutboxProcessesIds.Remove(elem.Process.Id);

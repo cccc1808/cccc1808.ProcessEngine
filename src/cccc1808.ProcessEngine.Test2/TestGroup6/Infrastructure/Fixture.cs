@@ -11,7 +11,7 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provi
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Conditions;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Services;
-using cccc1808.ProcessEngine.Model.Abstract.WakeupModule.Services;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Query;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.ProcessModule.Storage.Repository;
@@ -177,8 +177,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                                     s.GetRequiredService<IDateTimeProvider>(),
                                     s.GetRequiredService<IIsolationService>(),
                                     s.GetRequiredService<IProcessSetter>(),
-                                    s.GetRequiredService<IWakeupService<Guid>>(),
                                     s.GetRequiredService<IProcessQueueContext<Guid>>(),
+                                    s.GetRequiredService<ITriggerEventRaiser<Guid>>(),
                                     (s) => throw new NotImplementedException(),
                                     s.GetRequiredService<IProcessContainerConditions<Guid>>()
                                     ),
@@ -211,11 +211,6 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
                         }
                         )
-
-                    .AddWakeupServices(
-                        [],
-                        []
-                    )
 
                     .AddTriggerServices()
 

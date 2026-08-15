@@ -48,14 +48,6 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services
             ICollection<TId> processIds, 
             CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Выполнить пробуждения процесса через wakeup state.
-        /// </summary>
-        [Obsolete("Рекомендуется использовать каскад триггеров.")]
-        Task ToAsyncExecutingWakeupAsync(
-            ICollection<TId> processIds,
-            CancellationToken cancellationToken);
-
         /// <param name="WaitWithLock">Процесс в состоянии ожидания и получен update lock (можно пробуждать).</param>
         /// <param name="WaitWithoutLock">Процесс в состоянии ожидания, но блокировка не получена (скорее всего timeout).</param>
         /// <param name="IsAsyncExecuting">Процесс в состоянии асинхронной обработки (пробуждение не требуется).</param>

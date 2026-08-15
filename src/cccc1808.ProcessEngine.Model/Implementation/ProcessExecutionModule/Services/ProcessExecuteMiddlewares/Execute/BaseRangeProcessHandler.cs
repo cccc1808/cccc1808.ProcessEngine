@@ -118,15 +118,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                 cancellationToken);
         }
 
-        public virtual async Task SaveWakeupRangeAsync(
-            ICollection<IProcessContainer<TId>> process,
-            CancellationToken cancellationToken)
-        {
-            await _repository.UpdateWakeupAsync(
-                process,
-                cancellationToken);
-        }
-
         public abstract ValueTask StepRangeAsync(
             ExecuteStepByStepGroupMiddleware<TId>.ExecuteGroup group,
             CancellationToken cancellationToken);
