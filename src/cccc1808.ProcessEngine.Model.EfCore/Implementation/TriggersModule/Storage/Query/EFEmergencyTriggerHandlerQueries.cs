@@ -67,7 +67,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                         && !e.IsActivated
                         && e.Kind != ITriggerComponent.TriggerKind.SimpleStreamRoot // Игнорируем корневые триггеры.
                         && e.IsRangeHandler // Триггеры обработчики только с таким типом.
-                        && e.ReservationTimeout < timeout // Давно не брался в обработку.
+                        && e.LastExecuteDate < timeout // Давно не брался в обработку.
                         && !ignoreHandlers.Contains(e.HandlerKey)
                         // && !alreadyReseved.Contains(e.Id)
                         )

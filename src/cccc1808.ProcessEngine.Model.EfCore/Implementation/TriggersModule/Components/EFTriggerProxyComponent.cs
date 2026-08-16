@@ -33,7 +33,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public ITriggerComponent.TriggerKind Kind => Entity.Kind;
         
-        public DateTimeOffset ReservationTimeout { get => Entity.ReservationTimeout; set => Entity.ReservationTimeout = value; }
+        public DateTimeOffset LastExecuteDate { get => Entity.LastExecuteDate; set => Entity.LastExecuteDate = value; }
 
         public object? State { get; private set; }
 

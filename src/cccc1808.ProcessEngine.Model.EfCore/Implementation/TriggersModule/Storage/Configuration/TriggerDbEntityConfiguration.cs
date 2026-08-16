@@ -31,13 +31,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
 
             KeyNotCompleteIndex(builder);
 
-            // TODO: для реального запуска нужен только один в зависимости от выбранной реализации.
             DbProcessingForSelectorIndex(builder);
-            DbProcessingForSelectorIndex2(builder);
-            DbProcessingForSelectorIndex31(builder);
-            DbProcessingForSelectorIndex32(builder);
 
-            DbProcessingForHandlerParameters(builder);
+            DbProcessingForHandlerIndex(builder);
 
             ProcessIdIndex(builder);
             // StreamDataProperty(builder);
@@ -72,59 +68,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder) 
         {
             // 
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.Id })
-                .HasFilter(@"
-    is_activated is true 
-    and child_trigger_wait_delivery_timestamp is null
-    and is_completed is false");
-        }
-
-        /// <summary>
-        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
-        /// </summary>
-        /// <param name="builder"></param>
-        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex2(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
-        {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
-                .HasFilter(@"
-    is_activated is true 
-    and child_trigger_wait_delivery_timestamp is null
-    and is_completed is false");
-        }
-
-        /// <summary>
-        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
-        /// </summary>
-        /// <param name="builder"></param>
-        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex31(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
-        {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
+            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.HandlerKey, e.Id })
                 .HasFilter(@"
     is_activated is true
     and child_trigger_wait_delivery_timestamp is null
-    and is_completed is false
-    and is_range_handler is true");
-        }
-
-        /// <summary>
-        /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForSelector2"/>
-        /// </summary>
-        /// <param name="builder"></param>
-        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForSelectorIndex32(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
-        {
-            return builder.HasIndex(e => new { e.Priority, e.TimerDate, e.ReservationTimeout, e.HandlerKey, e.Id })
-                .HasFilter(@"
-    is_activated is true 
-    and child_trigger_wait_delivery_timestamp is null
-    and is_completed is false
-    and is_range_handler is false");
-        }
+    and is_completed is false");
+        }        
 
         /// <summary>
         /// <see cref="ITriggerDbEntityConditions{TId}.DbProcessingForHandler"/>
         /// </summary>
         /// <param name="builder"></param>
-        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForHandlerParameters(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
+        protected virtual IndexBuilder<TriggerDbEntity<TId>> DbProcessingForHandlerIndex(EntityTypeBuilder<TriggerDbEntity<TId>> builder)
         {
             return builder.HasIndex(e => new { e.TimerDate, e.Id })
                 .HasFilter(@"

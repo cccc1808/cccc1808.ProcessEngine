@@ -25,11 +25,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         public string Key { get; set; }
 
         /// <summary>
-        /// Используется в том числе для индекса, позволяет меньше конкурировать нодам.
-        /// Дополняет updatelock.
-        /// Отмечает бронь записи, между select транзакций и транзакций выполнения.
+        /// Дата последней аснхронной обработки.
         /// </summary>
-        public DateTimeOffset ReservationTimeout { get; set; }
+        public DateTimeOffset LastExecuteDate { get; set; }
 
         /// <summary>
         /// Смещение keyset пагинации.
@@ -124,7 +122,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         {
             Id = id;
             Key = key;
-            ReservationTimeout = selectLockTimeout;
+            LastExecuteDate = selectLockTimeout;
             TimerDate = timerDate;
             IsRangeHandler = isRangeHandler;
             HandlerKey = handlerKey;

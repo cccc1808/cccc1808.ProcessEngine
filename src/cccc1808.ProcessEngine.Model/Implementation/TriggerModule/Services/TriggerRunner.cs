@@ -517,10 +517,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             }
                             );
 
-                        if ((trigger.ReservationTimeout - now) >= emergencyOptions.LostTriggerTimeout)
+                        if ((trigger.LastExecuteDate - now) >= emergencyOptions.LostTriggerTimeout)
                         {
-                            // Обновляем select lock timeout, чтобы обозначить, что на триггер поступают события.
-                            triggerSetter.StandartSetter.SetReservationTimeout(trigger, now);
+                            // Обновляем LastExecuteDate, чтобы обозначить, что на триггер поступают события.
+                            triggerSetter.StandartSetter.SetLastExecuteDate(trigger, now);
                         }
 
                         if (condition.NeedExecuteCondition.Check(
@@ -534,14 +534,6 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     triggerHandlerFactory.IsRangeHandler(serviceProvider, trigger.HandlerKey),
                                     trigger.HandlerKey));
                         }
-
-                        //if (
-                        //    trigger.NeedUpdate
-                        //    && trigger.IsActivated
-                        //    && trigger.SelectLockTimeout > now)
-                        //{
-                        //    triggerSetter.StandartSetter.SetSelectLockTimeout(trigger, now);
-                        //}
                     }
 
                     if (sendEventsBuffer.Any())

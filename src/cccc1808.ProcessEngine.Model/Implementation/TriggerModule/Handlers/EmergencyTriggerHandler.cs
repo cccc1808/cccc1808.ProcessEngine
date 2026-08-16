@@ -247,7 +247,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                             !e.Trigger.IsCompleted
                             && !e.Trigger.IsActivated
                             && e.Trigger.Kind != ITriggerComponent.TriggerKind.SimpleStreamRoot // Он реагирует на сигналы дочерних.
-                            && e.Trigger.ReservationTimeout < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
+                            && e.Trigger.LastExecuteDate < timeout // Timeout резервирования превышает указанный (давно не брался в обработку)
                             )
                         .ToArray();
 

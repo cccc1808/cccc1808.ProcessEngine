@@ -55,7 +55,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         /// </summary>
         string HandlerKey { get; }
 
-        DateTimeOffset ReservationTimeout { get; set; }
+        DateTimeOffset LastExecuteDate { get; set; }
 
         /// <summary>
         /// Кастомное состояние триггера.

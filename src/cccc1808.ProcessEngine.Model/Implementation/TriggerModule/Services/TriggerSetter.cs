@@ -366,11 +366,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 trigger.NeedRemove = value;
             }
 
-            public void SetReservationTimeout(ITriggerComponent<TId> trigger, DateTimeOffset value)
+            public void SetLastExecuteDate(ITriggerComponent<TId> trigger, DateTimeOffset value)
             {
-                if (trigger.ReservationTimeout != value)
+                if (trigger.LastExecuteDate != value)
                 {
-                    trigger.ReservationTimeout = value;
+                    trigger.LastExecuteDate = value;
                     trigger.NeedUpdate = true;
                 }
             }
@@ -398,7 +398,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                         SetCompleted(trigger, true);
                     }
 
-                    SetReservationTimeout(trigger, _dateTimeProvider.UtcNow);
+                    SetLastExecuteDate(trigger, _dateTimeProvider.UtcNow);
                 }                
             }
         }

@@ -63,16 +63,19 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                         s = s
                             .Where(
                                 e =>
-                                    e.IsActivated
-                                    && e.ChildTrigger_WaitDeliveryTimestamp == null
-                                    && !e.IsCompleted
-                                    && e.TimerDate < p.TimerNowDate
+                                    // Фильтры
+                                    e.IsActivated // 1) Активирован
+                                    && e.ChildTrigger_WaitDeliveryTimestamp == null // 2) Это не дочерний триггер, который ожидает подтверждения.
+                                    && !e.IsCompleted // 3) Не завершен
                                     
-                                    && e.HandlerKey == p.HandlerKey
-                                    && Comparer<TId>.Default.Compare(e.Id, p.IdKeysetOffset) > 0
-                                    //&& e.ReservationTimeout < p.NowDate
+                                    // Условия
+                                    && e.TimerDate < p.TimerNowDate // 1) Таймер                                    
+                                    && e.HandlerKey == p.HandlerKey // 2) Только указанный тип
+                                    && Comparer<TId>.Default.Compare(e.Id, p.IdKeysetOffset) > 0 // 3) Keyset пагинация
                                     )
-                            .OrderByDescending(e => e.HandlerKey)
+                            .OrderByDescending(e => e.Priority)
+                            .ThenBy(e => e.TimerDate)
+                            .ThenBy(e => e.HandlerKey) // TODO: тут только для индекса, возможно убрать.
                             .ThenBy(e => e.Id);
 
                         return s;
@@ -87,9 +90,12 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Cond
                     {
                         s = s.Where(
                             e =>
+                                // Фильтры
                                 e.IsActivated
-                                && !e.IsCompleted
                                 && e.ChildTrigger_WaitDeliveryTimestamp == null // Дочерний триггер не ждет ответа корневого.
+                                && !e.IsCompleted
+
+                                // Условия
                                 && e.TimerDate < p.NowDate
                                 && p.ids.Contains(e.Id));
 
