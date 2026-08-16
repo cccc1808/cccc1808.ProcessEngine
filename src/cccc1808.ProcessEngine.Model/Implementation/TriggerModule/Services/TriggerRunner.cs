@@ -835,7 +835,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             cancellationToken
                             );
 
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
+                        // Тут учитывать сохранение triggerEntity, processEntity (Если не EF).
                         await repository.SaveAsync(triggers, cancellationToken);                        
 
                         await transaction.CommitAsync(cancellationToken);
@@ -1046,9 +1046,9 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             triggerQueueContext.TriggerExecuted(trigger.Id);
                         }
                         
-                        // Тут учитывать сохранение triggerEntity, processEntity, wakeupEntity (Если не EF).
-                        await repository.SaveAsync([trigger], cancellationToken);                        
-
+                        // Тут учитывать сохранение triggerEntity, processEntity (Если не EF).
+                        await repository.SaveAsync([trigger], cancellationToken);
+                        
                         await transaction.CommitAsync(cancellationToken);
                     }
                 }
