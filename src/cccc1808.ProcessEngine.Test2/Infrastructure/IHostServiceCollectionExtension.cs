@@ -221,13 +221,14 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddRedisProcessQueueServices(
             this IServiceCollection services,
 
-            RedisProcessReserveProvider<Guid>.OptionsDto reserveOptions,
-            ProcessQueueOptionsDto<Guid> processQueueOptions
+            RedisProcessReserveProvider<Guid>.OptionsDto queueReserveOptions,
+            ProcessQueueOptionsDto<Guid> processQueueOptions,
+            RedisProcessSelectorReserveProvider.OptionDto selectorReserveOptions
             )
         {
             services
                 .AddScoped<IProcessReserveProvider<Guid>, RedisProcessReserveProvider<Guid>>()
-                .AddSingleton(reserveOptions)
+                .AddSingleton(queueReserveOptions)
 
                 .AddScoped<IProcessQueueProvider<Guid>, RedisProcessQueueProvider<Guid>>()
                 .AddSingleton(processQueueOptions)
@@ -237,6 +238,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessQueueContext<Guid>, ProcessQueueContext<Guid>>()
 
                 .AddScoped<IRedisProcessQueueNotificationRunner, RedisProcessQueueNotificationRunner<Guid>>()
+
+                .AddScoped<IProcessSelectorReserveProvider, RedisProcessSelectorReserveProvider>()
+                .AddSingleton(selectorReserveOptions)
                 ;
             return services;
         }

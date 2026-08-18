@@ -346,28 +346,60 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                     timeout = null;
                                 }
 
+                                // 1) Ожидание слота параллелизма.
                                 await parallelLimit.WaitAsync();
-
-                                // TODO: обработка блокировок кластера. (резервирование типа хендлера на ноде).
 
                                 try
                                 {
-                                    using (var scope = _serviceProvider.CreateAsyncScope())
+                                    await using (var scope = _serviceProvider.CreateAsyncScope())
                                     {
                                         var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
-                                        var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                        var dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                        var processSelectorReserveProvider = scope.ServiceProvider.GetRequiredService<IProcessSelectorReserveProvider>();
                                         var query = scope.ServiceProvider.GetRequiredService<IQueueProcessRunnerQuery<TId>>();
                                         var processQueueContext = scope.ServiceProvider.GetRequiredService<IProcessQueueContext<TId>>();
+
+                                        // 2) Блокировка на выборку в кластере.
+                                        var selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_SelectReserveDelay;
+                                        await using var selectReserveScope = await processSelectorReserveProvider.TryReserveAsync(
+                                            elem.Unique,
+                                            selectReserveDate,
+                                            cancellationToken);
+
+                                        if (!selectReserveScope.IsSuccess)
+                                        {
+                                            // Зарезервировать не удалось - выполняется другой нодой.
+                                            timeout = TimespanHelper.Max(dateTimeProvider.UtcNow - selectReserveScope.Timeout, TimeSpan.Zero);
+                                            continue;
+                                        }
 
                                         var context = query.InitContext(_options.DbSelect_Options, elem);
 
                                         while (true)
                                         {
+                                            // Продливаем резерврование обработки select.
+                                            if (dateTimeProvider.UtcNow + options.DbSelect_UpdateSelectReserve > selectReserveDate)
+                                            {
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_SelectReserveDelay;
+                                                await selectReserveScope.UpdateAsync(
+                                                    selectReserveDate,
+                                                    cancellationToken);
+                                            }
+
                                             var selectData = await query.ExecuteAsync(context, cancellationToken);
 
+                                            // Элементы прочитаны.
                                             if (!selectData.Any())
                                             {
-                                                timeout = options.DbSelect_EmptyDelay;
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_EmptyDelay;
+
+                                                if (!executeOne)
+                                                {
+                                                    await selectReserveScope.UpdateAsync(selectReserveDate, cancellationToken);
+                                                    selectReserveScope.NoUnreserve();
+                                                    timeout = options.DbSelect_EmptyDelay;
+                                                }
+                                                
                                                 break;
                                             }
 
@@ -379,8 +411,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                                     )
                                                     .ToArray(),
                                                 reserveDate: elem.Metadata.IsSignleExecuteProcess
-                                                    ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
-                                                    : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
+                                                    ? dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout
+                                                    : dateTimeProvider.UtcNow + options.DbSelect_SingleReservationTimeout,
                                                 cancellationToken
                                                 );
 
@@ -391,9 +423,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
                                                 break;
                                             }
 
+                                            // Очередь переполнена.
                                             if (queueIsFull)
-                                            {
+                                            {                                                
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_QueueIsFullTimeout;
+                                                await selectReserveScope.UpdateAsync(selectReserveDate, cancellationToken);
+                                                selectReserveScope.NoUnreserve();
                                                 timeout = options.DbSelect_QueueIsFullTimeout;
+
                                                 break;
                                             }
                                         }
@@ -488,6 +525,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
 
             public TimeSpan DbSelect_SingleReservationTimeout { get; set; }
                 = TimeSpan.FromSeconds(30);
+
+            public TimeSpan DbSelect_SelectReserveDelay { get; set; } 
+                = TimeSpan.FromSeconds(30);
+
+            public TimeSpan DbSelect_UpdateSelectReserve { get; set; } 
+                = TimeSpan.FromSeconds(10);
         }
     }
 }

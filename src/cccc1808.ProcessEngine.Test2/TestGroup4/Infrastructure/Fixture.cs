@@ -225,7 +225,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.ProcessReserve,
+                            HashKey = NameFactory.ProcessQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
                         },
@@ -241,6 +241,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup4.Infrastructure
                             QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
 
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
+                        },
+                        new RedisProcessSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+
+                            KeyFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessSelectReserve),
                         })
 
                     .AddTriggerServices(
