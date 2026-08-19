@@ -19,7 +19,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
         private readonly ITransactionManager _transactionManager;
         private readonly IIsolationService _isolationService;
         private readonly IProcessQueueProvider<TId> _processQueueProvider;
-        private readonly IProcessReserveProvider<TId> _processReservationProvider;
+        private readonly IProcessQueueReserveProvider<TId> _processReservationProvider;
 
         private HashSet<int> _registeredScopes;
 
@@ -39,7 +39,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.ProcessExecutionModule.Ser
             ITransactionManager transactionManager,
             IIsolationService isolationService,
             IProcessQueueProvider<TId> processQueueProvider,
-            IProcessReserveProvider<TId> processReservationProvider)
+            IProcessQueueReserveProvider<TId> processReservationProvider)
         {
             _dateTimeProvider = dateTimeProvider;
             _transactionManager = transactionManager;

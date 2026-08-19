@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
+
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
 {
     public interface ITriggerQueueProvider<TId>
@@ -24,11 +26,11 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider
             CancellationToken cancellationToken);
 
         public readonly record struct MessageContainer(
-            in MessageDto Message,
+            in MessageDto Message,            
             bool isRangeTrigger);
 
         public readonly record struct MessageDto(
-            TId TriggerId,
-            string HandlerKey);
+            in TriggerTypeUniqueDto TriggerTypeUnique,
+            TId TriggerId);
     }
 }

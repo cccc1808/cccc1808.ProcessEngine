@@ -25,6 +25,7 @@ using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Retry;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services;
 using cccc1808.ProcessEngine.Model.Kafka.Implementation.QueueModule.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.CommonModule.Storage;
+using cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue;
 using cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
@@ -172,8 +173,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             ExceptionDelay = TimeSpan.Zero,
                         })
                     .AddTriggerServices(
-                        new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(ParentProcessTriggerHandler.Name, typeof(ParentProcessTriggerHandler))
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, 0),
+                            TriggerMetadataDto.Create<NoWakeupRetryTriggerRangeHandler<Guid>>()
+                            ),
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(ParentProcessTriggerHandler.Name, 0),
+                            TriggerMetadataDto.Create<ParentProcessTriggerHandler>()
+                            )
                     )
                     .AddTriggerEngineServices(
                         new TriggerRunner<Guid>.OptionsDto()
@@ -212,13 +219,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup3.Infrastructure
                             QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
                             QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
-                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
+                        new RedisTriggerQueueReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.TriggerReserve,
+                            HashKey = NameFactory.TriggerQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
+                        },
+                        new RedisTriggerSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            KeyFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerSelectReserve),
                         }
                         )
                     .AddProcessServices(

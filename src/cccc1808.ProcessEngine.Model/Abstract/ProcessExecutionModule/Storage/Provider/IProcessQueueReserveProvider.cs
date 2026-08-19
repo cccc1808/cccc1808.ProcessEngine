@@ -10,7 +10,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.P
     /// Управление резервированием процесса.
     /// </summary>
     /// <typeparam name="TId"></typeparam>
-    public interface IProcessReserveProvider<TId>
+    public interface IProcessQueueReserveProvider<TId>
     {
         /// <summary>
         /// Пытаемся зарезервировать процессы.

@@ -1,5 +1,7 @@
 ﻿using System.Collections.Immutable;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
+
 namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue
 {
     /// <summary>
@@ -20,20 +22,20 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue
             /// Получить данные об предположительно не пустых очередях.
             /// </summary>
             /// <returns></returns>
-            ImmutableSortedDictionary<KeyDto, long> GetQueueWithMessages();
+            ImmutableSortedDictionary<TriggerTypeUniqueDto, long> GetQueueWithMessages();
 
             /// <summary>
             /// Зафиксировать поступление нового сообщения в очередь.
             /// </summary>
             ValueTask NewMessageInQueueAsync(
-                ICollection<KeyDto> keys,
+                ICollection<TriggerTypeUniqueDto> keys,
                 CancellationToken cancellationToken);
 
             /// <summary>
             /// Зафиксировать что очередь опустела.
             /// </summary>
             void QueueIsEmpty(
-                KeyDto key,
+                TriggerTypeUniqueDto key,
                 long timestamp,
                 CancellationToken cancellationToken);
 
@@ -47,16 +49,6 @@ namespace cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue
             /// !Для тестов.
             /// </summary>
             void Clear();
-        }
-
-        public readonly record struct KeyDto(
-            string HandlerName,
-            short Priority)
-        {
-            public override int GetHashCode()
-            {
-                return HashCode.Combine(HandlerName, Priority);
-            }
         }
     }
 }

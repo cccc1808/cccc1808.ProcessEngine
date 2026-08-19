@@ -25,13 +25,13 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
         private readonly IEFDbContext _dbContext;
         private readonly ILockQueryHintStore _lockQueryHintStore;
         private readonly ITriggerSetter<TId> _triggerSetter;
-        private readonly ITriggerReserveProvider<TId> _reservationProvider;
+        private readonly ITriggerQueueReserveProvider<TId> _reservationProvider;
 
         public EFEmergencyTriggerHandlerQueries(
             IEFDbContext dbContext,
             ILockQueryHintStore lockQueryHintStore,
             ITriggerSetter<TId> triggerSetter,
-            ITriggerReserveProvider<TId> reservationProvider)
+            ITriggerQueueReserveProvider<TId> reservationProvider)
         {
             _dbContext = dbContext;
             _lockQueryHintStore = lockQueryHintStore;

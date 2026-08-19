@@ -376,7 +376,7 @@ namespace cccc1808.ProcessEngine.Model.InboxOutbox.EFCore.Implementation.InboxMo
                     // В отдельной транзакции потому, что нужно сделать сейчас, а не в конце основной транзакции.
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessReserveProvider<TId>>();
+                        var processReservationProvider = scope.ServiceProvider.GetRequiredService<IProcessQueueReserveProvider<TId>>();
 
                         await processReservationProvider.UnreserveAsync(
                             notProcessedInboxProcessesIds,

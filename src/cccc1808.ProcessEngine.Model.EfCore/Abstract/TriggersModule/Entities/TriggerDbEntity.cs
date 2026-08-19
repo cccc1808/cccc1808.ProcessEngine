@@ -53,7 +53,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
 
         /// <summary>
         /// Ключ хендлера.
-        /// TODO: можно переделать на число для экономии.
+        /// TODO: можно переделать на числовой тип и версию для экономии.
         /// </summary>
         public string HandlerKey { get; set; }
 

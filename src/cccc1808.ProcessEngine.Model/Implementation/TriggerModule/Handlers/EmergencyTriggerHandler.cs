@@ -242,7 +242,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                     // II) Пробуем получить блокировку на триггер для вызова хендлера.
                     var forCheck = triggers.Values
                         .Where(e => notProcesseTriggers.Contains(e.Trigger.Key))
-                        .Where(e => !options.IgnoreHandlers.Contains(e.Trigger.HandlerKey)) // Игнорируем хендлеры
+                        .Where(e => !options.IgnoreHandlers.Contains(e.Trigger.TriggerType.HandlerName)) // Игнорируем хендлеры
                         .Where(e => 
                             !e.Trigger.IsCompleted
                             && !e.Trigger.IsActivated
@@ -271,11 +271,11 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers
                         .ToArray();
 
                     var forHanler = lockedTriggers
-                        .GroupBy(e => e.HandlerKey);
+                        .GroupBy(e => e.TriggerType);
 
                     foreach (var elem in forHanler)
                     {
-                        if (!triggerHandlerFactory.TryGetHandler(serviceProvider, elem.Key, out var handler))
+                        if (!triggerHandlerFactory.TryGetHandler(serviceProvider, elem.Key.HandlerName, out var handler))
                         {
                             // На текущей ноде не зарегистрирован хендлер (либо новая версия, либо не зарегистрирован).
                             continue;

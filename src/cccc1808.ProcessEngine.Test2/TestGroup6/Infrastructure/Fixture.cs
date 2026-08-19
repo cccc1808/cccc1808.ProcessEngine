@@ -189,11 +189,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                     )
 
                     .AddRedisProcessQueueServices(
-                        new RedisProcessReserveProvider<Guid>.OptionsDto()
+                        new RedisProcessQueueReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.ProcessReserve,
+                            HashKey = NameFactory.ProcessQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
                         },
@@ -209,6 +209,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                             QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
 
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueueChannel),
+                        },
+                        new RedisProcessSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+
+                            KeyFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessSelectReserve),
                         }
                         )
 
@@ -261,13 +268,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup6.Infrastructure
                             QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
                             QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
-                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
+                        new RedisTriggerQueueReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.TriggerReserve,
+                            HashKey = NameFactory.TriggerQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
+                        },
+                        new RedisTriggerSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            KeyFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerSelectReserve),
                         }
                         )
 

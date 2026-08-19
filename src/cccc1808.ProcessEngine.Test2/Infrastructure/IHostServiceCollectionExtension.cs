@@ -221,13 +221,14 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static IServiceCollection AddRedisProcessQueueServices(
             this IServiceCollection services,
 
-            RedisProcessReserveProvider<Guid>.OptionsDto reserveOptions,
-            ProcessQueueOptionsDto<Guid> processQueueOptions
+            RedisProcessQueueReserveProvider<Guid>.OptionsDto queueReserveOptions,
+            ProcessQueueOptionsDto<Guid> processQueueOptions,
+            RedisProcessSelectorReserveProvider.OptionDto selectorReserveOptions
             )
         {
             services
-                .AddScoped<IProcessReserveProvider<Guid>, RedisProcessReserveProvider<Guid>>()
-                .AddSingleton(reserveOptions)
+                .AddScoped<IProcessQueueReserveProvider<Guid>, RedisProcessQueueReserveProvider<Guid>>()
+                .AddSingleton(queueReserveOptions)
 
                 .AddScoped<IProcessQueueProvider<Guid>, RedisProcessQueueProvider<Guid>>()
                 .AddSingleton(processQueueOptions)
@@ -237,6 +238,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IProcessQueueContext<Guid>, ProcessQueueContext<Guid>>()
 
                 .AddScoped<IRedisProcessQueueNotificationRunner, RedisProcessQueueNotificationRunner<Guid>>()
+
+                .AddScoped<IProcessSelectorReserveProvider, RedisProcessSelectorReserveProvider>()
+                .AddSingleton(selectorReserveOptions)
                 ;
             return services;
         }
@@ -277,7 +281,7 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             foreach (var elem in registrations)
             {
                 services.AddSingleton(elem);
-                services.AddScoped(elem.ImplementationType);
+                services.AddScoped(elem.Metadata.ImplementationType);
             }
 
             return services;
@@ -288,7 +292,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
             TriggerRunner<Guid>.OptionsDto triggerServiceOptions,
             TriggerOptions<Guid> triggerOptions,
             RedisTriggerQueueOptionsDto<Guid> triggerQueueOptions,
-            RedisTriggerReserveProvider<Guid>.OptionsDto triggerReserveOptions)
+            RedisTriggerQueueReserveProvider<Guid>.OptionsDto triggerQueueReserveOptions,
+            RedisTriggerSelectorReserveProvider.OptionDto selectorReserveOptions)
         {
             services
                 .AddSingleton<ITriggerRegistry, TriggerRegistry>()
@@ -318,8 +323,8 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<TriggerEventRaiserExceptionDbDecorator<Guid>.IQuery, EFTriggerEventRaiserExceptionDbDecoratorQuery<Guid>>();
 
             services
-                .AddScoped<ITriggerReserveProvider<Guid>, RedisTriggerReserveProvider<Guid>>()
-                .AddSingleton(triggerReserveOptions)
+                .AddScoped<ITriggerQueueReserveProvider<Guid>, RedisTriggerQueueReserveProvider<Guid>>()
+                .AddSingleton(triggerQueueReserveOptions)
 
                 .AddScoped<ITriggerQueueProvider<Guid>, RedisTriggerQueueProvider<Guid>>()
                 .AddSingleton(triggerQueueOptions)
@@ -327,6 +332,9 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 .AddScoped<IRedisTriggerQueueNotificationRunner, RedisTriggerQueueNotificationRunner<Guid>>()
 
                 .AddScoped<ITriggerQueueContext<Guid>, TriggerQueueContext<Guid>>()
+
+                .AddScoped<ITriggerSelectorReserveProvider, RedisTriggerSelectorReserveProvider>()
+                .AddSingleton(selectorReserveOptions)
                 ;
 
             return services;

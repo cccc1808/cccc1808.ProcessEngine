@@ -34,14 +34,16 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                 RangeTriggerState = new Handler(
                     dateTimeProvider,
                     triggerRegistry.GetAll()
-                    .Where(e => triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.HandlerName))
-                    .ToArray());
+                        .Where(e => triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.Unique.HandlerName))
+                        .ToArray()
+                        );
 
                 SignleTriggerState = new Handler(
                     dateTimeProvider,
                     triggerRegistry.GetAll()
-                    .Where(e => !triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.HandlerName))
-                    .ToArray());
+                        .Where(e => !triggerHandlerFactory.IsRangeHandler(scope.ServiceProvider, e.Unique.HandlerName))
+                        .ToArray()
+                        );
             }
         }
 
@@ -56,7 +58,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             /// Value - timestamp последнего события о поступлении сообщения.
             /// // TODO: PERF: ImmutableSortedDictionary vs ConcurrentSortedDictionary.
             /// </summary>
-            private OptimisticLockContainer<ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long>> QueueWithMessages { get; }
+            private OptimisticLockContainer<ImmutableSortedDictionary<TriggerTypeUniqueDto, long>> QueueWithMessages { get; }
             /// <summary>
             /// Содержит задачу для ожидания.
             /// Если все очереди опустели - Task переводится в состояние ожидания.
@@ -70,24 +72,25 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             {
                 _dateTimeProvider = dateTimeProvider;
 
-                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<IRedisTriggerQueueNotifyState.KeyDto, long>(new KeyComparer());
+                var waitNewMessageBuilder = ImmutableSortedDictionary.CreateBuilder<TriggerTypeUniqueDto, long>(
+                    new KeyComparer());
                 waitNewMessageBuilder.AddRange(
                     registries
-                        .Select(e => new KeyValuePair<IRedisTriggerQueueNotifyState.KeyDto, long>(
-                            new IRedisTriggerQueueNotifyState.KeyDto(e.HandlerName, 0),
+                        .Select(e => new KeyValuePair<TriggerTypeUniqueDto, long>(
+                            e.Unique,
                             DateTimeOffset.MinValue.UtcTicks))
                         .ToArray()
                     );
                 var waitNewMessage = new TaskCompletionSource(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
                 waitNewMessage.SetResult();
 
-                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long>>(
+                QueueWithMessages = new OptimisticLockContainer<ImmutableSortedDictionary<TriggerTypeUniqueDto, long>>(
                         waitNewMessageBuilder.ToImmutableSortedDictionary());
                 WaitNewMessage = new LockContainer<TaskCompletionSource>(
                         waitNewMessage);
             }
 
-            public ImmutableSortedDictionary<IRedisTriggerQueueNotifyState.KeyDto, long> GetQueueWithMessages()
+            public ImmutableSortedDictionary<TriggerTypeUniqueDto, long> GetQueueWithMessages()
             {
                 return QueueWithMessages.Data;
             }
@@ -103,7 +106,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             }
 
             public void QueueIsEmpty(
-                IRedisTriggerQueueNotifyState.KeyDto key,
+                TriggerTypeUniqueDto key,
                 long timestamp,
                 CancellationToken cancellationToken)
             {
@@ -123,7 +126,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             }
 
             public async ValueTask NewMessageInQueueAsync(
-                ICollection<IRedisTriggerQueueNotifyState.KeyDto> keys,
+                ICollection<TriggerTypeUniqueDto> keys,
                 CancellationToken cancellationToken)
             {
                 foreach (var elem in keys)
@@ -153,9 +156,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             }
         }
 
-        private class KeyComparer : IComparer<IRedisTriggerQueueNotifyState.KeyDto>
+        private class KeyComparer : IComparer<TriggerTypeUniqueDto>
         {
-            public int Compare(IRedisTriggerQueueNotifyState.KeyDto x, IRedisTriggerQueueNotifyState.KeyDto y)
+            public int Compare(TriggerTypeUniqueDto x, TriggerTypeUniqueDto y)
             {
                 var r1 = Comparer<short>.Default.Compare(x.Priority, y.Priority);
                 if (r1 != 0)
@@ -163,7 +166,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                     return r1;
                 }
 
-                return Comparer<string>.Default.Compare(x.HandlerName, y.HandlerName);
+                var r2 = Comparer<string>.Default.Compare(x.HandlerName, y.HandlerName);
+                return r2;
             }
         }
     }

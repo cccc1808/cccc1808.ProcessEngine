@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
-using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 
 namespace cccc1808.ProcessEngine.Test2.Infrastructure
 {
@@ -14,8 +14,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static string ProcessQueue { get; }
             = "process_queue";
 
-        public static string ProcessReserve { get; }
+        public static string ProcessQueueReserve { get; }
             = "process_reserve";
+
+        public static string ProcessSelectReserve { get; }
+            = "process_select_reseve";
 
         public static string ProcessQueueChannel { get; }
             = "process_queue_channel";
@@ -23,8 +26,11 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
         public static string TriggerQueue { get; }
             = "trigger_queue";
 
-        public static string TriggerReserve { get; }
+        public static string TriggerQueueReserve { get; }
             = "trigger_reserve";
+
+        public static string TriggerSelectReserve { get; }
+            = "trigger_select_reseve";
 
         public static string TriggerQueueChannel { get; }
             = "trigger_queue_channel";
@@ -54,15 +60,15 @@ namespace cccc1808.ProcessEngine.Test2.Infrastructure
                 );
         }
 
-        public static string TriggerTypeToKey(IRedisTriggerQueueNotifyState.KeyDto key, string prefix)
+        public static string TriggerTypeToKey(TriggerTypeUniqueDto key, string prefix)
         {
             return $"{prefix}{NameConst.NamePartsSplitChar}{key.HandlerName}{NameConst.NamePartsSplitChar}{key.Priority}";
         }
 
-        public static IRedisTriggerQueueNotifyState.KeyDto KeyToTriggerType(string key)
+        public static TriggerTypeUniqueDto KeyToTriggerType(string key)
         {
             var parts = key.Split(NameConst.NamePartsSplitChar);
-            return new IRedisTriggerQueueNotifyState.KeyDto(
+            return new TriggerTypeUniqueDto(
                 parts[1], 
                 short.Parse(parts[2])
                 );

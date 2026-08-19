@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Extensions;
 using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
@@ -74,7 +75,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
             var notSended = new HashSet<TId>(0);
 
-            var groups = messages.GroupBy(e => new IRedisTriggerQueueNotifyState.KeyDto(e.Message.HandlerKey, 0))
+            var groups = messages.GroupBy(e => e.Message.TriggerTypeUnique)
                 .ToDictionary(e => e.Key, e => e.ToArray());
 
             // 1) Проверка свободного места (не строгая).
@@ -82,7 +83,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             {
                 if (checkLimit)
                 {
-                    var lenghtTasks = new Dictionary<IRedisTriggerQueueNotifyState.KeyDto, Task<long>>(groups.Count);
+                    var lenghtTasks = new Dictionary<TriggerTypeUniqueDto, Task<long>>(groups.Count);
                     foreach (var elem in groups)
                     {
                         var t = db.SortedSetLengthAsync(_options.HandlerToQueueSetNameFactory(elem.Key));
@@ -248,8 +249,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                                 consumedMessages.Entries
                                     .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
                                         new ITriggerQueueProvider<TId>.MessageDto(
-                                            _options.StringToId(e.Element),
-                                            triggerTypeKey.HandlerName),
+                                            triggerTypeKey,
+                                            _options.StringToId(e.Element)),
                                         isRangeTrigger: true // uniqueHandlersLimit только у Range.
                                         ))
                                     .ToArray(), 
@@ -262,7 +263,11 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
                     buffer.AddRange(
                         consumedMessages.Entries
-                            .Select(e => new ITriggerQueueProvider<TId>.MessageDto(_options.StringToId(e.Element), HandlerKey: triggerTypeKey.HandlerName))
+                            .Select(e => new ITriggerQueueProvider<TId>.MessageDto(
+                                triggerTypeKey,
+                                _options.StringToId(e.Element)
+                                )
+                            )
                             .ToArray());
 
                     foreach (var elem in searchSets)

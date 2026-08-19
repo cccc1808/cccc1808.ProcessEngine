@@ -203,11 +203,11 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             SingleExecute_ParallelismLimit = 1,
                         })
                     .AddRedisProcessQueueServices(
-                        new RedisProcessReserveProvider<Guid>.OptionsDto() 
+                        new RedisProcessQueueReserveProvider<Guid>.OptionsDto() 
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.ProcessReserve,
+                            HashKey = NameFactory.ProcessQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
                         },
@@ -220,13 +220,32 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             ProcessToQueueSetNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessQueue),
                             QueueSetNameToProcessTypeFactory = (e) => NameFactory.KeyToProcessType(e),
                             QueueChannelNameFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.TriggerQueueChannel)
+                        },
+                        new RedisProcessSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+
+                            KeyFactory = (e) => NameFactory.ProcessToKey(e, NameFactory.ProcessSelectReserve),
                         })
 
                     .AddTriggerServices(
-                        new TriggerRegistryDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, typeof(NoWakeupRetryTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(EmergencyTriggerHandler<Guid>.Name, typeof(EmergencyTriggerHandler<Guid>)),
-                        new TriggerRegistryDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, typeof(NoWakeupStreamTriggerRangeHandler<Guid>)),
-                        new TriggerRegistryDto(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>.Name, typeof(cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers.EFTimerChildTriggerHandler<Guid>))
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(NoWakeupRetryTriggerRangeHandler<Guid>.Name, 0),
+                            TriggerMetadataDto.Create<NoWakeupRetryTriggerRangeHandler<Guid>>()
+                            ),
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(EmergencyTriggerHandler<Guid>.Name, 0),
+                            TriggerMetadataDto.Create<EmergencyTriggerHandler<Guid>>()
+                            ),
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(NoWakeupStreamTriggerRangeHandler<Guid>.Name, 0),
+                            TriggerMetadataDto.Create<NoWakeupStreamTriggerRangeHandler<Guid>>()
+                            ),
+                        new TriggerRegistryDto(
+                            new TriggerTypeUniqueDto(EFTimerChildTriggerHandler<Guid>.Name, 0),
+                            TriggerMetadataDto.Create<EFTimerChildTriggerHandler<Guid>>()
+                            )
                     )
                     .AddSingleton(
                         new EmergencyTriggerHandler<Guid>.OptionsDto(
@@ -275,13 +294,19 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure
                             QueueSetNameToHandlerFactory = (e) => NameFactory.KeyToTriggerType(e),
                             QueueChannelNameFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerQueueChannel),
                         },
-                        new RedisTriggerReserveProvider<Guid>.OptionsDto()
+                        new RedisTriggerQueueReserveProvider<Guid>.OptionsDto()
                         {
                             ConnectionName = FixtureCollection.RedisConnectionName,
                             DbId = FixtureCollection.RedisDb,
-                            HashKey = NameFactory.TriggerReserve,
+                            HashKey = NameFactory.TriggerQueueReserve,
                             KeyToStringHandler = NameFactory.IdToString,
                             StringToKeyHandler = NameFactory.StringToId,
+                        },
+                        new RedisTriggerSelectorReserveProvider.OptionDto()
+                        {
+                            ConnectionName = FixtureCollection.RedisConnectionName,
+                            DbId = FixtureCollection.RedisDb,
+                            KeyFactory = (e) => NameFactory.TriggerTypeToKey(e, NameFactory.TriggerSelectReserve),
                         }
                         )
 

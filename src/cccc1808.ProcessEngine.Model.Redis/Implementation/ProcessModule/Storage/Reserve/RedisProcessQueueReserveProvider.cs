@@ -1,26 +1,26 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Provider;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Storage.Provider;
 using cccc1808.ProcessEngine.Model.Redis.Abstract.Common.Storage;
 
 using StackExchange.Redis;
 
-namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Reserve
+namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storage.Reserve
 {
-    public class RedisTriggerReserveProvider<TId>
-        : ITriggerReserveProvider<TId>
+    public class RedisProcessQueueReserveProvider<TId>
+        : IProcessQueueReserveProvider<TId>
     {
         private readonly IRedisConnectionFactory _connectionFactory;
 
         private readonly OptionsDto _options;
 
-        public RedisTriggerReserveProvider(
+        public RedisProcessQueueReserveProvider(
             IRedisConnectionFactory connectionFactory,
 
             OptionsDto options)
@@ -31,28 +31,27 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         }
 
         public async ValueTask<ISet<TId>> TryReserveAsync(
-            ICollection<TId> triggerIds,
+            ICollection<TId> processIds,
             DateTimeOffset date,
             CancellationToken cancellationToken)
         {
             var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
 
-            // InsertIfNotExists в redis.
-            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>(triggerIds.Count);
-            var piplineTasks = new List<Task>(triggerIds.Count + 1);
-            foreach (var elem in triggerIds)
+            // 1) InsertIfNotExists в redis.
+            var insertResult = new Dictionary<TId, (string KeyString, Task<bool> Result)>(processIds.Count);
+            var piplineTasks = new List<Task>(processIds.Count + 1);
+            foreach (var elem in processIds)
             {
                 var keyString = _options.KeyToStringHandler(elem);
 
                 var t1 = db.HashSetAsync(_options.HashKey, keyString, date.UtcTicks, when: When.NotExists);
 
                 piplineTasks.Add(t1);
-
                 insertResult.Add(elem, (keyString, t1));
             }
             var t3 = db.HashFieldExpireAsync(
-                _options.HashKey,
+                _options.HashKey, 
                 insertResult.Values
                     .Select(e => new RedisValue(e.KeyString))
                     .ToArray(),
@@ -75,18 +74,23 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         }
 
         public async ValueTask ContinueReserveAsync(
-            ICollection<TId> triggerIds, 
+            ICollection<TId> processIds, 
             DateTimeOffset date,
             CancellationToken cancellationToken)
         {
             var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
             var db = connection.GetDatabase(_options.DbId);
 
-            var keys = triggerIds
-                .Select(_options.KeyToStringHandler)
+            var keys = processIds
+                .Select(e => _options.KeyToStringHandler(e))
                 .ToArray();
 
-            var t1 = db.HashSetAsync(_options.HashKey, keys.Select(e => new HashEntry(e, date.UtcTicks)).ToArray());
+            var t1 = db.HashSetAsync(
+                _options.HashKey,
+                keys
+                    .Select(e => new HashEntry(e, date.UtcTicks))
+                    .ToArray()
+                );
             var t2 = db.HashFieldExpireAsync(
                 _options.HashKey,
                 keys
@@ -99,7 +103,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         }
 
         public async ValueTask UnreserveAsync(
-            ICollection<TId> triggerIds,
+            ICollection<TId> processIds, 
             CancellationToken cancellationToken)
         {
             var connection = await _connectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
@@ -107,8 +111,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
             // Удаляем из redis.
             await db.HashDeleteAsync(
-                _options.HashKey,
-                triggerIds
+                _options.HashKey, 
+                processIds
                     .Select(e => new RedisValue(_options.KeyToStringHandler(e)))
                     .ToArray());
         }
@@ -121,7 +125,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             await db.KeyDeleteAsync(_options.HashKey);
         }        
 
-        public class OptionsDto
+        public class OptionsDto 
         {
             public required string ConnectionName { get; set; }
 

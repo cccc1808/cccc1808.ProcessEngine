@@ -10,14 +10,34 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services;
 
 namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 {
-    public class TriggerRegistry : ITriggerRegistry
-    {
-        private readonly FrozenDictionary<string, TriggerRegistryDto> _registrations;
+    public class TriggerRegistry
+        : ITriggerRegistry
+    {        
+        private readonly FrozenDictionary<TriggerTypeUniqueDto, TriggerRegistryDto> _registrations;
+        private readonly FrozenDictionary<string, Type> _handlerMapping;
 
         public TriggerRegistry(
             IEnumerable<TriggerRegistryDto> registrations)
         {
-            _registrations = registrations.ToFrozenDictionary(e => e.HandlerName, e => e);
+            var buffer1 = new Dictionary<TriggerTypeUniqueDto, TriggerRegistryDto>();
+            var buffer2 = new Dictionary<string, Type>();
+
+            foreach (var elem in registrations)
+            {
+                buffer1.Add(elem.Unique, elem);
+                
+                if (!buffer2.TryGetValue(elem.Unique.HandlerName, out var implementationType))
+                {
+                    buffer2.Add(elem.Unique.HandlerName, elem.Metadata.ImplementationType);
+                }
+                else if (implementationType != elem.Metadata.ImplementationType)
+                {
+                    throw new InvalidOperationException($"Недопускается регистрация разных хендлеров триггеров у одного ключа. {nameof(TriggerRegistryDto)}");
+                }                    
+            }
+
+            _registrations = buffer1.ToFrozenDictionary();
+            _handlerMapping = buffer2.ToFrozenDictionary();
         }
 
         public IReadOnlyCollection<TriggerRegistryDto> GetAll()
@@ -27,14 +47,14 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
         public Type GetHandlerType(string handler)
         {
-            return _registrations[handler].ImplementationType;
-        }
+            return _handlerMapping[handler];
+        } 
 
         public bool TryGetHandlerType(string handler, out Type handlerType)
         {
-            if (_registrations.TryGetValue(handler, out var registration))
+            if (_handlerMapping.TryGetValue(handler, out var registration))
             {
-                handlerType = registration.ImplementationType;
+                handlerType = registration;
                 return true;
             }
 

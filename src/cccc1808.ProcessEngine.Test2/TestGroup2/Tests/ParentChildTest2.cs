@@ -310,7 +310,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                                     process.Id,
                                     isRangeTrigger: true,
                                     ParentProcessTriggerHandler.Name,
-                                    1,
+                                    0,
                                     false,
                                     streamProcessIsWaiting: false,
                                     newSignalCounter: 0,

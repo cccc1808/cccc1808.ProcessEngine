@@ -27,13 +27,10 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 foreach (var elem in registrations)
                 {
                     var handler = (ITriggerHandler)scope.ServiceProvider
-                        .GetRequiredService(elem.ImplementationType);
+                        .GetRequiredService(elem.Metadata.ImplementationType);
                 }
             }
 
-            //_registrations = registrations.ToDictionary(
-            //    e => e.Key,
-            //    e => e.ImplementationType);
             _triggerRegistryService = triggerRegistryService;
         }
 

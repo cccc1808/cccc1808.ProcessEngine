@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Entities;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
 {
@@ -50,7 +51,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
             TId? Id,
             IId<TId>? EfEntity,
             bool IsRangeTrigger,
-            string HandlerKey)
+            TriggerTypeUniqueDto TypeUnique)
         {
             public TId GetId() => EfEntity is null 
                 ? Id ?? throw new Exception()
@@ -59,17 +60,17 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
             public static TriggerDto TriggerToExecute(
                 TId Id,
                 bool IsRangeTrigger,
-                string HandlerKey) => new TriggerDto(Id, null, IsRangeTrigger, HandlerKey);
+                TriggerTypeUniqueDto TypeUnique) => new TriggerDto(Id, null, IsRangeTrigger, TypeUnique);
 
             public static TriggerDto TriggerToExecute(
                 IId<TId> EfEntity,
                 bool IsRangeTrigger,
-                string HandlerKey) => new TriggerDto(default, EfEntity, IsRangeTrigger, HandlerKey);
+                TriggerTypeUniqueDto TypeUnique) => new TriggerDto(default, EfEntity, IsRangeTrigger, TypeUnique);
 
             public static TriggerDto TriggerContinueRun(
                 TId Id,
                 bool IsRangeTrigger,
-                string HandlerKey) => new TriggerDto(Id, null, IsRangeTrigger, HandlerKey);
+                TriggerTypeUniqueDto TypeUnique) => new TriggerDto(Id, null, IsRangeTrigger, TypeUnique);
 
             //public static TriggerDto TriggerExecuted(
             //    TId Id,
@@ -79,7 +80,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage
             public static TriggerDto TriggerFromSelector(
                 TId Id,
                 bool IsRangeTrigger,
-                string HandlerKey) => new TriggerDto(Id, null, IsRangeTrigger, HandlerKey);
+                TriggerTypeUniqueDto TypeUnique) => new TriggerDto(Id, null, IsRangeTrigger, TypeUnique);
         }
     }
 }
