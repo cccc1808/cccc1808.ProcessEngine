@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 
@@ -29,7 +30,10 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public DateTimeOffset TimerDate { get => Entity.TimerDate; set => Entity.TimerDate = value; }
 
-        public string HandlerKey => Entity.HandlerKey;
+        public TriggerTypeUniqueDto TriggerType 
+            => new TriggerTypeUniqueDto(
+                Entity.HandlerKey,
+                Entity.Priority);
 
         public ITriggerComponent.TriggerKind Kind => Entity.Kind;
         

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
+using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Events;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
@@ -51,9 +52,9 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components
         DateTimeOffset TimerDate { get; set; }
 
         /// <summary>
-        /// Ключ хендлера действия.
+        /// Тип.
         /// </summary>
-        string HandlerKey { get; }
+        TriggerTypeUniqueDto TriggerType { get; }
 
         DateTimeOffset LastExecuteDate { get; set; }
 

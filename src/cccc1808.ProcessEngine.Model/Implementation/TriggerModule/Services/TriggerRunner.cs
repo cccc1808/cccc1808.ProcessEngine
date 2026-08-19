@@ -531,8 +531,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                             triggerQueueContext.TriggerContinueExecute(
                                 ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                     trigger.Id,
-                                    triggerHandlerFactory.IsRangeHandler(serviceProvider, trigger.HandlerKey),
-                                    trigger.HandlerKey));
+                                    triggerHandlerFactory.IsRangeHandler(serviceProvider, trigger.TriggerType.HandlerName),
+                                    trigger.TriggerType));
                         }
                     }
 
@@ -586,7 +586,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 await using (var s = _serviceProvider.CreateAsyncScope())
                 {
                     isRange = s.ServiceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>()
-                        .IsRangeHandler(s.ServiceProvider, elem.HandlerName);
+                        .IsRangeHandler(s.ServiceProvider, elem.Unique.HandlerName);
                 }
 
                 var id = Guid.NewGuid();
@@ -610,28 +610,59 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     timeout = null;
                                 }
 
+                                // 1) Ожидание слота параллелизма.
                                 await parallelLimit.WaitAsync();
-
-                                // TODO: обработка блокировок кластера. (резервирование типа хендлера на ноде).
 
                                 try
                                 {
-                                    using (var scope = _serviceProvider.CreateAsyncScope())
+                                    await using (var scope = _serviceProvider.CreateAsyncScope())
                                     {
                                         var options = scope.ServiceProvider.GetRequiredService<OptionsDto>();
-                                        var dateTime = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                        var dateTimeProvider = scope.ServiceProvider.GetRequiredService<IDateTimeProvider>();
+                                        var triggerSelectorReserveProvider = scope.ServiceProvider.GetRequiredService<ITriggerSelectorReserveProvider>();
                                         var query = scope.ServiceProvider.GetRequiredService<ITriggerSelectQuery<TId>>();
                                         var triggerQueueContext = scope.ServiceProvider.GetRequiredService<ITriggerQueueContext<TId>>();
 
-                                        var context = query.InitContext(_options.DbSelect_Options, elem.HandlerName);
+                                        // 2) Блокировка на выборку в кластере.
+                                        var selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_SelectReserveDelay;
+                                        await using var selectReserveScope = await triggerSelectorReserveProvider.TryReserveAsync(
+                                            elem.Unique,
+                                            selectReserveDate,
+                                            cancellationToken);
+                                        if (!selectReserveScope.IsSuccess)
+                                        {
+                                            // Зарезервировать не удалось - выполняется другой нодой.
+                                            timeout = TimespanHelper.Max(dateTimeProvider.UtcNow - selectReserveScope.Timeout, TimeSpan.Zero);
+                                            continue;
+                                        }
+
+                                        var context = query.InitContext(_options.DbSelect_Options, elem.Unique.HandlerName);
 
                                         while (true)
                                         {
+                                            // Продливаем резерврование обработки select.
+                                            if (dateTimeProvider.UtcNow + options.DbSelect_UpdateSelectReserve > selectReserveDate)
+                                            {
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_SelectReserveDelay;
+                                                await selectReserveScope.UpdateAsync(
+                                                    selectReserveDate,
+                                                    cancellationToken);
+                                            }
+
                                             var selectData = await query.ExecuteAsync(context, cancellationToken);
 
                                             if (!selectData.Any())
                                             {
-                                                timeout = options.DbSelect_EmptyDelay;
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_EmptyDelay;
+
+                                                if (!executeOne)
+                                                {
+                                                    await selectReserveScope.UpdateAsync(selectReserveDate, cancellationToken);
+                                                    selectReserveScope.NoUnreserve();
+
+                                                    timeout = options.DbSelect_EmptyDelay;
+                                                }
+
                                                 break;
                                             }
 
@@ -640,12 +671,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                     .Select(e => ITriggerQueueContext<TId>.TriggerDto.TriggerFromSelector(
                                                         e.TriggerId,
                                                         isRange,
-                                                        e.HandlerKey)
+                                                        elem.Unique)
                                                     )
                                                     .ToArray(),
                                                 reserveDate: isRange
-                                                    ? dateTime.UtcNow + options.DbSelect_RangeReservationTimeout
-                                                    : dateTime.UtcNow + options.DbSelect_SingleReservationTimeout,
+                                                    ? dateTimeProvider.UtcNow + options.DbSelect_RangeReservationTimeout
+                                                    : dateTimeProvider.UtcNow + options.DbSelect_SingleReservationTimeout,
                                                 cancellationToken
                                                 );
 
@@ -653,7 +684,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                                             if (queueIsFull)
                                             {
+                                                selectReserveDate = dateTimeProvider.UtcNow + options.DbSelect_QueueIsFullTimeout;
+                                                await selectReserveScope.UpdateAsync(selectReserveDate, cancellationToken);
+                                                selectReserveScope.NoUnreserve();
+
                                                 timeout = options.DbSelect_QueueIsFullTimeout;
+
                                                 break;
                                             }
                                         }
@@ -809,7 +845,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                     ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                         elem.Id,
                                         IsRangeTrigger: true, 
-                                        elem.HandlerKey));
+                                        elem.TriggerType));
                             }
                             else 
                             {
@@ -838,7 +874,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                 // Группировка по ключу (Info: точка агрегации):
                 // Если триггер групповой, то обработку будет одним батчем (одной транзакцией).
-                var groupByHandler = selectData.GroupBy(e => e.HandlerKey);
+                var groupByHandler = selectData.GroupBy(e => e.TriggerTypeUnique.HandlerName);
 
                 foreach (var group in groupByHandler)
                 {
@@ -1002,7 +1038,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                     var triggerSetter = serviceProvider.GetRequiredService<ITriggerSetter<TId>>();
                     var condition = serviceProvider.GetRequiredService<ITriggerComponentCondition<TId>>();
 
-                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(serviceProvider, triggerInfo.HandlerKey);
+                    var handler = (ITriggerSingleHandler<TId>)factory.GetHandler(serviceProvider, triggerInfo.TriggerTypeUnique.HandlerName);
 
                     await using (var transaction = await transactionManager.StartTransactionAsync(cancellationToken))
                     {
@@ -1031,7 +1067,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                 ITriggerQueueContext<TId>.TriggerDto.TriggerContinueRun(
                                     trigger.Id,
                                     IsRangeTrigger: false,
-                                    HandlerKey: trigger.HandlerKey));
+                                    trigger.TriggerType));
                         }
                         else
                         {
@@ -1049,7 +1085,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                 var factory = serviceProvider.GetRequiredService<ITriggerHandlerFactory<TId>>();
                 // Группировка по ключу (Info: точка агрегации):
                 // Если триггер групповой, то обработку будет одним батчем (одной транзакцией).
-                var groupByHandler = selectData.GroupBy(e => e.HandlerKey);
+                var groupByHandler = selectData.GroupBy(e => e.TriggerTypeUnique.HandlerName);
 
                 foreach (var group in groupByHandler)
                 {
@@ -1219,6 +1255,12 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             public TimeSpan DbSelect_SingleReservationTimeout { get; set; }
                 = TimeSpan.FromSeconds(60);
+
+            public TimeSpan DbSelect_SelectReserveDelay { get; set; }
+                = TimeSpan.FromSeconds(30);
+
+            public TimeSpan DbSelect_UpdateSelectReserve { get; set; }
+                = TimeSpan.FromSeconds(10);
         }
 
         public class QueueOptionsDto 

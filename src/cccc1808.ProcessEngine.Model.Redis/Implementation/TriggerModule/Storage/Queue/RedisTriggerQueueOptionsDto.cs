@@ -1,4 +1,4 @@
-﻿using cccc1808.ProcessEngine.Model.Redis.Abstract.TriggerModule.Queue;
+﻿using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storage.Queue
 {
@@ -8,7 +8,7 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
         public required int DbId { get; set; }
 
-        public required Func<IRedisTriggerQueueNotifyState.KeyDto, string> QueueChannelNameFactory { get; set; }
+        public required Func<TriggerTypeUniqueDto, string> QueueChannelNameFactory { get; set; }
 
         /// <summary>
         /// Ограничение размера очереди по HandlerKey.
@@ -25,9 +25,9 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
         public int SearchSetsPerQueryLimit { get; set; }
             = 30;
 
-        public required Func<IRedisTriggerQueueNotifyState.KeyDto, string> HandlerToQueueSetNameFactory { get; set; }
+        public required Func<TriggerTypeUniqueDto, string> HandlerToQueueSetNameFactory { get; set; }
 
-        public required Func<string, IRedisTriggerQueueNotifyState.KeyDto> QueueSetNameToHandlerFactory { get; set; }
+        public required Func<string, TriggerTypeUniqueDto> QueueSetNameToHandlerFactory { get; set; }
 
         public required Func<TId, string> IdToString { get; set; }
 

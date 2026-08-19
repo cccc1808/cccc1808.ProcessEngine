@@ -94,7 +94,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         processId: processId,
                         isRangeTrigger: true,
                         handlerKey: NoWakeupStreamTriggerRangeHandler<Guid>.Name,
-                        priority: 1,
+                        priority: 0,
                         isActivated: false,
                         streamProcessIsWaiting: false,
                         newSignalCounter: 0),

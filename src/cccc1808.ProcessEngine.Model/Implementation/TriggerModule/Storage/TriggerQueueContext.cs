@@ -17,7 +17,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
     {
         private readonly IDateTimeProvider _dateTimeProvider;
         private readonly ITransactionManager _transactionManager;
-        private readonly ITriggerReserveProvider<TId> _triggerReservationProvider;
+        private readonly ITriggerQueueReserveProvider<TId> _triggerReservationProvider;
         private readonly ITriggerQueueProvider<TId> _triggerQueue;
 
         private readonly IsolationContainer<ITriggerQueueContext<TId>.TriggerDto> _triggerToExecuteBuffer;
@@ -32,7 +32,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
         public TriggerQueueContext(
             IDateTimeProvider dateTimeProvider,
             ITransactionManager transactionManager,
-            ITriggerReserveProvider<TId> triggerReservationProvider,
+            ITriggerQueueReserveProvider<TId> triggerReservationProvider,
             ITriggerQueueProvider<TId> triggerQueue)
         {
             _dateTimeProvider = dateTimeProvider;
@@ -84,7 +84,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 triggers
                     .Where(e => reserveResult.Contains(e.GetId()))
                     .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
-                        new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                        new ITriggerQueueProvider<TId>.MessageDto(e.TypeUnique, e.GetId()),
                         isRangeTrigger: e.IsRangeTrigger)
                     )
                     .ToArray(),
@@ -135,7 +135,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 await ProduceAsync(
                     _triggerToExecuteBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
-                            new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                            new ITriggerQueueProvider<TId>.MessageDto(e.TypeUnique, e.GetId()),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),
@@ -152,7 +152,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Storage
                 await ProduceAsync(
                     _triggerContinueRunBuffer.All
                         .Select(e => new ITriggerQueueProvider<TId>.MessageContainer(
-                            new ITriggerQueueProvider<TId>.MessageDto(e.GetId(), e.HandlerKey),
+                            new ITriggerQueueProvider<TId>.MessageDto(e.TypeUnique, e.GetId()),
                             isRangeTrigger: e.IsRangeTrigger)
                         )
                         .ToArray(),

@@ -55,9 +55,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             var result = new List<ITriggerSelectQuery<TId>.SelectResult>(data.Length);
             foreach (var elem in data)
             {
-                result.Add(new ITriggerSelectQuery<TId>.SelectResult(
-                    elem,
-                    typedContext.HandlerKey));
+                result.Add(
+                    new ITriggerSelectQuery<TId>.SelectResult(
+                        elem));
 
                 if (Comparer<TId>.Default.Compare(elem, typedContext.OffsetId) > 0)
                 {

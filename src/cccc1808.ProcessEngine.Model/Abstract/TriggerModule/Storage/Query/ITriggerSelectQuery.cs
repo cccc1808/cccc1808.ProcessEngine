@@ -26,8 +26,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Query
         }
 
         public readonly record struct SelectResult(
-            TId TriggerId,
-            string HandlerKey);
+            TId TriggerId);
 
         #endregion
     }

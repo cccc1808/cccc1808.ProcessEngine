@@ -170,7 +170,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         processId,
                         isRangeTrigger: true,
                         ParentProcessTriggerHandler.Name,
-                        1,
+                        0,
                         isActivated: false,
                         isChildTrigger: false),
                     CancellationToken.None);
@@ -182,7 +182,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup2.Tests
                         Guid.Empty,
                         isRangeTrigger: false,
                         EmergencyTriggerHandler<Guid>.Name,
-                        1,
+                        0,
                         isActivated: true,
                         isChildTrigger: false),
                     CancellationToken.None);

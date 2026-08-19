@@ -43,8 +43,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
             bool one,
             CancellationToken cancellationToken)
         {
-            static string waitComplete(
-                LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)> state)
+            static TriggerTypeUniqueDto waitComplete(
+                LinkContainer<(TriggerTypeUniqueDto, ConcurrentDictionary<TriggerTypeUniqueDto, Task>, Task)> state)
             {
                 state.Data.Item2.TryAdd(state.Data.Item1, state.Data.Item3);
 
@@ -55,8 +55,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
 
             var connection = await _redisConnectionFactory.GetAsync(_options.ConnectionName, cancellationToken);
 
-            var subscribes = new Dictionary<string, NotificationEntryDto>(allTriggers.Count);
-            var completeBuffer = new ConcurrentDictionary<string, Task>();
+            var subscribes = new Dictionary<TriggerTypeUniqueDto, NotificationEntryDto>(allTriggers.Count);
+            var completeBuffer = new ConcurrentDictionary<TriggerTypeUniqueDto, Task>();
             var waitBuffer = new HashSet<Task>(allTriggers.Count);
 
             try
@@ -65,33 +65,33 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                 foreach (var elem in allTriggers)
                 {
                     var subscribe = await connection.SubscribeAsync(_options.QueueChannelNameFactory(
-                        new IRedisTriggerQueueNotifyState.KeyDto(elem.HandlerName, 0)),
+                        elem.Unique),
                         cancellationToken);
                     var enumerator = subscribe.ChannelMessages.GetAsyncEnumerator(cancellationToken);
 
                     var entry = new NotificationEntryDto()
                     {
                         TriggerRegistryDto = elem,
-                        IsRangeTrigger = _triggerHandlerFactory.IsRangeHandler(_serviceProvider, elem.HandlerName),
+                        IsRangeTrigger = _triggerHandlerFactory.IsRangeHandler(_serviceProvider, elem.Unique.HandlerName),
                         Subsribe = subscribe,
                         Enumerator = enumerator,
                     };
 
-                    var waitTaskContainer = LinkContainer.Create<(string, ConcurrentDictionary<string, Task>, Task)>(default);
+                    var waitTaskContainer = LinkContainer.Create<(TriggerTypeUniqueDto, ConcurrentDictionary<TriggerTypeUniqueDto, Task>, Task)>(default);
                     var waitTask = enumerator.MoveNextAsync().AsTask()
                         .ContinueWith(
-                            static (t, s) => waitComplete((LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)>)s!),
+                            static (t, s) => waitComplete((LinkContainer<(TriggerTypeUniqueDto, ConcurrentDictionary<TriggerTypeUniqueDto, Task>, Task)>)s!),
                             state: waitTaskContainer,
                             continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
-                    waitTaskContainer.Data = (elem.HandlerName, completeBuffer, waitTask);
+                    waitTaskContainer.Data = (elem.Unique, completeBuffer, waitTask);
 
-                    subscribes.Add(elem.HandlerName, entry);
+                    subscribes.Add(elem.Unique, entry);
                     waitBuffer.Add(waitTask);
                 }
 
                 // 2) Считываем обновления по очередям.
-                var rangeNotifyBuffer = new List<IRedisTriggerQueueNotifyState.KeyDto>();
-                var singleNotifyBuffer = new List<IRedisTriggerQueueNotifyState.KeyDto>();
+                var rangeNotifyBuffer = new List<TriggerTypeUniqueDto>();
+                var singleNotifyBuffer = new List<TriggerTypeUniqueDto>();
                 while (true)
                 {
                     rangeNotifyBuffer.Clear();
@@ -108,17 +108,17 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.TriggerModule.Storag
                         var subscribe = subscribes[key];
                         if (subscribe.IsRangeTrigger)
                         {
-                            rangeNotifyBuffer.Add(new IRedisTriggerQueueNotifyState.KeyDto(key, 0));
+                            rangeNotifyBuffer.Add(key);
                         }
                         else 
                         {
-                            singleNotifyBuffer.Add(new IRedisTriggerQueueNotifyState.KeyDto(key, 0));
+                            singleNotifyBuffer.Add(key);
                         }
                             
-                        var waitTaskContainer = LinkContainer.Create<(string, ConcurrentDictionary<string, Task>, Task)>(default);
+                        var waitTaskContainer = LinkContainer.Create<(TriggerTypeUniqueDto, ConcurrentDictionary<TriggerTypeUniqueDto, Task>, Task)>(default);
                         var newWaitTask = subscribe.Enumerator.MoveNextAsync().AsTask()
                             .ContinueWith(
-                                static (t, s) => waitComplete((LinkContainer<(string, ConcurrentDictionary<string, Task>, Task)>)s!),
+                                static (t, s) => waitComplete((LinkContainer<(TriggerTypeUniqueDto, ConcurrentDictionary<TriggerTypeUniqueDto, Task>, Task)>)s!),
                                 state: waitTaskContainer,
                                 continuationOptions: TaskContinuationOptions.RunContinuationsAsynchronously);
                         waitTaskContainer.Data = (key, completeBuffer, newWaitTask);

@@ -107,7 +107,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
                     parameters.process.Id, 
                     isRangeTrigger: true, 
                     handlerKey: EFTimerChildTriggerHandler<Guid>.Name,
-                    priority: parameters.process.Process.Info.Registry.Unique.Priority,
+                    priority: 0,
                     isActivated: false,
                     counter: processState.ChildProcessCount,
                     isChildTrigger: true), 
