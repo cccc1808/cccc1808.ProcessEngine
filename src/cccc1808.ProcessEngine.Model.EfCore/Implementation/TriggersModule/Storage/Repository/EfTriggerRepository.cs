@@ -74,6 +74,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             CancellationToken cancellationToken)
         {
             var now = _dateTimeProvider.UtcNow;
+
+            // Используем timeout и блокировку без skip locked т.к. тут возможно конкуренция с consumer.
+            // Если на триггер поступают события, то попытаемся дождаться обработки батча событий.
             var result = await TimeoutHelper.ExecuteWithTimeoutAsync(
                 (This: this, ids, now), 
                 waitLockTimeout,
@@ -104,6 +107,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
                 return result.Result;
             }
 
+            // Не все блокровки поулчены - загружаем то, что удалось заблокировать.
             using (var hint = _lockQueryHintStore.StartScope(LockHintEnum.ForNoKeyUpdateAndSkipLocked))
             {
                 var data = await Set
