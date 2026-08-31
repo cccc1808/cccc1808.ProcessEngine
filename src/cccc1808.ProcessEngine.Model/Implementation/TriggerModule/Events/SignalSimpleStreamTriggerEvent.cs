@@ -35,7 +35,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events
             string triggerKey,
             string sendTriggerKey,
             long timeStamp,
-            ulong signals)
+            ulong? signals)
             : base(
                   triggerKey,
                   TriggerEventKindEnum.SimpleStreamEvent)

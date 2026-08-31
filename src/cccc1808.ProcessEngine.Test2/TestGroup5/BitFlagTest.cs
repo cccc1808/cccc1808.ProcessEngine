@@ -36,6 +36,17 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             flag.ContainsFlag(TestEnum.Flag2).ShouldBeTrue();            
         }
 
+        [Fact]
+        public void Test2()
+        {
+            var flag1 = new BitFlagDto<TestEnum>()
+                .AddFlag(TestEnum.Flag1)
+                .AddFlag(TestEnum.Flag2)
+                .AddFlag(TestEnum.Flag3);
+
+            flag1.RemoveFlag(flag1).Bits.ShouldBe(0u);
+        }
+
         [Flags]
         private enum TestEnum
         {

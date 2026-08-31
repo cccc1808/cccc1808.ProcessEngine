@@ -16,6 +16,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model.EfCore\cccc1808.ProcessEngine.Model.EfCore.csproj" />
+    <ProjectReference Include="..\cccc1808.ProcessEngine.Model.SimpleSchema\cccc1808.ProcessEngine.Model.SimpleSchema.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Implementation\Components\" />
+    <Folder Include="Implementation\Services\" />
   </ItemGroup>
 
 </Project>

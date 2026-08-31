@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage.QueryHint;
+using cccc1808.ProcessEngine.Model.Abstract.ProcessExecutionModule.Services;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Setters;
@@ -24,17 +25,20 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
     public class EFTriggerHandlerFacade<TId> : ITriggerHandlerFacade<TId>
     {
         private readonly IEFDbContext _dbContext;
+        private readonly IProcessRegistry _processRegistry;
         private readonly ITriggerSetter<TId> _triggerSetter;
         private readonly ILockQueryHintStore _lockQueryHintStore;
-        private readonly IWakeupService<TId> _wakeupService;       
+        private readonly IWakeupService<TId> _wakeupService;
 
         public EFTriggerHandlerFacade(
             IEFDbContext dbContext,
+            IProcessRegistry processRegistry,
             ITriggerSetter<TId> triggerSetter,
             ILockQueryHintStore lockQueryHintStore, 
             IWakeupService<TId> wakeupService)
         {
             _dbContext = dbContext;
+            _processRegistry = processRegistry;
             _triggerSetter = triggerSetter;
             _lockQueryHintStore = lockQueryHintStore;
             _wakeupService = wakeupService;
@@ -168,33 +172,53 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Serv
             }
         }
 
-        public async Task ToAsyncExecutingNoWakeupAsync(
+        public async Task<ISet<TId>> ToAsyncExecutingNoWakeupAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken)
         {
+            // Предпологается, что блокировка была выше.
             var processes = await _dbContext.Set<ProcessDbEntity<TId>>()
                 .Where(e => triggers.Select(e => e.ProcessId).Contains(e.Id))
                 .ToDictionaryAsync(e => e.Id, e => e, cancellationToken);
 
+            var result = new HashSet<TId>(processes.Count);
             foreach (var elem in triggers)
             {
                 var process = processes[elem.ProcessId];
-
-                // TODO: Schema process. Тут сразу можно проверять, есть ли обработчик на SignalCode,
-                // и если нет ни одного, то не пробуждать процесс вообще (правда стоит учесть необязательность наличия SignalCode).
-                process.Status = ProcessStatusEnum.AsyncExecute;
-
-                // Взводим сигнал.
-                process.SignalCode = new BitFlagDto(process.SignalCode)
-                    .AddFlag(elem.SignalCode)
-                    .Bits;
-
-                // Если это корневой триггер, то сбрасываем сигналы.
-                if (elem.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot)
+                
+                if (
+                    elem.Kind is ITriggerComponent.TriggerKind.SimpleStreamRoot
+                    && _processRegistry.UseSignalCode(new ProcessTypeDto(process.ProcessTypeId, process.ProcessVersion)))
                 {
-                    _triggerSetter.ChildTriggerSetter.SetSignalCode(elem, new BitFlagDto());
+                    // Процесс выступает источником перечня списка игноирования, перезаписываем.
+                    _triggerSetter.ChildTriggerSetter.SetSignalFilter(elem, new BitFlagDto(process.SignalCodeFilter));
+
+                    if (_triggerSetter.ChildTriggerSetter.CheckSignal(elem, out var filteredSignals))
+                    {
+                        process.Status = ProcessStatusEnum.AsyncExecute;
+
+                        // Отфильтрованные сигналы доставлены.
+                        process.SignalCode = new BitFlagDto(process.SignalCode)
+                            .AddFlag(filteredSignals)
+                            .Bits;
+                        _triggerSetter.ChildTriggerSetter.SetSignalCode(
+                            elem,
+                            elem.SignalCode.Value.RemoveFlag(filteredSignals));
+
+                        result.Add(process.Id);
+                    }
+                    else 
+                    {
+                        // Процесс не пробуждается т.к. все имеющиеся сигналы отфильтрованы.
+                    }
+                }
+                else 
+                {
+                    process.Status = ProcessStatusEnum.AsyncExecute;
                 }
             }
+
+            return result;
         }
 
         public async Task ToAsyncExecutingWakeupAsync(

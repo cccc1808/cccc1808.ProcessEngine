@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using cccc1808.ProcessEngine.Model.Abstract.CommonModule;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Handlers;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
@@ -23,21 +22,18 @@ namespace cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers
     {
         public static string Name => "SimpleSchema.ChildTriggerHandler";
 
-        private readonly IDateTimeProvider _dateTimeProvider;
         private readonly IEFDbContext _dbContext;
         private readonly TriggerRunner<TId>.OptionsDto _queueOptions;
 
         public EFTimerChildTriggerHandler(
             ITriggerSetter<TId> triggerSetter,
             ITriggerEventRaiser<TId> triggerEventRaiser,
-            IDateTimeProvider dateTimeProvider,
             IEFDbContext dbContext,
             TriggerRunner<TId>.OptionsDto queueOptions)
             : base(
                   triggerSetter, 
                   triggerEventRaiser)
         {
-            _dateTimeProvider = dateTimeProvider;
             _dbContext = dbContext;
             _queueOptions = queueOptions;
         }

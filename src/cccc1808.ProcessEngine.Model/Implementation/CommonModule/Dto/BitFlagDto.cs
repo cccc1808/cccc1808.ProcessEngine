@@ -143,10 +143,13 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
 
         public ulong Bits { get; }
 
+        public bool IsEmpty { get; }
+
         private BitFlagDto(FakeEnum enumBits)
         {
             InnerBitsEnum = enumBits;
             Bits = (ulong)enumBits;
+            IsEmpty = Bits == 0;
         }
 
         public BitFlagDto(ulong bits)
@@ -200,5 +203,15 @@ namespace cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto
 
         [Flags]
         private enum FakeEnum { }
+
+        public static BitFlagDto Empty 
+            => new BitFlagDto(bits: 0);
+
+        public static BitFlagDto FromEnum<T>(T value)
+            where T : struct, Enum
+        {
+            return new BitFlagDto(
+                new BitFlagDto<T>(value).Bits);
+        }
     }
 }

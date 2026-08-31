@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 
 namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
 {
@@ -43,6 +44,10 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             CancellationToken cancellationToken
             );
 
+        Task<Dictionary<TId, BitFlagDto>> CheckProcessSignalFilterFlagAsync(
+            ICollection<TId> processIds,
+            CancellationToken cancellationToken);
+
         public readonly record struct CreateTriggerDto(
             string key,
             DateTimeOffset timerDate,
@@ -56,7 +61,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
             long? signalCounter1,
             long? signalCounter2,
             bool isChildTrigger,
-            ulong signalCode)
+            ulong? signalCode)
         {
             public static CreateTriggerDto CounterTrigger(
                 string key,
@@ -81,7 +86,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                     counter,
                     null,
                     isChildTrigger,
-                    signal ?? 0);
+                    signal);
 
             public static CreateTriggerDto TimerTrigger(
                 string key,
@@ -105,7 +110,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                     null,
                     null,
                     isChildTrigger,
-                    signal ?? 0);
+                    signal);
 
             public static CreateTriggerDto SimpleStreamTrigger(
                 string key,
@@ -132,7 +137,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                     newSignalCounter,
                     null,
                     isChildTrigger,
-                    signal ?? 0);
+                    signal);
 
             public static CreateTriggerDto SimpleRootStreamTrigger(
                 string key,
@@ -143,7 +148,8 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                 short priority,
                 bool isActivated,
                 bool streamProcessIsWaiting,
-                long newSignalCounter)
+                long newSignalCounter,
+                bool useSignals)
                 => new CreateTriggerDto(
                     key,
                     timerDate,
@@ -157,7 +163,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                     newSignalCounter,
                     null,
                     isChildTrigger: false,
-                    signalCode: 0);
+                    signalCode: useSignals ? 0 : null);
 
             public static CreateTriggerDto OffsetStreamTrigger(
                 string key,
@@ -184,7 +190,7 @@ namespace cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository
                     processedOffset,
                     lastOffset,
                     isChildTrigger,
-                    signal ?? 0);
+                    signal);
         }
     }
 }

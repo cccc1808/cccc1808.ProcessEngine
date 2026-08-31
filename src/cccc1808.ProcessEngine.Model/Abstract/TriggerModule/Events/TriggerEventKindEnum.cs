@@ -4,8 +4,10 @@
         {
             ProcessGoWaitStreamEvent,
             SimpleStreamEvent,
-            RecheckProcessStatusStreamTriggerEvent,
+            RecheckProcessStatusStreamTriggerEvent,           
             DeliveryResultEvent,
+            RecheckSignalFilterRootTriggerEvent,
+            SignalFilterRootTriggerEvent,
 
             CounterEvent,
             TimerEvent,

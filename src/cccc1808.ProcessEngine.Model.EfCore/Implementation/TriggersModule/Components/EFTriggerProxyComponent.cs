@@ -44,7 +44,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Comp
 
         public ITriggerComponent.IChildTriggerDto? ChildTrigger { get; private set; }
 
-        public BitFlagDto SignalCode { get => new BitFlagDto(Entity.SignalCode); set => Entity.SignalCode = value.Bits; }
+        public BitFlagDto? SignalCode { get => Entity.SignalCode.HasValue ? new BitFlagDto(Entity.SignalCode.Value) : null; set => Entity.SignalCode = value?.Bits; }
+
+        public BitFlagDto SignalCodeFilter { get => new BitFlagDto(Entity.SignalCodeFilter); set => Entity.SignalCodeFilter = value.Bits; }
 
         public EFTriggerProxyComponent(
             ITriggerSetter<TId> triggerSetter, 

@@ -9,12 +9,12 @@ using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure;
-using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -56,8 +56,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
                 var schemaProcessStateHandler = scope.ServiceProvider.GetRequiredService<SchemaProcessStateTypelessHandler<Guid>>();
 
-                validator.Validate(TestSchemaProcessHandler51.ProcessType, TestSchemaProcessHandler51.Schema);
-                validator.Validate(TestSchemaProcessHandler52.ProcessType, TestSchemaProcessHandler52.Schema);
+                validator.Validate(TestSchemaProcessHandler51.ProcessType, TestSchemaProcessHandler51.Schema, TestSchemaProcessHandler51.UseSignalCode);
+                validator.Validate(TestSchemaProcessHandler52.ProcessType, TestSchemaProcessHandler52.Schema, TestSchemaProcessHandler52.UseSignalCode);
 
                 dbContext.Set<SchemaDbEntity<Guid>>().Add(
                     new SchemaDbEntity<Guid>(
@@ -98,7 +98,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: true),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(

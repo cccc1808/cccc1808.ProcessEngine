@@ -91,7 +91,9 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
         /// <summary>
         /// Битовые флаги типов сигналов.
         /// </summary>
-        public ulong SignalCode { get; set; }
+        public ulong? SignalCode { get; set; }
+
+        public ulong SignalCodeFilter { get; set; }
 
         /// <summary>
         /// Замечание: можно хранить кастомное состояние в json/bin (StreamProcessIsWaiting, SignalCounter1, SignalCounter2).
@@ -125,7 +127,7 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities
             long? signalCounter1,
             long? signalCounter2,
             bool isChildTrigger,
-            ulong signalCode,
+            ulong? signalCode,
             TId? offsetId)
         {
             Id = id;

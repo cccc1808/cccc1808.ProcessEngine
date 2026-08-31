@@ -35,6 +35,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services.Eve
                 timerTriggerEventHandler: static (p) => p.jsonElement.Deserialize<TimerTriggerEvent>(),
                 signalSimpleStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalSimpleStreamTriggerEvent>(),
                 processGoWaitStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<ProcessGoWaitStreamTriggerEvent>(),
+                signalFilterSimpleStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalFilterRootTriggerEvent>(),
+                rechecksignalFilterRootTriggerEventHandler: static (p) => p.jsonElement.Deserialize<RecheckSignalFilterRootTriggerEvent>(),
                 processedOffsetTriggerEventHandler: static  (p) => p.jsonElement.Deserialize<ProcessedOffsetTriggerEvent>(),
                 signalOffsetTriggerEventHandler: static (p) => p.jsonElement.Deserialize<SignalOffsetTriggerEvent>(),
                 recheckProcessStatusStreamTriggerEventHandler: static (p) => p.jsonElement.Deserialize<RecheckProcessStatusStreamTriggerEvent>(),                               

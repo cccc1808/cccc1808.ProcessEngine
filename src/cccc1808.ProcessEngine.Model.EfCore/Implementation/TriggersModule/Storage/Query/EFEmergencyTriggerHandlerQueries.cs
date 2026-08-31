@@ -12,6 +12,7 @@ using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.TriggersModule.Entities;
 using cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Components;
+using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Dto;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers;
 
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +46,18 @@ namespace cccc1808.ProcessEngine.Model.EfCore.Implementation.TriggersModule.Stor
             return result is not null 
                 ? result.Id 
                 : default;
+        }
+
+        public async Task<BitFlagDto> GetProcessSignalFilterAsync(
+            TId processId,
+            CancellationToken cancellationToken)
+        {
+            var result = await _dbContext.Set<ProcessDbEntity<TId>>()
+                .Where(e => e.Id.Equals(processId))
+                .Select(e => e.SignalCodeFilter)
+                .FirstAsync(cancellationToken);
+
+            return new BitFlagDto(result);
         }
 
         public async Task<ICollection<ITriggerComponent<TId>>> LoadAsync(

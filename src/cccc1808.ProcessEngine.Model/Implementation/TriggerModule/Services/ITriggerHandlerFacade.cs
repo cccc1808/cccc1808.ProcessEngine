@@ -44,7 +44,8 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
         /// Выполнить пробуждения процесса напрямую (без wakaup state).
         /// Треюует предворительного получения update lock.
         /// </summary>
-        Task ToAsyncExecutingNoWakeupAsync(
+        /// <returns>Ids пробужденных процессов.</returns>
+        Task<ISet<TId>> ToAsyncExecutingNoWakeupAsync(
             IEnumerable<ITriggerComponent<TId>> triggers,
             CancellationToken cancellationToken);
 

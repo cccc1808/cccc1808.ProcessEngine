@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Services.Events;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Events;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Dto.TokenActions;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Handlers;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Dto.TokenActions;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Handlers;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Implementation.Handlers;
 using cccc1808.ProcessEngine.Test2.Infrastructure.ParentChild.Entities;
 
 namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
@@ -41,6 +41,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process5
 
         public static ProcessTypeDto ProcessType { get; }
             = new ProcessTypeDto(52, 1);
+
+        public static bool UseSignalCode => false;
 
         private readonly ITriggerEventRaiser<Guid> _eventRaiser;
 

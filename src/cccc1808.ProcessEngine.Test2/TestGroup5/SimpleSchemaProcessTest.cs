@@ -5,20 +5,20 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using cccc1808.ProcessEngine.Model.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.Abstract.TriggerModule.Storage.Repository;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.ProcessModule.Entities;
-using cccc1808.ProcessEngine.Model.Implementation.CommonModule.Helpers;
 using cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Handlers.Stream;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
 using cccc1808.ProcessEngine.Test2.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process1;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process2;
-using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process3;
 using cccc1808.ProcessEngine.Test2.TestGroup5.Infrastructure.Process4;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -59,7 +59,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
 
-                validator.Validate(TestSchemaProcessHandler.ProcessType, TestSchemaProcessHandler.Schema);
+                validator.Validate(TestSchemaProcessHandler.ProcessType, TestSchemaProcessHandler.Schema, useSignalCode: TestSchemaProcessHandler.UseSignalCode);
 
                 dbContext.Set<SchemaDbEntity<Guid>>().Add(
                     new SchemaDbEntity<Guid>(
@@ -93,7 +93,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0), 
+                        newSignalCounter: 0,
+                        useSignals: false), 
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
@@ -164,7 +165,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
 
-                validator.Validate(TestSchemaProcessHandler2.ProcessType, TestSchemaProcessHandler2.Schema);
+                validator.Validate(TestSchemaProcessHandler2.ProcessType, TestSchemaProcessHandler2.Schema, TestSchemaProcessHandler2.UseSignalCode);
 
                 dbContext.Set<SchemaDbEntity<Guid>>().Add(
                     new SchemaDbEntity<Guid>(
@@ -198,7 +199,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: false,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: false),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
@@ -275,7 +277,7 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                 var dbContext = scope.ServiceProvider.GetRequiredService<IEFDbContext>();
                 var triggerRepository = scope.ServiceProvider.GetRequiredService<ITriggerRepository<Guid>>();
 
-                validator.Validate(TestSchemaProcessHandler4.ProcessType, TestSchemaProcessHandler4.Schema);
+                validator.Validate(TestSchemaProcessHandler4.ProcessType, TestSchemaProcessHandler4.Schema, useSignalCode: TestSchemaProcessHandler4.UseSignalCode);
 
                 dbContext.Set<SchemaDbEntity<Guid>>().Add(
                     new SchemaDbEntity<Guid>(
@@ -309,7 +311,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
                         priority: 1,
                         isActivated: false,
                         streamProcessIsWaiting: true,
-                        newSignalCounter: 0),
+                        newSignalCounter: 0,
+                        useSignals: false),
                     CancellationToken.None);
 
                 dbContext.Set<SchemaProcessDataDbEntity<Guid>>().Add(
@@ -327,11 +330,14 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
             // 2) 
             await using (var scope = _fixture.ServiceProvider.CreateAsyncScope())
             {
+                var transactionManager = scope.ServiceProvider.GetRequiredService<ITransactionManager>();
                 var externalHandlerService = scope.ServiceProvider.GetRequiredService<ExternalHandlers4>();
 
                 var process = await _testService.LoadProcessContainerAsync(scope.ServiceProvider, processId);                
 
                 {
+                    await using var transaction = await transactionManager.StartTransactionAsync(CancellationToken.None);
+
                     await externalHandlerService.UIUserInput1Async(
                         process,
                         inputValue: 1,
@@ -339,9 +345,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
                     process.ShouldSatisfyAllConditions(
                         e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+
+                    await transaction.CommitAsync(CancellationToken.None);
                 }
 
                 {
+                    await using var transaction = await transactionManager.StartTransactionAsync(CancellationToken.None);
+
                     await externalHandlerService.UIUserInput2Async(
                         process,
                         inputValue: 1,
@@ -349,9 +359,13 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
                     process.ShouldSatisfyAllConditions(
                         e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+
+                    await transaction.CommitAsync(CancellationToken.None);
                 }
 
                 {
+                    await using var transaction = await transactionManager.StartTransactionAsync(CancellationToken.None);
+
                     await externalHandlerService.UIUserInput3Async(
                         process,
                         inputValue: 1,
@@ -365,6 +379,8 @@ namespace cccc1808.ProcessEngine.Test2.TestGroup5
 
                     process.ShouldSatisfyAllConditions(
                         e => e.Process.Status.ShouldBe(ProcessStatusEnum.WaitEvent));
+
+                    await transaction.CommitAsync(CancellationToken.None);
                 }
             }
         }

@@ -54,6 +54,14 @@ namespace cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components
 
         DateTimeOffset ReservationTimeout { get; set; }
 
+        /// <summary>
+        /// Сигналы, поступившие в процесс.
+        /// </summary>
         BitFlagDto SignalCode { get; set; }
+
+        /// <summary>
+        /// Игнорируемые сигналы.
+        /// </summary>
+        BitFlagDto SignalCodeFilter { get; set; }
     }
 }

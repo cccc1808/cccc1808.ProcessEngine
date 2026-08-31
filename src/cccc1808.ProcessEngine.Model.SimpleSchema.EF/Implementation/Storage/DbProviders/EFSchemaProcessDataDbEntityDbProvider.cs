@@ -9,9 +9,10 @@ using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Components;
 using cccc1808.ProcessEngine.Model.Abstract.ProcessModule.Dto;
 using cccc1808.ProcessEngine.Model.EfCore.Abstract.CommonModule.Storage;
 using cccc1808.ProcessEngine.Model.Implementation.ProcessModule.Storage;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Component.Service;
+using cccc1808.ProcessEngine.Model.SimpleSchema.Abstract.Service.Serializers;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Entity;
-using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Abstract.Service;
 using cccc1808.ProcessEngine.Model.SimpleSchema.EF.Implementation.Components;
 
 using Microsoft.EntityFrameworkCore;
