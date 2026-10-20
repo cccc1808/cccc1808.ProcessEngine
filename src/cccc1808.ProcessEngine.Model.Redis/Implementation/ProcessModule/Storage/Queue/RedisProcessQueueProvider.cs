@@ -215,6 +215,8 @@ namespace cccc1808.ProcessEngine.Model.Redis.Implementation.ProcessModule.Storag
                     var freeSpace = batchSize - buffer.Count;
 
                     // TODO: timeout?
+                    // TODO: можно попробовать оптимизировать через хранимку.
+                    // Т.к. оператор читает только из первой непустой очереди.
                     var consumedMessages = await db.SortedSetPopAsync(
                         searchSets.Select(e => e.queueName).ToArray(),
                         count: freeSpace,
