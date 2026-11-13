@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
+	  <TargetFrameworks>net8.0; net9.0</TargetFrameworks>
+	  <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -15,7 +15,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.100.1" />
+    <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" />
   </ItemGroup>
 
   <ItemGroup>

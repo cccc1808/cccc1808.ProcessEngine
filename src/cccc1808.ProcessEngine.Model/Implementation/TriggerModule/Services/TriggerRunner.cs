@@ -577,7 +577,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
             var parallelLimit = new SemaphoreSlim(_options.DbSelect_ParallilLimit);
 
-            var executeOneTriggered = false;
+            var executeOneTriggered = 0;
             var tasks = new ConcurrentDictionary<Guid, Task>();
 
             foreach (var elem in triggerRegistry.GetAll())
@@ -599,7 +599,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
 
                             while (true)
                             {
-                                if (executeOne && executeOneTriggered)
+                                if (executeOne && executeOneTriggered == 1)
                                 {
                                     return;
                                 }
@@ -680,7 +680,7 @@ namespace cccc1808.ProcessEngine.Model.Implementation.TriggerModule.Services
                                                 cancellationToken
                                                 );
 
-                                            Interlocked.CompareExchange(ref executeOneTriggered, true, false);
+                                            Interlocked.CompareExchange(ref executeOneTriggered, 1, 0);
 
                                             if (queueIsFull)
                                             {

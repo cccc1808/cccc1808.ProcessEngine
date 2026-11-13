@@ -26,6 +26,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.Kafka", "cccc1808.ProcessEngine.Model.Kafka\cccc1808.ProcessEngine.Model.Kafka.csproj", "{A90ABCAC-EF15-4C01-BA31-EFFAC1C60A07}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BF7D7DAC-DF5C-4FA9-85CC-968A0B8CA339}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Packages.props = Directory.Packages.props
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cccc1808.ProcessEngine.Model.EfCore.Postgres", "cccc1808.ProcessEngine.Model.EfCore.Postgres\cccc1808.ProcessEngine.Model.EfCore.Postgres.csproj", "{A510DB33-8FBF-487D-8B3E-1F7DDCC1C157}"
 EndProject
