@@ -15,9 +15,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-    <PackageReference Include="EntityFrameworkCore.MemoryJoin" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" />
-  </ItemGroup>
+		<PackageReference Include="EntityFrameworkCore.MemoryJoin" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+	 </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\cccc1808.ProcessEngine.Model\cccc1808.ProcessEngine.Model.csproj" />
