@@ -1,0 +1,34 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>    
+	  <!--DependencyInjection-->
+	  <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" Condition="'$(TargetFramework)' == 'net8.0'" />	
+	  <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" Condition="'$(TargetFramework)' == 'net9.0'" />
+
+	  
+	  <!--EntityFrameworkCore-->
+	  <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.10" Condition="'$(TargetFramework)' == 'net8.0'" />	
+	  <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.10" Condition="'$(TargetFramework)' == 'net9.0'" />
+
+	  <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" Condition="'$(TargetFramework)' == 'net8.0'" />
+	  <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" Condition="'$(TargetFramework)' == 'net9.0'" />
+
+	  <PackageVersion Include="EntityFrameworkCore.MemoryJoin" Version="0.10.0" />
+
+	  <PackageVersion Include="FlexLabs.EntityFrameworkCore.Upsert" Version="9.100.1" />
+
+	  
+	  <!--Kafka-->
+	  <PackageVersion Include="Confluent.Kafka" Version="2.12.0" />
+	  
+	  
+	  <!--Redis-->
+	  <PackageVersion Include="StackExchange.Redis" Version="3.0.17" />
+
+
+	  <!--Other-->
+	  <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
+  </ItemGroup>
+</Project>
